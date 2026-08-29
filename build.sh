@@ -34,7 +34,7 @@ set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 ZL="$HERE/tools/zlib-1.3.1"
 OUT="${1:-nyx.exe}"
-SRC="$HERE/genv2.c"
+SRC="$HERE/nyx.c"
 
 if [ ! -f "$ZL/libz.a" ]; then
     echo "build.sh: $ZL/libz.a not found." >&2

@@ -42,7 +42,7 @@ jobs:
         run: |
           mkdir -p /tmp/xplat/src
           head -c 300000 /dev/urandom > /tmp/xplat/src/rand.bin
-          cp genv2.c /tmp/xplat/src/code.c
+          cp nyx.c /tmp/xplat/src/code.c
           ./nyx c -3 -q /tmp/xplat/a.nyx /tmp/xplat/src
           ./nyx t /tmp/xplat/a.nyx
           ./nyx x -q /tmp/xplat/a.nyx /tmp/xplat/out

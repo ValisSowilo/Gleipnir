@@ -4,7 +4,7 @@ A from-scratch lossless compressor in one C file. It predicts each bit with 27
 statistical models — 30 on raster data — blends their predictions with a learned
 mixer, and codes the result with an arithmetic coder.
 
-> **Using it as an archiver?** See **[USAGE.md](USAGE.md)**. `genv2.c` wraps the
+> **Using it as an archiver?** See **[USAGE.md](USAGE.md)**. `nyx.c` wraps the
 > engine documented here in a real archive format — directories, per-segment and
 > per-member checksums, cheap integrity scrubbing, recovery records, and
 > deduplication — and is the thing to point at data you intend to keep. This

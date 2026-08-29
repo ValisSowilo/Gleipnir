@@ -467,7 +467,7 @@ matters if you intend to change one:
   same table sizes the encoder used.
 
 The Tier 2 identifiers (`THINE`, `IXMIN`, `ISSEXIT`) live in `gen26.c` and
-`genv2.c`, not in `gen.c` — `gen.c` predates them.
+`nyx.c`, not in `gen.c` — `gen.c` predates them.
 
 ## 6. Period detection
 
@@ -1384,7 +1384,7 @@ LZ family's decode speed at any preset.
 
 # Part IV — The archive layer
 
-Everything below lives in `genv2.c` and nothing in it changes a single
+Everything below lives in `nyx.c` and nothing in it changes a single
 predicted bit. That claim was checked, not assumed: v1 and v2 output at `-3`
 share a 437,114-byte identical common suffix — the entire compressed stream
 after the differing container framing. The model region was touched in exactly
@@ -2301,11 +2301,15 @@ tools and different people.
 
 ### Code and format
 
-- **`genv2.c` is not promoted to `gen.c`.** This is the main open item. The
-  CLI argument order changed (`c archive path...`), and every benchmark script
-  in the repo — `bench_final.py`, `ab_corpus.py`, `a46_ab.py` — drives the old
-  form. Promotion is a judgement call about breaking the measurement harness,
-  not a routine edit.
+- **The benchmark harness still drives the old CLI.** The naming half of this
+  item is closed: `genv2.c` was promoted and is now `nyx.c`. What is not closed
+  is the reason promotion was deferred. The CLI argument order changed
+  (`c archive path...`), and the benchmark scripts in the repo —
+  `bench_final.py`, `ab_corpus.py` and the rest — still drive the old form
+  against dev-era binaries (`gen.exe`, `gen11.exe`, `gen17.exe`, `g26a.exe`).
+  Those `.exe` names are deliberately left alone: they are the measurement
+  record, and renaming them piecemeal would make the harness less coherent, not
+  more. Repointing it at the shipped binary is a real job, not a routine edit.
 - **Recovery is one loss per group.** Two losses in a group is unrecoverable.
 - **DEFLATE recovery does not cross segment boundaries**, so a zlib stream
   larger than one segment is modelled as ordinary bytes.

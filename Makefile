@@ -30,7 +30,7 @@ CFLAGS  ?= -O3 -funroll-loops $(ARCH) -ffp-contract=off
 LDFLAGS ?=
 LIBS    ?= -lz -lm -lpthread
 
-SRC = genv2.c
+SRC = nyx.c
 BIN = nyx
 
 .PHONY: all test install uninstall clean

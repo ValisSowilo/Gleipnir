@@ -17,7 +17,7 @@
 !.gitignore
 
 # --- the compressor itself ------------------------------------------------
-!genv2.c
+!nyx.c
 !Makefile
 !build.sh
 

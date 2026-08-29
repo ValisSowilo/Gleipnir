@@ -19,7 +19,7 @@ sha256sum wr/code.c
 echo
 echo "=== do both platforms produce the SAME archive from the same input? ==="
 rm -rf same && mkdir same
-cp genv2.c same/code.c
+cp nyx.c same/code.c
 cp Makefile same/build.mk
 ./nyx c -5 -q linux-same.nyx same
 sha256sum linux-same.nyx win-written.nyx
