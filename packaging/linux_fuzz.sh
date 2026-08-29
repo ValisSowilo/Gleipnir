@@ -7,7 +7,10 @@
 set -e
 cd /root/nyx
 
-cp "/mnt/d/diagnose sh/tfuzz.py" "/mnt/d/diagnose sh/gfuzz.py" .
+# SRC is the repository working tree as WSL sees it, e.g. /mnt/c/src/nyx.
+: "${SRC:?set SRC to the repo working tree as WSL sees it, e.g. SRC=/mnt/c/src/nyx}"
+
+cp "$SRC/tfuzz.py" "$SRC/gfuzz.py" .
 mkdir -p /tmp/fz
 export TEMP=/tmp/fz
 

@@ -9,7 +9,10 @@ set -e
 cd /root/nyx
 
 echo "=== Linux nyx reading a Windows-written archive ==="
-cp "/mnt/d/diagnose sh/win-written.nyx" .
+# SRC is the repository working tree as WSL sees it, e.g. /mnt/c/src/nyx.
+: "${SRC:?set SRC to the repo working tree as WSL sees it, e.g. SRC=/mnt/c/src/nyx}"
+
+cp "$SRC/win-written.nyx" .
 ./nyx t win-written.nyx
 rm -rf wr && mkdir wr
 ./nyx x -q win-written.nyx wr
