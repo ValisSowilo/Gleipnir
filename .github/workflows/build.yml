@@ -21,7 +21,7 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install zlib headers
         run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
@@ -50,13 +50,13 @@ jobs:
           cmp /tmp/xplat/src/code.c  /tmp/xplat/out/code.c
 
       - name: Upload the Linux binary
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: nyx-linux-x86_64
           path: nyx
 
       - name: Keep an archive for the cross-platform job
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: archive-from-linux
           path: /tmp/xplat/a.nyx
@@ -67,7 +67,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # diffutils supplies cmp, which `make test` uses to compare the
       # round-tripped files.  It is not in a base MSYS2 install, and without it
@@ -92,7 +92,7 @@ jobs:
         run: make test CC=gcc
 
       - name: Upload the Windows binary
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: nyx-windows-x86_64
           path: nyx.exe
@@ -108,7 +108,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -118,7 +118,7 @@ jobs:
             make
       - name: Build for this platform
         run: make CC=gcc
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: archive-from-linux
           path: .
