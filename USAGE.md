@@ -16,19 +16,33 @@ Ordered by measured cost, which is **not** the order the names suggest — the
 
 | preset | output | ratio | bpc | compress | decompress | RAM |
 |--------|--------|-------|-----|----------|------------|-----|
-| `-f1`  | 44,279,445 | 4.79× | 1.671 | 1.82 MB/s | 1.91 MB/s | 204 MB |
-| `-1`   | 43,207,157 | 4.91× | 1.631 | 1.52 MB/s | 1.52 MB/s | 196 MB |
-| `-f2`  | 41,376,463 | 5.12× | 1.562 | 1.27 MB/s | 1.28 MB/s | 238 MB |
-| `-2`   | 40,605,710 | 5.22× | 1.533 | 1.19 MB/s | 1.20 MB/s | 233 MB |
-| `-3`   | 39,510,297 | 5.36× | 1.491 | 0.85 MB/s | 0.84 MB/s | 304 MB |
-| `-5`   | 38,273,415 | 5.54× | 1.445 | 0.62 MB/s | 0.61 MB/s | 482 MB |
-| `-7`   | 36,493,092 | 5.81× | 1.377 | 0.52 MB/s | 0.50 MB/s | 923 MB |
-| `-9`   | 35,582,296 | 5.96× | 1.343 | 0.30 MB/s | 0.29 MB/s | 1055 MB |
+| `-f1`  | 44,279,445 | 4.79× | 1.671 | 1.84 MB/s | 1.84 MB/s | 204 MB |
+| `-1`   | 43,207,157 | 4.91× | 1.631 | 1.52 MB/s | 1.53 MB/s | 196 MB |
+| `-f2`  | 41,376,463 | 5.12× | 1.562 | 1.37 MB/s | 1.31 MB/s | 238 MB |
+| `-2`   | 40,605,710 | 5.22× | 1.533 | 1.13 MB/s | 1.13 MB/s | 234 MB |
+| `-3`   | 39,510,297 | 5.36× | 1.491 | 0.85 MB/s | 0.86 MB/s | 305 MB |
+| `-5`   | 38,273,415 | 5.54× | 1.445 | 0.63 MB/s | 0.62 MB/s | 483 MB |
+| `-7`   | 36,493,092 | 5.81× | 1.377 | 0.47 MB/s | 0.45 MB/s | 922 MB |
+| `-9`   | 35,582,296 | 5.96× | 1.343 | 0.36 MB/s | 0.32 MB/s | 1055 MB |
 
-Times are best-of-two across a forward and a reverse-order pass, because this
-machine drifts upward within a run and a single sweep is not trustworthy for
-comparing adjacent rungs. Every row was round-trip verified. No preset is
-dominated: there is no rung that another beats on both size and speed.
+Every row above comes from **one interleaved session** (`bench_session.py`,
+2 h 25 m), with `-7` and `zpaq -m5` repeated at both ends as drift sentinels.
+Sizes are deterministic and reproduce across every session ever run; times are
+only comparable *within* one uninterrupted run, which is why this is a single
+run rather than the best figure for each row assembled from several.
+
+An earlier version of this table used best-of-two across a forward and a
+reverse-order pass. That was wrong, and the reasoning is recorded in
+[README.md](README.md#benchmarks): agreement between two passes measures
+within-session stability and says nothing about the spread *between* sessions,
+and `min()` is unbiased against random noise but selects for earliest position
+against a trend. Consistency was mistaken for accuracy.
+
+**`-7` carries ±6%** — its two sentinel readings in this run were 437.0 s and
+464.0 s, where `zpaq -m5` read 559.4 s both times, so the instability is
+specific to the preset rather than to the machine. Every row was round-trip
+verified. No preset is dominated: there is no rung that another beats on both
+size and speed.
 
 Two things follow from that table, and both are load-bearing.
 
@@ -60,7 +74,7 @@ compressed (video, JPEG, most archives), and for petabyte-scale stores.
 
 Against the closest comparable tool, `zpaq -m5`, `nyx -5` wins on all three
 axes at once — 2.2% smaller, 1.6× faster, 43% less memory. That advantage is
-specific to `-5`: `-9` is 9.0% smaller than zpaq but costs 1.31× the time and
+specific to `-5`: `-9` is 9.0% smaller than zpaq but costs 1.07× the time and
 1.26× the memory, so it wins on size alone. Against `zstd --long -19` nyx is
 far smaller and far slower. Those are the comparisons worth making.
 

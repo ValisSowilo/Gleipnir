@@ -24,6 +24,7 @@
 # --- licence and documentation --------------------------------------------
 !LICENSE.md
 !COMMERCIAL.md
+!SECURITY.md
 !README.md
 !USAGE.md
 !ARCHITECTURE.md
@@ -64,9 +65,14 @@
 !mkgraphs.py
 !parse_bench_log.py
 !sweep.py
+!bench_session.py
 
-# The measurement record behind the preset table in the README.
+# The measurement records behind the two preset tables in the README.
+# bench_session.json is the single interleaved run the headline table and every
+# cross-codec speed ratio are computed from; without it those numbers cannot be
+# checked against anything.
 !bench_final.json
+!bench_session.json
 
 # --- directories ----------------------------------------------------------
 # A directory must be re-admitted before anything inside it can be.

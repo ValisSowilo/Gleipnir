@@ -1,0 +1,196 @@
+{
+ "base": 211938580,
+ "files": [
+  "dickens",
+  "mozilla",
+  "mr",
+  "nci",
+  "ooffice",
+  "osdb",
+  "reymont",
+  "sao",
+  "samba",
+  "webster",
+  "x-ray",
+  "xml"
+ ],
+ "started": "2026-08-03 16:46",
+ "rows": [
+  {
+   "size": 36493092,
+   "ctime": 437.01690470000176,
+   "dtime": 467.8931394999963,
+   "cmem": 923.0,
+   "dmem": 962.0,
+   "ok": true,
+   "n": 1,
+   "label": "gen -7",
+   "kind": "gen"
+  },
+  {
+   "size": 39113069,
+   "ctime": 559.4269391999478,
+   "dtime": 587.5645534000141,
+   "cmem": 0.0,
+   "dmem": 0.0,
+   "ok": true,
+   "n": 2,
+   "label": "zpaq -m5",
+   "kind": "ref"
+  },
+  {
+   "size": 35582296,
+   "ctime": 597.0991041000088,
+   "dtime": 672.4968609000061,
+   "cmem": 1055.0,
+   "dmem": 1095.0,
+   "ok": true,
+   "n": 3,
+   "label": "gen -9",
+   "kind": "gen"
+  },
+  {
+   "size": 67631918,
+   "ctime": 16.71388189996651,
+   "dtime": 2.6272044999932405,
+   "cmem": 0.0,
+   "dmem": 0.0,
+   "ok": true,
+   "n": 4,
+   "label": "gzip -9",
+   "kind": "ref"
+  },
+  {
+   "size": 44279445,
+   "ctime": 114.96080819999042,
+   "dtime": 114.99549750000006,
+   "cmem": 204.0,
+   "dmem": 241.0,
+   "ok": true,
+   "n": 5,
+   "label": "gen -f1",
+   "kind": "gen"
+  },
+  {
+   "size": 48456100,
+   "ctime": 113.79466410001623,
+   "dtime": 2.2233840000117198,
+   "cmem": 0.0,
+   "dmem": 0.0,
+   "ok": true,
+   "n": 6,
+   "label": "xz -9e",
+   "kind": "ref"
+  },
+  {
+   "size": 38273415,
+   "ctime": 336.8285634000058,
+   "dtime": 342.4216744000005,
+   "cmem": 483.0,
+   "dmem": 521.0,
+   "ok": true,
+   "n": 7,
+   "label": "gen -5",
+   "kind": "gen"
+  },
+  {
+   "size": 54506769,
+   "ctime": 17.93187479999324,
+   "dtime": 11.008554700019886,
+   "cmem": 0.0,
+   "dmem": 0.0,
+   "ok": true,
+   "n": 8,
+   "label": "bzip2 -9",
+   "kind": "ref"
+  },
+  {
+   "size": 43207157,
+   "ctime": 139.23822439998912,
+   "dtime": 138.74079859998892,
+   "cmem": 196.0,
+   "dmem": 233.0,
+   "ok": true,
+   "n": 9,
+   "label": "gen -1",
+   "kind": "gen"
+  },
+  {
+   "size": 43006234,
+   "ctime": 173.2110806000128,
+   "dtime": 186.46103209999274,
+   "cmem": 0.0,
+   "dmem": 0.0,
+   "ok": true,
+   "n": 10,
+   "label": "lpaq1 -6",
+   "kind": "ref"
+  },
+  {
+   "size": 39510297,
+   "ctime": 248.46449919999577,
+   "dtime": 247.9598313000024,
+   "cmem": 305.0,
+   "dmem": 343.0,
+   "ok": true,
+   "n": 11,
+   "label": "gen -3",
+   "kind": "gen"
+  },
+  {
+   "size": 49564563,
+   "ctime": 386.98863810005423,
+   "dtime": 1.2111974000290502,
+   "cmem": 0.0,
+   "dmem": 0.0,
+   "ok": true,
+   "n": 12,
+   "label": "brotli -q11",
+   "kind": "ref"
+  },
+  {
+   "size": 41376463,
+   "ctime": 155.00051609998627,
+   "dtime": 161.98889100000088,
+   "cmem": 238.0,
+   "dmem": 275.0,
+   "ok": true,
+   "n": 13,
+   "label": "gen -f2",
+   "kind": "gen"
+  },
+  {
+   "size": 40605710,
+   "ctime": 187.40856749999512,
+   "dtime": 187.75789470000018,
+   "cmem": 234.0,
+   "dmem": 271.0,
+   "ok": true,
+   "n": 14,
+   "label": "gen -2",
+   "kind": "gen"
+  },
+  {
+   "size": 36493092,
+   "ctime": 464.0122628000099,
+   "dtime": 466.9293966999976,
+   "cmem": 922.0,
+   "dmem": 962.0,
+   "ok": true,
+   "n": 15,
+   "label": "gen -7",
+   "kind": "gen"
+  },
+  {
+   "size": 39113069,
+   "ctime": 559.4160543000035,
+   "dtime": 575.7536693000002,
+   "cmem": 0.0,
+   "dmem": 0.0,
+   "ok": true,
+   "n": 16,
+   "label": "zpaq -m5",
+   "kind": "ref"
+  }
+ ]
+}

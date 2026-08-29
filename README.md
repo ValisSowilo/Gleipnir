@@ -57,10 +57,12 @@ Two honest summaries, because there is no single one:
 
 - **`-5` beats `zpaq -m5` on all three axes at once**: 2.2% smaller, 1.6× faster,
   and 43% less memory.
-- **`-9` buys 9.0% over `zpaq -m5` by spending**: 1.31× the time and 1.26× the
-  memory. An earlier draft of this file claimed `-9` used *less* memory than
-  zpaq. Measured head to head, that is wrong — 1055 MB against 839 MB — and the
-  claim is withdrawn.
+- **`-9` buys 9.0% over `zpaq -m5` by spending**: 1.07× the time and 1.26× the
+  memory. Two claims here have been withdrawn. An earlier draft of this file
+  said `-9` used *less* memory than zpaq; measured head to head that is wrong
+  — 1055 MB against 839 MB. It also said 1.31× the time, which was a
+  cross-session artefact: measured inside one session `-9` is **1.07× slower**
+  (597.1 s against zpaq's 559.4 s). See [Benchmarks](#benchmarks).
 
 That `-9` total ranks **50th of 211 entries** on the [Silesia Open Source
 Compression Benchmark](http://mattmahoney.net/dc/silesia.html), ahead of every
@@ -1281,6 +1283,7 @@ Support tools:
 | `ab_speedup.py` | same-session A/B of two builds on the same files |
 | `e8.py`, `e8_refs.py` | enwik8 preset ladder and its reference rows |
 | `mkgraphs.py` | the graphs in this file, as dependency-free SVG |
+| `bench_session.py` | **every preset and every reference codec in one interleaved session**, with drift sentinels at both ends — the harness behind the preset table above; writes `bench_session.json` |
 | `parse_bench_log.py` | rebuild `bench_final.json` from an interrupted sweep's log |
 | `t_period.c` | MAD curve per stride — ground truth for the record model |
 | `t_adiv.c` | opcode-diversity distributions — ground truth for Alpha detection |

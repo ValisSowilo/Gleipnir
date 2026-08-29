@@ -2264,7 +2264,7 @@ six-file set — only the `-8` ablation above, on one file.
 | threading with a RAM-aware clamp | done |
 | 2 GB ceiling removed; O(segment) memory | done, verified to 2.2 GB |
 | mtime and POSIX permission restore | done |
-| 8 presets benchmarked on full Silesia, best-of-two | done |
+| 8 presets benchmarked on full Silesia, one interleaved session | done, `bench_session.py` |
 
 **Verification gates.** Three suites must pass before a build is used:
 `fuzz.py` and `tfuzz.py` (round-trip, `--v2` for the new CLI) and `gfuzz.py`
