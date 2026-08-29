@@ -1,0 +1,97 @@
+# This tree is a working directory as much as a source tree: it holds ~116
+# development binaries, the benchmark corpora, and the scratch scripts from
+# every A/B that did not become a decision.  Blacklisting that reliably is a
+# losing game -- one forgotten `gen27.exe` and a 200 KB binary is in history
+# forever.  So this file ignores everything and re-admits, by name, only what
+# the README and ARCHITECTURE documents actually refer to.
+#
+# Adding a file to the repo therefore means adding a line here.  That is the
+# point: it makes inclusion the deliberate act rather than exclusion.
+
+*
+
+# This file re-admits itself.  Without the line below `*` ignores .gitignore
+# too, so it never gets committed and a fresh clone has no ignore rules -- the
+# deny-all net that the rest of this file describes would exist only on the
+# machine it was written on.
+!.gitignore
+
+# --- the compressor itself ------------------------------------------------
+!genv2.c
+!Makefile
+!build.sh
+
+# --- licence and documentation --------------------------------------------
+!LICENSE.md
+!COMMERCIAL.md
+!README.md
+!USAGE.md
+!ARCHITECTURE.md
+!EXPERIENCES.md
+
+# --- the three verification gates -----------------------------------------
+# fuzz.py (container/deflate edge cases), tfuzz.py (round trips across thread
+# counts), gfuzz.py (corruption).  CI runs the latter two on every push.
+!fuzz.py
+!tfuzz.py
+!gfuzz.py
+
+# --- standalone probes the docs cite as ground truth ----------------------
+!t_alpha.c
+!t_seg.c
+!t_period.c
+!t_adiv.c
+
+# --- support tools documented in README "Support tools" -------------------
+!readblk.py
+!cmp_gen.py
+!full_ab.py
+!final_bench.py
+!bench_final.py
+!make_mixed.py
+!bench_mixed.py
+!bench_refs.ps1
+!byt_sweep.py
+!t2_sweep.py
+!ident_check.py
+!ab_corpus.py
+!f_ablate.py
+!fshape.py
+!ht_test.py
+!ab_speedup.py
+!e8.py
+!e8_refs.py
+!mkgraphs.py
+!parse_bench_log.py
+!sweep.py
+
+# The measurement record behind the preset table in the README.
+!bench_final.json
+
+# --- directories ----------------------------------------------------------
+# A directory must be re-admitted before anything inside it can be.
+!.github/
+!.github/**
+!graphs/
+!graphs/*.svg
+!packaging/
+!packaging/**
+!dist/
+!dist/*
+
+# Release binaries are attached to GitHub Releases, not committed.  Keeping
+# them out means a clone stays under a megabyte and history does not grow by
+# 2.5 MB with every point release.
+dist/*.exe
+dist/*.sha256
+
+# --- never, under any circumstances ---------------------------------------
+# tools/ holds upstream zlib plus the reference codecs used for benchmarking
+# (zpaq, paq8px, lpaq1, 7zr) and the Silesia/enwik8 corpora: third-party code
+# under other licences, and hundreds of megabytes.  build.sh expects the user
+# to fetch and build zlib there themselves; it says so when libz.a is missing.
+tools/
+__pycache__/
+*.pyc
+nyx
+nyx.exe

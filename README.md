@@ -110,6 +110,21 @@ Six presets span the speed/ratio curve, and **`-7` is within 2.4% of `-9` for
 
 ## Build and use
 
+Prebuilt binaries are on the [releases
+page](https://github.com/ValisSowilo/Nyx/releases/latest) with a SHA-256 beside
+each. Two things to know before taking one:
+
+- The Windows installer is **not code-signed**, so SmartScreen will warn on it.
+  `nyx.exe` is standalone if you would rather skip the installer -- statically
+  linked, KERNEL32 and the UCRT only, so Windows 10 and later need nothing else.
+- `nyx-linux-x86_64` is the unmodified binary from the CI run for that commit,
+  so its hash is checkable against that run. It is dynamically linked and needs
+  **glibc 2.38 or newer** -- Ubuntu 24.04, Debian 13, Fedora 39 -- plus
+  `libz.so.1`. On anything older it will not start, and there is no fallback
+  build. Compile it instead; that takes seconds.
+
+Building from source is the supported path either way.
+
 Linux, against the system zlib:
 
 ```bash
