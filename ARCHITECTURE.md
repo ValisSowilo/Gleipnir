@@ -413,8 +413,8 @@ needs the same `p`, so it must run the entire model.
 
 **This is why decompression cannot be made faster than compression, and it is
 not an implementation limitation.** Every preset decodes within ~4% of its
-encode speed. For comparison, `xz` decodes about 20× faster than it encodes and
-`brotli` about 334×, because their decoders execute a plan the encoder wrote
+encode speed. For comparison, `xz` decodes about 52× faster than it encodes and
+`brotli` about 322×, because their decoders execute a plan the encoder wrote
 down. Here there is no plan — the "plan" is the model's state, which only
 exists by having processed every preceding bit.
 
@@ -2288,8 +2288,8 @@ burst, truncate, zero, splice, extend, noise — produced no crash, no hang, and
   member's start.
 - **Decompression is as slow as compression** and cannot be made otherwise.
   This is inherent to context mixing — the decoder runs the same model. Every
-  preset decodes within ~4% of its encode speed, where `xz` decodes 20× faster
-  than it encodes and `brotli` 334×. It is the reason this is not a
+  preset decodes within ~4% of its encode speed, where `xz` decodes 52× faster
+  than it encodes and `brotli` 322×. It is the reason this is not a
   general-purpose tool, and the decompression graph is the honest way to show
   it.
 - **Reed–Solomon**, for the reason in §18.

@@ -1068,19 +1068,38 @@ question. See
 | `-7` | 36,493,092 | 1.377 | 5.81x | **-6.70%** | 450.5s ± 6% | 0.470 | 467.4s | 0.453 | 922 MB |
 | `-9` | 35,582,296 | 1.343 | 5.96x | **-9.03%** | 597.1s | 0.355 | 672.5s | 0.315 | 1055 MB |
 
-Against the reference codecs, measured in the same session on the same machine.
-Peak RSS for these is **sampled at 50 ms while the process runs, so it is a
-lower bound** — `PeakWorkingSet64` read after exit returns zero here, and only
-`nyx` reports its own figure exactly:
+Against the reference codecs. Sizes and times are from the **same interleaved
+session** as the preset table above, so they are comparable to it. The peak RSS
+column is not, and cannot be: that harness does not sample the reference
+codecs' memory, so those figures come from a separate `bench_refs.ps1` run.
+They are **sampled at 50 ms while the process runs, so they are a lower bound**
+— `PeakWorkingSet64` read after exit returns zero here, and only `nyx` reports
+its own figure exactly.
 
-| | output | comp | decomp | peak (sampled) |
+| | output | comp | decomp | peak (sampled, separate run) |
 |---|---|---|---|---|
-| `zpaq -m5` | 39,113,069 | 544.8s | 552.5s | 839 MB |
-| `lpaq1 -6` | 43,006,234 | 163.1s | 174.4s | 199 MB |
-| `xz -9e` | 48,456,004 | 107.1s | 5.4s | 509 MB |
-| `brotli -q11` | 49,564,563 | 401.4s | 1.2s | 219 MB |
-| `bzip2 -9` | 54,506,769 | 16.3s | 8.9s | 12 MB |
-| `gzip -9` | 67,632,026 | 17.3s | 1.5s | 8 MB |
+| `zpaq -m5` | 39,113,069 | 559.4s | 581.7s | 839 MB |
+| `lpaq1 -6` | 43,006,234 | 173.2s | 186.5s | 199 MB |
+| `xz -9e` | 48,456,100 | 113.8s | 2.2s | 509 MB |
+| `brotli -q11` | 49,564,563 | 387.0s | 1.2s | 219 MB |
+| `bzip2 -9` | 54,506,769 | 17.9s | 11.0s | 12 MB |
+| `gzip -9` | 67,631,918 | 16.7s | 2.6s | 8 MB |
+
+`zpaq` is a drift sentinel, so it has two readings: 559.4 s both times on the
+compression side, and 581.7 s is the mean of 587.6 and 575.8.
+
+**This table used to be the `bench_refs.ps1` run throughout, and that is how it
+came to disagree with its own surroundings** — it gave zpaq 544.8 s while every
+ratio computed from it correctly used the session's 559.4 s. Two of its sizes
+disagreed as well, and that part is not measurement noise. `bench_refs.ps1`
+redirects stdout in order to sample memory, so it cannot use `-c`; it copies
+each member to `work.bin` and compresses the file. gzip in file mode writes the
+original name into its header, and `work.bin` plus its NUL terminator is 9 bytes — times twelve
+members, exactly the 108 bytes by which that run's gzip total exceeded the
+piped one. xz differs by 96 bytes for a related reason: it is invoked as
+`-T1` on a file there and piped here. **"Sizes are deterministic" holds for a
+fixed invocation, not across two different ones.** `nyx`'s own sizes are
+byte-identical in both runs, which is what that claim was ever about.
 
 Where each preset sits against `zpaq -m5`:
 
@@ -1130,8 +1149,8 @@ Six points worth pulling out:
   preset. That is inherent — the decoder runs the identical model and the same
   predict/update path, and allocates the same tables, so decompression memory
   equals compression memory. There is no asymmetric optimisation available here,
-  unlike the LZ codecs: `xz` decodes **20× faster** than it encodes and `brotli`
-  **334×**, which is the whole reason they are shipped to browsers.
+  unlike the LZ codecs: `xz` decodes **52× faster** than it encodes and `brotli`
+  **322×**, which is the whole reason they are shipped to browsers.
 
 ![decompression size against speed](graphs/decomp_vs_size.svg)
 
