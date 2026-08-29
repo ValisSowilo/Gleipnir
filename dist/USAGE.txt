@@ -1,0 +1,209 @@
+Nyx 1.0.0 -- usage reference
+============================
+
+Run `nyx --help` for a short version of the option list below.
+
+
+COMMANDS
+--------
+
+  nyx c [opts] archive path...              compress files or directories
+  nyx x [opts] archive [dir] [member...]    extract
+  nyx t [opts] archive                      check integrity
+  nyx l [opts] archive                      list contents
+  nyx r archive out.nyx                     rebuild damaged segments
+
+`x`, `e` and `d` all extract and are interchangeable. Note that 7-Zip's `e`
+flattens directories and Nyx's does not. Nyx always restores the stored
+structure, so here `e` and `x` are the same thing.
+
+If you extract with no directory given, files land in the current directory.
+Naming specific members after the directory extracts only those:
+
+  nyx x archive.nyx restored a.txt logs/x.log
+
+Exit codes, which are the contract for scripting:
+
+  0    success, and for `t`, the archive verified
+  1    usage or I/O error: bad flag, missing path, unreadable file, full disk
+  2    archive corrupt, or verification failed
+
+1 and 2 are deliberately different. A scheduled check needs to distinguish
+"the disk is rotting" from "the path was wrong", because those page different
+people.
+
+
+OPTIONS
+-------
+
+  -1 .. -9    preset, -1 fastest .. -9 smallest (default -5)
+              Only six are distinct: -4, -6 and -8 are aliases for -3, -5
+              and -7 in this release.
+  -f1, -f2    throughput presets, below -1 on cost.  -f2 is smaller and
+              slower than -1, so the real cost order is:
+                  f1, 1, f2, 2, 3, 5, 7, 9
+  -mN         resize every context table by 2^N.  -m-1 halves them, -m1
+              doubles them.  Lower means less memory and slightly worse
+              ratio.
+  -tN         worker threads.  -t0 means all cores.  Default 1.
+  -sN         segment size in MB (default 64).  Smaller bounds memory and
+              limits how much one damaged region costs you, and larger
+              compresses slightly better.
+  -pN         recovery records: one parity block per N segments.  `-p` alone
+              means 32, costing about 3%.  Default off.
+  -D          with `t`, decode everything and verify SHA-256 as well
+  -L          with `l`, also print each member's SHA-256
+  -M          with `l`, print a sha256sum-compatible manifest
+  -x GLOB     exclude paths matching GLOB.  Repeatable.  Matched against
+              both the stored name and the bare filename, so -x "*.log"
+              works regardless of directory.
+  -q          quiet
+  --version   print version and archive format
+  --help      print the option list
+
+
+TYPICAL USE
+-----------
+
+Compress a folder, check it, extract it:
+
+  nyx c archive.nyx myfolder
+  nyx t archive.nyx
+  nyx d archive.nyx restored
+
+For cold storage:
+
+  nyx c -5 -t0 -p32 archive.nyx /data
+  nyx t archive.nyx
+
+then delete the originals yourself, once `nyx t` has passed. Nyx never
+deletes or modifies anything you point it at.
+
+Excluding things you do not want stored:
+
+  nyx c archive.nyx /data -x "*.tmp" -x "cache/*" -x "*.iso"
+
+Saving an inventory next to the archive, so its contents are auditable
+without opening it:
+
+  nyx l -M archive.nyx > archive.manifest
+
+After restoring, that manifest can be checked with a tool that shares no
+code with Nyx at all:
+
+  sha256sum -c archive.manifest
+
+
+CHOOSING A PRESET
+-----------------
+
+Measured on the Silesia corpus (211,938,580 bytes), single thread, all in
+one session:
+
+  preset   output       compress    decompress   RAM (compress)
+  -f1      44.3 MB      1.84 MB/s   1.84 MB/s      204 MB
+  -1       43.2 MB      1.52 MB/s   1.53 MB/s      196 MB
+  -f2      41.4 MB      1.37 MB/s   1.31 MB/s      238 MB
+  -2       40.6 MB      1.13 MB/s   1.13 MB/s      234 MB
+  -3       39.5 MB      0.85 MB/s   0.86 MB/s      305 MB
+  -5       38.3 MB      0.63 MB/s   0.62 MB/s      483 MB
+  -7       36.5 MB      0.47 MB/s   0.45 MB/s      922 MB
+  -9       35.6 MB      0.36 MB/s   0.32 MB/s     1055 MB
+
+Every step up the ladder costs roughly 11-13x more time per 1% of size it
+saves, from -2 upward. There is no bargain rung. Pick the slowest one you can
+afford to wait for, twice, once now and once when you restore.
+
+Decompression needs 37-40 MB MORE memory than compression at every preset.
+The RAM column above is the compression figure, so size a restore machine
+off the larger number: -9 needs about 1095 MB to extract, not 1055.
+
+-7's timing varies by about 6% between runs for reasons that are not yet
+understood. Every other preset repeats consistently.
+
+
+VERIFYING WITHOUT A FULL RESTORE
+--------------------------------
+
+  nyx t archive.nyx       checks stored checksums.  Runs at disk speed.
+  nyx t -D archive.nyx    decodes everything and checks SHA-256 per member.
+                          Runs at compression speed, so ~1300x slower.
+
+The fast check is what makes routine scrubbing affordable: on a 2.2 GB
+archive it takes seconds where the deep check takes most of an hour. It
+catches storage decay, meaning bits that changed on disk after writing, which
+is the failure that actually happens to archived data.
+
+Use `nyx t` on a schedule. Use `nyx t -D` before you rely on a restore.
+
+A scheduled scrub is just:
+
+  nyx t archive.nyx || echo "archive failed check" | mail -s ALERT you@host
+
+
+RECOVERY RECORDS
+----------------
+
+`-pN` writes one parity block per N segments: the XOR of every compressed
+block in the group. Any ONE damaged segment per group can then be rebuilt
+from the survivors.
+
+  nyx c -p32 archive.nyx /data     about 3% larger
+  nyx t archive.nyx                reports which segments are damaged
+  nyx r archive.nyx fixed.nyx      writes a repaired copy
+
+`r` never modifies the damaged archive. It writes a new one. A repaired
+segment is fully decoded and checksummed before it is accepted, so a
+"repair" that produced wrong bytes fails loudly instead of being written.
+
+Two losses in the same group can't be recovered. If the data matters, keep a
+second copy. Parity is not a backup.
+
+
+MEMORY AND THREADS
+------------------
+
+Each worker thread holds a complete model, so memory is roughly
+
+  (model size for the preset) x (thread count)
+
+`-t8 -9` therefore wants about 8 GB. Nyx clamps the thread count to what the
+machine can actually hold rather than thrashing, but a lower preset is
+usually a better answer than being clamped.
+
+`-sN` bounds the other half. A segment is loaded whole, so smaller segments
+mean less peak memory and less lost to one damaged region, at a small cost
+in ratio.
+
+
+WHAT NYX TOUCHES
+----------------
+
+Inputs are opened read-only. There is no delete call anywhere in the
+program, so it can't remove your files.
+
+The one thing Nyx overwrites without asking is its own output. If the
+archive name given to `c` already exists it is replaced, and `d` overwrites
+same-named files in the destination directory. Be careful with the
+destination and not the source.
+
+Extraction refuses unsafe member names, meaning absolute paths, drive letters
+and anything containing "..", so a malicious archive cannot write outside the
+directory you chose.
+
+
+KNOWN LIMITS
+------------
+
+  * Decompression is as slow as compression, inherently. If you need fast
+    restores, use zstd or xz instead.
+  * No encryption. Encrypting an archive afterwards destroys the ability to
+    scrub or repair it, since neither the checksums nor the parity blocks
+    are readable through ciphertext.
+  * No append. Adding to an archive means rewriting it.
+  * No random access: a member is decoded from the start of its segments.
+  * Archives are format v2 and cannot be read by earlier builds.
+  * Verified to 2.2 GB per file. Nothing larger has been tried.
+  * Recovery covers one lost segment per group and not two.
+  * Tested on Windows and on Ubuntu 26.04. Other Linux distributions build
+    from the same Makefile but haven't been tried.

@@ -1,0 +1,131 @@
+# Build and test Nyx on Linux and Windows.
+#
+# This exists because Linux support was written on a Windows machine and could
+# not be verified there: MinGW's headers refuse to compile with _WIN32
+# undefined, so not even a syntax check of the POSIX branch was possible
+# locally.  Every platform claim in the README should be backed by a run of
+# this workflow rather than by inspection.
+#
+# If the Linux job fails on the first push, the README's platform line is wrong
+# and should be corrected before the failure is.
+
+name: build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install zlib headers
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
+
+      - name: Build
+        run: make
+
+      - name: Version and round trip
+        run: make test
+
+      - name: Round-trip fuzz across thread counts
+        run: python3 tfuzz.py --v2 nyx
+
+      - name: Corruption fuzz
+        run: python3 gfuzz.py 40 --exe nyx
+
+      - name: Archive built on Linux must read on Linux
+        run: |
+          mkdir -p /tmp/xplat/src
+          head -c 300000 /dev/urandom > /tmp/xplat/src/rand.bin
+          cp genv2.c /tmp/xplat/src/code.c
+          ./nyx c -3 -q /tmp/xplat/a.nyx /tmp/xplat/src
+          ./nyx t /tmp/xplat/a.nyx
+          ./nyx x -q /tmp/xplat/a.nyx /tmp/xplat/out
+          cmp /tmp/xplat/src/rand.bin /tmp/xplat/out/rand.bin
+          cmp /tmp/xplat/src/code.c  /tmp/xplat/out/code.c
+
+      - name: Upload the Linux binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: nyx-linux-x86_64
+          path: nyx
+
+      - name: Keep an archive for the cross-platform job
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-from-linux
+          path: /tmp/xplat/a.nyx
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      # diffutils supplies cmp, which `make test` uses to compare the
+      # round-tripped files.  It is not in a base MSYS2 install, and without it
+      # the target fails at the comparison having already built and
+      # round-tripped correctly -- which reads as a compressor fault and is
+      # not one.
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-zlib
+            make
+            python
+            diffutils
+
+      - name: Build
+        run: make CC=gcc
+
+      - name: Version and round trip
+        run: make test CC=gcc
+
+      - name: Upload the Windows binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: nyx-windows-x86_64
+          path: nyx.exe
+
+  # The format claim in the README is that an archive written on one platform
+  # reads on the other.  That is worth testing rather than asserting: it is
+  # exactly the sort of thing that breaks quietly on a struct padding or
+  # endianness assumption and is only noticed by whoever needed the restore.
+  cross-platform:
+    needs: [linux, windows]
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-zlib
+            make
+      - name: Build for this platform
+        run: make CC=gcc
+      - uses: actions/download-artifact@v4
+        with:
+          name: archive-from-linux
+          path: .
+      - name: Read the Linux-written archive on Windows
+        run: |
+          ./nyx t a.nyx
+          ./nyx l a.nyx
+          ./nyx x -q a.nyx out
+          test -f out/code.c && test -f out/rand.bin
+          echo "cross-platform read OK"

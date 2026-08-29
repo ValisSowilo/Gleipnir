@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="430" viewBox="0 0 780 430" font-family="system-ui">
+<style>
+  .bg   { fill: #ffffff; }
+  .fg   { fill: #1b1f23; }
+  .grid { stroke: #d8dee4; stroke-width: 1; }
+  .axis { stroke: #57606a; stroke-width: 1.2; }
+  .lbl  { fill: #57606a; font: 12px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .ttl  { fill: #1b1f23; font: 600 15px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .sub  { fill: #57606a; font: 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .tag  { fill: #1b1f23; font: 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .tagb { fill: #1b1f23; font: 600 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .gen  { stroke: #0969da; fill: #0969da; }
+  .genl { stroke: #0969da; stroke-width: 2.2; fill: none; }
+  .oldl { stroke: #8c959f; stroke-width: 2; fill: none; stroke-dasharray: 5 4; }
+  .oldd { stroke: #8c959f; fill: none; stroke-width: 2; }
+  @media (prefers-color-scheme: dark) {
+    .bg   { fill: #0d1117; }
+    .fg   { fill: #e6edf3; }
+    .grid { stroke: #30363d; }
+    .axis { stroke: #8b949e; }
+    .lbl  { fill: #8b949e; }
+    .ttl  { fill: #e6edf3; }
+    .sub  { fill: #8b949e; }
+    .tag  { fill: #e6edf3; }
+    .tagb { fill: #e6edf3; }
+    .gen  { stroke: #58a6ff; fill: #58a6ff; }
+    .genl { stroke: #58a6ff; }
+    .oldl { stroke: #6e7681; }
+    .oldd { stroke: #6e7681; }
+  }
+</style>
+<rect class="bg" width="780" height="430"/>
+<text class="ttl" x="20" y="22">Match-bypass gate: below ~96 the shortcut costs real ratio</text>
+<text class="sub" x="20" y="39">Six Silesia files that disagree. Sizes only -- deterministic. Relative sweep from a build 0.21% behind the current one (-1/gate 96:</text>
+<text class="sub" x="20" y="54">22,470,998 B then, 22,423,769 B now); the shape is unchanged.</text>
+<text class="lbl" x="411.0" y="420" text-anchor="middle">match-bypass gate (matched bytes before the bypass engages)</text>
+<text class="lbl" x="14" y="222.0" text-anchor="middle" transform="rotate(-90 14 222.0)">output size vs bypass off (%)</text>
+<line class="grid" x1="66" y1="358.3" x2="756" y2="358.3"/>
+<text class="lbl" x="57" y="362.3" text-anchor="end">-0.5</text>
+<line class="grid" x1="66" y1="309.6" x2="756" y2="309.6"/>
+<text class="lbl" x="57" y="313.6" text-anchor="end">0</text>
+<line class="grid" x1="66" y1="260.9" x2="756" y2="260.9"/>
+<text class="lbl" x="57" y="264.9" text-anchor="end">+0.5</text>
+<line class="grid" x1="66" y1="212.3" x2="756" y2="212.3"/>
+<text class="lbl" x="57" y="216.3" text-anchor="end">+1</text>
+<line class="grid" x1="66" y1="163.6" x2="756" y2="163.6"/>
+<text class="lbl" x="57" y="167.6" text-anchor="end">+1.5</text>
+<line class="grid" x1="66" y1="114.9" x2="756" y2="114.9"/>
+<text class="lbl" x="57" y="118.9" text-anchor="end">+2</text>
+<line class="axis" x1="66" y1="76" x2="66" y2="368"/>
+<line class="axis" x1="66" y1="368" x2="756" y2="368"/>
+<line class="axis" x1="66" y1="309.6" x2="756" y2="309.6" stroke-dasharray="4 3"/>
+<text class="lbl" x="115.3" y="386.0" text-anchor="middle">off</text>
+<text class="lbl" x="213.9" y="386.0" text-anchor="middle">48</text>
+<text class="lbl" x="312.4" y="386.0" text-anchor="middle">96</text>
+<text class="lbl" x="411.0" y="386.0" text-anchor="middle">192</text>
+<text class="lbl" x="509.6" y="386.0" text-anchor="middle">400</text>
+<text class="lbl" x="608.1" y="386.0" text-anchor="middle">800</text>
+<text class="lbl" x="706.7" y="386.0" text-anchor="middle">1024</text>
+<path d="M115.3,309.6 L213.9,184.1 L312.4,335.2 L411.0,333.7 L509.6,326.6 L706.7,319.3" stroke="#0969da" stroke-width="2.2" fill="none"/>
+<circle cx="115.3" cy="309.6" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="213.9" cy="184.1" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="312.4" cy="335.2" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="411.0" cy="333.7" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="509.6" cy="326.6" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="706.7" cy="319.3" r="4.5" stroke="#0969da" fill="#0969da"/>
+<text class="tagb" x="716.7" y="323.3" text-anchor="start" fill="#0969da">-1</text>
+<path d="M115.3,309.6 L213.9,105.5 L312.4,323.4 L411.0,327.5" stroke="#8250df" stroke-width="2.2" fill="none"/>
+<circle cx="115.3" cy="309.6" r="4.5" stroke="#8250df" fill="#8250df"/>
+<circle cx="213.9" cy="105.5" r="4.5" stroke="#8250df" fill="#8250df"/>
+<circle cx="312.4" cy="323.4" r="4.5" stroke="#8250df" fill="#8250df"/>
+<circle cx="411.0" cy="327.5" r="4.5" stroke="#8250df" fill="#8250df"/>
+<text class="tagb" x="421.0" y="331.5" text-anchor="start" fill="#8250df">-3</text>
+<path d="M115.3,309.6 L411.0,322.9 L509.6,327.0 L608.1,320.4" stroke="#1a7f37" stroke-width="2.2" fill="none"/>
+<circle cx="115.3" cy="309.6" r="4.5" stroke="#1a7f37" fill="#1a7f37"/>
+<circle cx="411.0" cy="322.9" r="4.5" stroke="#1a7f37" fill="#1a7f37"/>
+<circle cx="509.6" cy="327.0" r="4.5" stroke="#1a7f37" fill="#1a7f37"/>
+<circle cx="608.1" cy="320.4" r="4.5" stroke="#1a7f37" fill="#1a7f37"/>
+<text class="tagb" x="618.1" y="324.4" text-anchor="start" fill="#1a7f37">-9</text>
+<line class="grid" x1="312.4" y1="98" x2="312.4" y2="368" stroke-dasharray="3 3"/>
+<text class="sub" x="312.4" y="91.0" text-anchor="middle">shipped at -1/-3/-5</text>
+<text class="sub" x="72.0" y="323.6" text-anchor="start">below this line the bypass is a ratio win</text>
+</svg>

@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" font-family="system-ui">
+<style>
+  .bg   { fill: #ffffff; }
+  .fg   { fill: #1b1f23; }
+  .grid { stroke: #d8dee4; stroke-width: 1; }
+  .axis { stroke: #57606a; stroke-width: 1.2; }
+  .lbl  { fill: #57606a; font: 12px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .ttl  { fill: #1b1f23; font: 600 15px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .sub  { fill: #57606a; font: 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .tag  { fill: #1b1f23; font: 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .tagb { fill: #1b1f23; font: 600 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .gen  { stroke: #0969da; fill: #0969da; }
+  .genl { stroke: #0969da; stroke-width: 2.2; fill: none; }
+  .oldl { stroke: #8c959f; stroke-width: 2; fill: none; stroke-dasharray: 5 4; }
+  .oldd { stroke: #8c959f; fill: none; stroke-width: 2; }
+  @media (prefers-color-scheme: dark) {
+    .bg   { fill: #0d1117; }
+    .fg   { fill: #e6edf3; }
+    .grid { stroke: #30363d; }
+    .axis { stroke: #8b949e; }
+    .lbl  { fill: #8b949e; }
+    .ttl  { fill: #e6edf3; }
+    .sub  { fill: #8b949e; }
+    .tag  { fill: #e6edf3; }
+    .tagb { fill: #e6edf3; }
+    .gen  { stroke: #58a6ff; fill: #58a6ff; }
+    .genl { stroke: #58a6ff; }
+    .oldl { stroke: #6e7681; }
+    .oldd { stroke: #6e7681; }
+  }
+</style>
+<rect class="bg" width="760" height="420"/>
+<text class="ttl" x="20" y="22">Peak memory by preset</text>
+<text class="sub" x="20" y="39">Silesia, 211,938,580 bytes, single thread, genv2.exe. All presets and all reference codecs measured in ONE interleaved session;</text>
+<text class="sub" x="20" y="54">-7 and zpaq repeated as drift sentinels (-7 spans 6%).</text>
+<text class="lbl" x="401.0" y="410" text-anchor="middle">preset</text>
+<text class="lbl" x="14" y="220.0" text-anchor="middle" transform="rotate(-90 14 220.0)">peak resident set, MB</text>
+<line class="grid" x1="66" y1="364.0" x2="736" y2="364.0"/>
+<text class="lbl" x="57" y="368.0" text-anchor="end">0</text>
+<line class="grid" x1="66" y1="306.8" x2="736" y2="306.8"/>
+<text class="lbl" x="57" y="310.8" text-anchor="end">250</text>
+<line class="grid" x1="66" y1="249.6" x2="736" y2="249.6"/>
+<text class="lbl" x="57" y="253.6" text-anchor="end">500</text>
+<line class="grid" x1="66" y1="192.5" x2="736" y2="192.5"/>
+<text class="lbl" x="57" y="196.5" text-anchor="end">750</text>
+<line class="grid" x1="66" y1="135.3" x2="736" y2="135.3"/>
+<text class="lbl" x="57" y="139.3" text-anchor="end">1000</text>
+<line class="grid" x1="66" y1="78.1" x2="736" y2="78.1"/>
+<text class="lbl" x="57" y="82.1" text-anchor="end">1250</text>
+<line class="axis" x1="66" y1="76" x2="66" y2="364"/>
+<line class="axis" x1="66" y1="364" x2="736" y2="364"/>
+<rect x="82.8" y="317.3" width="22.1" height="46.7" fill="#0969da" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="93.8" y="312.3" text-anchor="middle">204</text>
+<rect x="107.9" y="308.9" width="22.1" height="55.1" fill="#8c959f" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="118.9" y="303.9" text-anchor="middle">241</text>
+<text class="lbl" x="107.9" y="382.0" text-anchor="middle">-f1</text>
+<rect x="166.5" y="319.2" width="22.1" height="44.8" fill="#0969da" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="177.6" y="314.2" text-anchor="middle">196</text>
+<rect x="191.6" y="310.7" width="22.1" height="53.3" fill="#8c959f" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="202.7" y="305.7" text-anchor="middle">233</text>
+<text class="lbl" x="191.6" y="382.0" text-anchor="middle">-1</text>
+<rect x="250.2" y="309.6" width="22.1" height="54.4" fill="#0969da" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="261.3" y="304.6" text-anchor="middle">238</text>
+<rect x="275.4" y="301.1" width="22.1" height="62.9" fill="#8c959f" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="286.4" y="296.1" text-anchor="middle">275</text>
+<text class="lbl" x="275.4" y="382.0" text-anchor="middle">-f2</text>
+<rect x="334.0" y="310.5" width="22.1" height="53.5" fill="#0969da" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="345.1" y="305.5" text-anchor="middle">234</text>
+<rect x="359.1" y="302.0" width="22.1" height="62.0" fill="#8c959f" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="370.2" y="297.0" text-anchor="middle">271</text>
+<text class="lbl" x="359.1" y="382.0" text-anchor="middle">-2</text>
+<rect x="417.8" y="294.2" width="22.1" height="69.8" fill="#0969da" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="428.8" y="289.2" text-anchor="middle">305</text>
+<rect x="442.9" y="285.6" width="22.1" height="78.4" fill="#8c959f" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="453.9" y="280.6" text-anchor="middle">343</text>
+<text class="lbl" x="442.9" y="382.0" text-anchor="middle">-3</text>
+<rect x="501.5" y="253.5" width="22.1" height="110.5" fill="#0969da" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="512.6" y="248.5" text-anchor="middle">483</text>
+<rect x="526.6" y="244.8" width="22.1" height="119.2" fill="#8c959f" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="537.7" y="239.8" text-anchor="middle">521</text>
+<text class="lbl" x="526.6" y="382.0" text-anchor="middle">-5</text>
+<rect x="585.2" y="153.0" width="22.1" height="211.0" fill="#0969da" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="596.3" y="148.0" text-anchor="middle">922</text>
+<rect x="610.4" y="144.0" width="22.1" height="220.0" fill="#8c959f" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="621.4" y="139.0" text-anchor="middle">962</text>
+<text class="lbl" x="610.4" y="382.0" text-anchor="middle">-7</text>
+<rect x="669.0" y="122.7" width="22.1" height="241.3" fill="#0969da" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="680.1" y="117.7" text-anchor="middle">1055</text>
+<rect x="694.1" y="113.6" width="22.1" height="250.4" fill="#8c959f" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="705.2" y="108.6" text-anchor="middle">1095</text>
+<text class="lbl" x="694.1" y="382.0" text-anchor="middle">-9</text>
+<rect x="586.0" y="82" width="10" height="10" fill="#0969da" rx="1.5"/>
+<text class="sub" x="601.0" y="91.0" text-anchor="start" fill="#0969da">compress</text>
+<rect x="656.0" y="82" width="10" height="10" fill="#8c959f" rx="1.5"/>
+<text class="sub" x="671.0" y="91.0" text-anchor="start" fill="#8c959f">decompress</text>
+</svg>

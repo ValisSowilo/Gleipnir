@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="430" viewBox="0 0 880 430" font-family="system-ui">
+<style>
+  .bg   { fill: #ffffff; }
+  .fg   { fill: #1b1f23; }
+  .grid { stroke: #d8dee4; stroke-width: 1; }
+  .axis { stroke: #57606a; stroke-width: 1.2; }
+  .lbl  { fill: #57606a; font: 12px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .ttl  { fill: #1b1f23; font: 600 15px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .sub  { fill: #57606a; font: 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .tag  { fill: #1b1f23; font: 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .tagb { fill: #1b1f23; font: 600 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .gen  { stroke: #0969da; fill: #0969da; }
+  .genl { stroke: #0969da; stroke-width: 2.2; fill: none; }
+  .oldl { stroke: #8c959f; stroke-width: 2; fill: none; stroke-dasharray: 5 4; }
+  .oldd { stroke: #8c959f; fill: none; stroke-width: 2; }
+  @media (prefers-color-scheme: dark) {
+    .bg   { fill: #0d1117; }
+    .fg   { fill: #e6edf3; }
+    .grid { stroke: #30363d; }
+    .axis { stroke: #8b949e; }
+    .lbl  { fill: #8b949e; }
+    .ttl  { fill: #e6edf3; }
+    .sub  { fill: #8b949e; }
+    .tag  { fill: #e6edf3; }
+    .tagb { fill: #e6edf3; }
+    .gen  { stroke: #58a6ff; fill: #58a6ff; }
+    .genl { stroke: #58a6ff; }
+    .oldl { stroke: #6e7681; }
+    .oldd { stroke: #6e7681; }
+  }
+</style>
+<rect class="bg" width="880" height="430"/>
+<text class="ttl" x="20" y="22">Per file, bits per byte</text>
+<text class="sub" x="20" y="39">Silesia, 202 MB, gen -9 against the references. Sizes only, measured per file (perfile_sizes.py); deterministic, so no timing protocol applies.</text>
+<text class="lbl" x="461.0" y="420" text-anchor="middle"></text>
+<text class="lbl" x="14" y="214.5" text-anchor="middle" transform="rotate(-90 14 214.5)">bits per byte</text>
+<line class="grid" x1="66" y1="368.0" x2="856" y2="368.0"/>
+<text class="lbl" x="57" y="372.0" text-anchor="end">0</text>
+<line class="grid" x1="66" y1="316.8" x2="856" y2="316.8"/>
+<text class="lbl" x="57" y="320.8" text-anchor="end">1</text>
+<line class="grid" x1="66" y1="265.7" x2="856" y2="265.7"/>
+<text class="lbl" x="57" y="269.7" text-anchor="end">2</text>
+<line class="grid" x1="66" y1="214.5" x2="856" y2="214.5"/>
+<text class="lbl" x="57" y="218.5" text-anchor="end">3</text>
+<line class="grid" x1="66" y1="163.3" x2="856" y2="163.3"/>
+<text class="lbl" x="57" y="167.3" text-anchor="end">4</text>
+<line class="grid" x1="66" y1="112.2" x2="856" y2="112.2"/>
+<text class="lbl" x="57" y="116.2" text-anchor="end">5</text>
+<line class="grid" x1="66" y1="61.0" x2="856" y2="61.0"/>
+<text class="lbl" x="57" y="65.0" text-anchor="end">6</text>
+<line class="axis" x1="66" y1="61" x2="66" y2="368"/>
+<line class="axis" x1="66" y1="368" x2="856" y2="368"/>
+<rect x="73.2" y="344.3" width="11.8" height="23.7" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="86.1" y="343.0" width="11.8" height="25.0" fill="#d29922" opacity="0.72" rx="1.5"/>
+<rect x="98.9" y="341.9" width="11.8" height="26.1" fill="#8250df" opacity="0.72" rx="1.5"/>
+<rect x="111.8" y="334.7" width="11.8" height="33.3" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="98.9" y="384.0" text-anchor="middle">xml</text>
+<rect x="139.1" y="251.9" width="11.8" height="116.1" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="151.9" y="250.5" width="11.8" height="117.5" fill="#d29922" opacity="0.72" rx="1.5"/>
+<rect x="164.8" y="217.8" width="11.8" height="150.2" fill="#8250df" opacity="0.72" rx="1.5"/>
+<rect x="177.6" y="206.5" width="11.8" height="161.5" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="164.8" y="384.0" text-anchor="middle">ooffice</text>
+<rect x="204.9" y="313.5" width="11.8" height="54.5" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="217.7" y="308.9" width="11.8" height="59.1" fill="#d29922" opacity="0.72" rx="1.5"/>
+<rect x="230.6" y="303.3" width="11.8" height="64.7" fill="#8250df" opacity="0.72" rx="1.5"/>
+<rect x="243.4" y="286.7" width="11.8" height="81.3" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="230.6" y="384.0" text-anchor="middle">reymont</text>
+<rect x="270.7" y="150.4" width="11.8" height="217.6" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="283.6" y="147.9" width="11.8" height="220.1" fill="#d29922" opacity="0.72" rx="1.5"/>
+<rect x="296.4" y="117.7" width="11.8" height="250.3" fill="#8250df" opacity="0.72" rx="1.5"/>
+<rect x="309.3" y="118.2" width="11.8" height="249.8" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="296.4" y="384.0" text-anchor="middle">sao</text>
+<rect x="336.6" y="193.7" width="11.8" height="174.3" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="349.4" y="190.7" width="11.8" height="177.3" fill="#d29922" opacity="0.72" rx="1.5"/>
+<rect x="362.2" y="187.8" width="11.8" height="180.2" fill="#8250df" opacity="0.72" rx="1.5"/>
+<rect x="375.1" y="151.1" width="11.8" height="216.9" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="362.2" y="384.0" text-anchor="middle">x-ray</text>
+<rect x="402.4" y="284.8" width="11.8" height="83.2" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="415.2" y="278.4" width="11.8" height="89.6" fill="#d29922" opacity="0.72" rx="1.5"/>
+<rect x="428.1" y="277.4" width="11.8" height="90.6" fill="#8250df" opacity="0.72" rx="1.5"/>
+<rect x="440.9" y="255.0" width="11.8" height="113.0" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="428.1" y="384.0" text-anchor="middle">mr</text>
+<rect x="468.2" y="278.9" width="11.8" height="89.1" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="481.1" y="278.5" width="11.8" height="89.5" fill="#d29922" opacity="0.72" rx="1.5"/>
+<rect x="493.9" y="273.2" width="11.8" height="94.8" fill="#8250df" opacity="0.72" rx="1.5"/>
+<rect x="506.8" y="252.6" width="11.8" height="115.4" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="493.9" y="384.0" text-anchor="middle">osdb</text>
+<rect x="534.1" y="285.7" width="11.8" height="82.3" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="546.9" y="283.9" width="11.8" height="84.1" fill="#d29922" opacity="0.72" rx="1.5"/>
+<rect x="559.7" y="279.9" width="11.8" height="88.1" fill="#8250df" opacity="0.72" rx="1.5"/>
+<rect x="572.6" y="254.3" width="11.8" height="113.7" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="559.7" y="384.0" text-anchor="middle">dickens</text>
+<rect x="599.9" y="317.9" width="11.8" height="50.1" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="612.7" y="310.1" width="11.8" height="57.9" fill="#d29922" opacity="0.72" rx="1.5"/>
+<rect x="625.6" y="307.6" width="11.8" height="60.4" fill="#8250df" opacity="0.72" rx="1.5"/>
+<rect x="638.4" y="297.2" width="11.8" height="70.8" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="625.6" y="384.0" text-anchor="middle">samba</text>
+<rect x="665.7" y="354.1" width="11.8" height="13.9" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="678.6" y="352.7" width="11.8" height="15.3" fill="#d29922" opacity="0.72" rx="1.5"/>
+<rect x="691.4" y="349.7" width="11.8" height="18.3" fill="#8250df" opacity="0.72" rx="1.5"/>
+<rect x="704.3" y="350.3" width="11.8" height="17.7" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="691.4" y="384.0" text-anchor="middle">nci</text>
+<rect x="731.6" y="313.7" width="11.8" height="54.3" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="744.4" y="312.0" width="11.8" height="56.0" fill="#d29922" opacity="0.72" rx="1.5"/>
+<rect x="757.2" y="308.2" width="11.8" height="59.8" fill="#8250df" opacity="0.72" rx="1.5"/>
+<rect x="770.1" y="285.4" width="11.8" height="82.6" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="757.2" y="384.0" text-anchor="middle">webster</text>
+<rect x="797.4" y="291.0" width="11.8" height="77.0" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="810.2" y="271.8" width="11.8" height="96.2" fill="#d29922" opacity="0.72" rx="1.5"/>
+<rect x="823.1" y="258.3" width="11.8" height="109.7" fill="#8250df" opacity="0.72" rx="1.5"/>
+<rect x="835.9" y="261.1" width="11.8" height="106.9" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="823.1" y="384.0" text-anchor="middle">mozilla</text>
+<rect x="66" y="408" width="11" height="11" fill="#0969da" opacity="1.0" rx="1.5"/>
+<text class="lbl" x="82.0" y="418.0" text-anchor="start">gen -9</text>
+<rect x="130.0" y="408" width="11" height="11" fill="#d29922" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="146.0" y="418.0" text-anchor="start">zpaq -m5</text>
+<rect x="208.0" y="408" width="11" height="11" fill="#8250df" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="224.0" y="418.0" text-anchor="start">lpaq1 -6</text>
+<rect x="286.0" y="408" width="11" height="11" fill="#1a7f37" opacity="0.72" rx="1.5"/>
+<text class="lbl" x="302.0" y="418.0" text-anchor="start">xz -9e</text>
+</svg>

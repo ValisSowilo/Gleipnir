@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="440" viewBox="0 0 800 440" font-family="system-ui">
+<style>
+  .bg   { fill: #ffffff; }
+  .fg   { fill: #1b1f23; }
+  .grid { stroke: #d8dee4; stroke-width: 1; }
+  .axis { stroke: #57606a; stroke-width: 1.2; }
+  .lbl  { fill: #57606a; font: 12px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .ttl  { fill: #1b1f23; font: 600 15px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .sub  { fill: #57606a; font: 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .tag  { fill: #1b1f23; font: 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .tagb { fill: #1b1f23; font: 600 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .gen  { stroke: #0969da; fill: #0969da; }
+  .genl { stroke: #0969da; stroke-width: 2.2; fill: none; }
+  .oldl { stroke: #8c959f; stroke-width: 2; fill: none; stroke-dasharray: 5 4; }
+  .oldd { stroke: #8c959f; fill: none; stroke-width: 2; }
+  @media (prefers-color-scheme: dark) {
+    .bg   { fill: #0d1117; }
+    .fg   { fill: #e6edf3; }
+    .grid { stroke: #30363d; }
+    .axis { stroke: #8b949e; }
+    .lbl  { fill: #8b949e; }
+    .ttl  { fill: #e6edf3; }
+    .sub  { fill: #8b949e; }
+    .tag  { fill: #e6edf3; }
+    .tagb { fill: #e6edf3; }
+    .gen  { stroke: #58a6ff; fill: #58a6ff; }
+    .genl { stroke: #58a6ff; }
+    .oldl { stroke: #6e7681; }
+    .oldd { stroke: #6e7681; }
+  }
+</style>
+<rect class="bg" width="800" height="440"/>
+<text class="ttl" x="20" y="22">How table memory trades against size and speed</text>
+<text class="sub" x="20" y="39">dickens (10 MB) at -9, single thread. 32x the memory costs 31% more time. Relative sweep from an earlier build (-m0 baseline 2,053,946 B</text>
+<text class="sub" x="20" y="54">vs 2,048,642 B today); the trade is unchanged.</text>
+<text class="lbl" x="421.0" y="430" text-anchor="middle">table memory (MB, log)</text>
+<text class="lbl" x="14" y="230.0" text-anchor="middle" transform="rotate(-90 14 230.0)">relative to -m0 (%)</text>
+<line class="grid" x1="66" y1="374.4" x2="776" y2="374.4"/>
+<text class="lbl" x="57" y="378.4" text-anchor="end">-15</text>
+<line class="grid" x1="66" y1="326.2" x2="776" y2="326.2"/>
+<text class="lbl" x="57" y="330.2" text-anchor="end">-10</text>
+<line class="grid" x1="66" y1="278.1" x2="776" y2="278.1"/>
+<text class="lbl" x="57" y="282.1" text-anchor="end">-5</text>
+<line class="grid" x1="66" y1="230.0" x2="776" y2="230.0"/>
+<text class="lbl" x="57" y="234.0" text-anchor="end">0</text>
+<line class="grid" x1="66" y1="181.9" x2="776" y2="181.9"/>
+<text class="lbl" x="57" y="185.9" text-anchor="end">+5</text>
+<line class="grid" x1="66" y1="133.8" x2="776" y2="133.8"/>
+<text class="lbl" x="57" y="137.8" text-anchor="end">+10</text>
+<line class="grid" x1="66" y1="85.6" x2="776" y2="85.6"/>
+<text class="lbl" x="57" y="89.6" text-anchor="end">+15</text>
+<line class="grid" x1="162.0" y1="76" x2="162.0" y2="384"/>
+<text class="lbl" x="162.0" y="402" text-anchor="middle">100</text>
+<line class="grid" x1="283.3" y1="76" x2="283.3" y2="384"/>
+<text class="lbl" x="283.3" y="402" text-anchor="middle">200</text>
+<line class="grid" x1="443.7" y1="76" x2="443.7" y2="384"/>
+<text class="lbl" x="443.7" y="402" text-anchor="middle">500</text>
+<line class="grid" x1="565.0" y1="76" x2="565.0" y2="384"/>
+<text class="lbl" x="565.0" y="402" text-anchor="middle">1000</text>
+<line class="grid" x1="686.3" y1="76" x2="686.3" y2="384"/>
+<text class="lbl" x="686.3" y="402" text-anchor="middle">2000</text>
+<line class="axis" x1="66" y1="76" x2="66" y2="384"/>
+<line class="axis" x1="66" y1="384" x2="776" y2="384"/>
+<line class="axis" x1="66" y1="230.0" x2="776" y2="230.0" stroke-dasharray="4 3"/>
+<path d="M118.5,147.6 L131.5,173.8 L154.9,191.8 L195.4,204.8 L255.9,214.6 L335.8,222.0 L432.1,226.9 L539.4,230.0 L653.3,231.9 L723.5,232.8" stroke="#0969da" stroke-width="2.2" fill="none"/>
+<circle cx="118.5" cy="147.6" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="131.5" cy="173.8" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="154.9" cy="191.8" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="195.4" cy="204.8" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="255.9" cy="214.6" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="335.8" cy="222.0" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="432.1" cy="226.9" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="539.4" cy="230.0" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="653.3" cy="231.9" r="4.5" stroke="#0969da" fill="#0969da"/>
+<circle cx="723.5" cy="232.8" r="4.5" stroke="#0969da" fill="#0969da"/>
+<text class="tagb" x="124.5" y="138.6" text-anchor="start" fill="#0969da">output size</text>
+<path d="M118.5,311.3 L131.5,324.2 L154.9,318.7 L195.4,350.1 L255.9,337.1 L335.8,313.1 L432.1,274.3 L539.4,230.0 L653.3,170.9 L723.5,91.4" stroke="#d29922" stroke-width="2.2" fill="none"/>
+<circle cx="118.5" cy="311.3" r="4.5" stroke="#d29922" fill="#d29922"/>
+<circle cx="131.5" cy="324.2" r="4.5" stroke="#d29922" fill="#d29922"/>
+<circle cx="154.9" cy="318.7" r="4.5" stroke="#d29922" fill="#d29922"/>
+<circle cx="195.4" cy="350.1" r="4.5" stroke="#d29922" fill="#d29922"/>
+<circle cx="255.9" cy="337.1" r="4.5" stroke="#d29922" fill="#d29922"/>
+<circle cx="335.8" cy="313.1" r="4.5" stroke="#d29922" fill="#d29922"/>
+<circle cx="432.1" cy="274.3" r="4.5" stroke="#d29922" fill="#d29922"/>
+<circle cx="539.4" cy="230.0" r="4.5" stroke="#d29922" fill="#d29922"/>
+<circle cx="653.3" cy="170.9" r="4.5" stroke="#d29922" fill="#d29922"/>
+<circle cx="723.5" cy="91.4" r="4.5" stroke="#d29922" fill="#d29922"/>
+<text class="tagb" x="124.5" y="302.3" text-anchor="start" fill="#d29922">time</text>
+<text class="sub" x="539.4" y="90.0" text-anchor="middle">-m0 (default)</text>
+<line class="grid" x1="539.4" y1="96" x2="539.4" y2="384" stroke-dasharray="3 3"/>
+</svg>
