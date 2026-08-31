@@ -120,44 +120,39 @@ download](#verify-your-download).
 
 ### Windows
 
-**The quick way — one file, nothing to install:**
+**Easiest — the one-click installer:**
 
 1. Open the **[Releases page](https://github.com/ValisSowilo/Gleipnir/releases/latest)**.
-   Under **Assets**, click **`gleipnir.exe`** to download it. Save it somewhere you
-   will find again, such as your Desktop.
-2. That one file *is* the whole program. Because it is not code-signed, Windows
-   may show a blue **"Windows protected your PC"** box the first time you run it —
-   click **More info**, then **Run anyway**. (The SHA-256 below proves the file is
-   exactly the published one.)
-3. Open a command window in that folder: in File Explorer, click the white
-   **address bar**, type `cmd`, and press **Enter**. A black window opens, already
-   pointing at the folder.
-4. Try it. This packs a whole folder into a single `.gl` file:
+   Under **Assets**, click **`gleipnir-1.0.0-setup.exe`** to download it, then
+   double-click the downloaded file.
+2. Because it is not code-signed, Windows shows a blue **"Windows protected your
+   PC"** box — click **More info**, then **Run anyway**. (It installs only into
+   your own account and never asks for an administrator password.)
+3. Click **Next**, accept the licence, **Next** again, leave both tick-boxes on,
+   and click **Install**. That is the whole thing.
+4. Now you can:
+   - **right-click any file or folder → Compress with Gleipnir**
+     (on Windows 11, first click **Show more options**),
+   - **right-click a `.gl` file → Extract here**, **Verify**, or **List contents**, and
+   - open any terminal and just type `gleipnir`.
+
+   To remove it later: **Settings → Apps → Installed apps → Gleipnir → Uninstall**.
+
+**No-installer option — one portable file:**
+
+1. From the same page, download **`gleipnir.exe`** (same "Run anyway" note as
+   above). This single file *is* the whole program; there is nothing to install.
+2. Put it in a folder, open a command window there — in File Explorer, click the
+   white **address bar**, type `cmd`, press **Enter** — and run it:
    ```
    gleipnir.exe c backup.gl "C:\Users\you\Documents"
-   ```
-   and this unpacks it again into the current folder:
-   ```
    gleipnir.exe x backup.gl
    ```
 
-**The tidy way — so you can type `gleipnir` from anywhere:**
-
-1. From the same page, download **`gleipnir-windows-x86_64.zip`**. Right-click it
-   in File Explorer and choose **Extract All**.
-2. Open the extracted folder. Hold **Shift**, right-click the empty space inside
-   it, and choose **Open PowerShell window here**.
-3. Paste this line and press **Enter**:
-   ```
-   powershell -ExecutionPolicy Bypass -File install.ps1
-   ```
-   It copies the program into your own account and adds it to your PATH — no
-   administrator rights, and nothing is touched outside your profile.
-4. Close that window, open a **new** terminal, and confirm it worked:
-   ```
-   gleipnir --version
-   ```
-   To remove it later, run `uninstall.ps1` the same way.
+There is also **`gleipnir-windows-x86_64.zip`** — the same `gleipnir.exe` plus an
+`install.ps1` that puts it on your PATH — for anyone who would rather not run an
+unsigned installer. Extract it, then in that folder run
+`powershell -ExecutionPolicy Bypass -File install.ps1`.
 
 ### Linux
 
