@@ -4,13 +4,13 @@
 # Each member starts its own segment, so reordering rearranges the file without
 # changing its length.
 set -e
-cd /root/nyx
+cd /root/gleipnir
 
 echo "member order, Linux-written:"
-./nyx l linux-same.nyx | sed -n '2,4p'
+./gleipnir l linux-same.gl | sed -n '2,4p'
 echo
 echo "member order, Windows-written:"
-./nyx l win-written.nyx | sed -n '2,4p'
+./gleipnir l win-written.gl | sed -n '2,4p'
 echo
 echo "per-member compressed sizes should match across platforms if the model"
 echo "behaves identically; only their arrangement in the file differs."

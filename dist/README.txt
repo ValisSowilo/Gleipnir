@@ -1,9 +1,9 @@
-Nyx 1.0.0 -- a context-mixing archiver
+Gleipnir 1.0.0 -- a context-mixing archiver
 ======================================
 
 WHAT THIS IS
 
-Nyx compresses smaller than mainstream archivers and is much slower than all
+Gleipnir compresses smaller than mainstream archivers and is much slower than all
 of them. On the Silesia corpus it produces a 35.6 MB archive where zpaq -m5
 produces 39.1 MB, xz -9e produces 48.5 MB and gzip -9 produces 67.6 MB.
 
@@ -13,47 +13,47 @@ store and scrub periodically and restore once or never.
 
 QUICK START
 
-  nyx c archive.nyx mydir            compress a directory (default preset -5)
-  nyx t archive.nyx                  check the archive is intact
-  nyx l archive.nyx                  list what is inside
-  nyx x archive.nyx outdir           extract  (d and e do the same)
+  gleipnir c archive.gl mydir            compress a directory (default preset -5)
+  gleipnir t archive.gl                  check the archive is intact
+  gleipnir l archive.gl                  list what is inside
+  gleipnir x archive.gl outdir           extract  (d and e do the same)
 
 
 RIGHT-CLICK MENU
 
 If you ticked the Explorer option during install, File Explorer gains:
 
-  right-click a folder or file   ->  Compress with Nyx
-  right-click a .nyx archive     ->  Extract here
+  right-click a folder or file   ->  Compress with Gleipnir
+  right-click a .gl archive     ->  Extract here
                                      Verify (fast check)
                                      List contents
 
 On Windows 11 these live under "Show more options" (or press Shift+F10) and
 not on the short menu that opens first.
 
-"Extract here" unpacks C:\path\data.nyx into C:\path\data\, and the console
+"Extract here" unpacks C:\path\data.gl into C:\path\data\, and the console
 window stays open when it finishes so you can read the result. These runs take
 minutes to hours, and a window that vanished would hide any error.
 
 For cold storage, the recommended line is:
 
-  nyx c -5 -t0 -p32 archive.nyx /data
-  nyx t archive.nyx                  check the archive, then delete the
+  gleipnir c -5 -t0 -p32 archive.gl /data
+  gleipnir t archive.gl                  check the archive, then delete the
                                      originals yourself once it passes
 
   -t0   use all CPU cores
   -p32  add recovery records (~3% larger; any one damaged segment per
-        group of 32 can be rebuilt with `nyx r`)
+        group of 32 can be rebuilt with `gleipnir r`)
 
 
-WHAT NYX TOUCHES
+WHAT GLEIPNIR TOUCHES
 
-Nyx never deletes or modifies anything you point it at. Input files are opened
+Gleipnir never deletes or modifies anything you point it at. Input files are opened
 read-only and there is no delete call anywhere in the program. After
 compressing, you have two copies of your data, the originals and the archive,
-and freeing the space is a manual step you take after `nyx t` passes.
+and freeing the space is a manual step you take after `gleipnir t` passes.
 
-The one thing Nyx will overwrite without asking is its own output. If the
+The one thing Gleipnir will overwrite without asking is its own output. If the
 archive name you give to `c` already exists, it is replaced, and if a file in
 the extraction directory has the same name as an archive member, `d` overwrites
 it. So the name to be careful about is the destination and not the source.
@@ -84,12 +84,12 @@ so size a restore machine off the larger number.
 
 VERIFYING WITHOUT DECOMPRESSING
 
-  nyx t archive.nyx        checks stored checksums, runs at disk speed
-  nyx t -D archive.nyx     decodes everything and checks SHA-256 per member
+  gleipnir t archive.gl        checks stored checksums, runs at disk speed
+  gleipnir t -D archive.gl     decodes everything and checks SHA-256 per member
 
 The first is about 1300x faster than the second and is what makes routine
 scrubbing affordable. Checking a 2.2 GB archive takes seconds rather than most
-of an hour. Use `nyx t` on a schedule to catch storage decay, and `nyx t -D`
+of an hour. Use `gleipnir t` on a schedule to catch storage decay, and `gleipnir t -D`
 before you rely on a restore.
 
 
@@ -103,13 +103,13 @@ You will probably see one of these the first time you run the installer:
   * Smart App Control:  "An Application Control policy has blocked this
                         file." This one has no override button.
 
-Both happen because Nyx is not signed by a certificate authority Windows has
+Both happen because Gleipnir is not signed by a certificate authority Windows has
 heard of. Windows is reporting a missing certificate and nothing at all about
 the program. The binary is built from the source in this repository and you can
 rebuild it yourself and compare (see BUILDING below).
 
 Smart App Control is the stricter of the two and is ON by default on new
-Windows 11 machines. If it blocks Nyx and you want to run it anyway, your
+Windows 11 machines. If it blocks Gleipnir and you want to run it anyway, your
 options are:
 
   1. Build it yourself from source. The result is your own binary.
@@ -167,7 +167,7 @@ None of that affects what comes back out. It only means you can't compare
 archives by hash across platforms. Compare the extracted files instead.
 
 Memory is the real requirement. Each worker thread holds a complete model, so
-`-t8 -9` wants about 8 GB. Nyx clamps the thread count to what the machine can
+`-t8 -9` wants about 8 GB. Gleipnir clamps the thread count to what the machine can
 actually hold, but choosing a lower preset is usually better than being
 clamped.
 
@@ -190,11 +190,11 @@ DOCUMENTATION
   USAGE.txt         full option list, preset table, cold-storage recipes,
                     scrubbing, recovery records, known limits
 
-Run `nyx --help` for a short option list, or `nyx --version` to check which
+Run `gleipnir --help` for a short option list, or `gleipnir --version` to check which
 build you have.
 
 Two further documents ship with the source rather than the installer, since
-they are about how Nyx was built rather than how to use it:
+they are about how Gleipnir was built rather than how to use it:
 
   ARCHITECTURE.md   how the compressor and archive format work, and the
                     measurements behind each decision
@@ -203,28 +203,28 @@ they are about how Nyx was built rather than how to use it:
 
 CREDITS AND LICENCE
 
-  Nyx is written and maintained by ValisSowilo.
+  Gleipnir is written and maintained by ValisSowilo.
   https://github.com/ValisSowilo
 
   Copyright (C) 2026 ValisSowilo
   Licensed under the GNU General Public License, version 3 or later.
 
-  Nyx is free software. You may run it for any purpose, including
+  Gleipnir is free software. You may run it for any purpose, including
   commercially and in production, at any scale, without paying anyone.
   You may study it, modify it, and redistribute it, modified or not, and
   charge for doing so. There are no user or revenue thresholds and no
   expiry date.
 
-  The one obligation applies only if you distribute Nyx or something
+  The one obligation applies only if you distribute Gleipnir or something
   built from it: whoever receives it gets the same freedoms, which means
   offering them the corresponding source under the GPL and keeping the
-  notices intact. Running Nyx inside your own organisation is not
+  notices intact. Running Gleipnir inside your own organisation is not
   distribution.
 
-  GPL-3.0 is OSI-approved, so Nyx is open source in the ordinary sense of
+  GPL-3.0 is OSI-approved, so Gleipnir is open source in the ordinary sense of
   the term.
 
-  Nyx 1.0.0 was first published under the Business Source License 1.1,
+  Gleipnir 1.0.0 was first published under the Business Source License 1.1,
   which would have converted to the GPL on 2030-08-04. That conversion
   was brought forward; the BSL terms no longer apply to any version.
 
@@ -235,7 +235,7 @@ CREDITS AND LICENCE
   ZPAQ and the lpaq family. Bit-history state machines, logistic mixing in
   the stretched domain, SSE/APM refinement and indirect secondary symbol
   estimation all come from that work. No PAQ code is used here, but the
-  ideas are not original to Nyx and it would be dishonest to imply so.
+  ideas are not original to Gleipnir and it would be dishonest to imply so.
 
   DEFLATE stream recovery uses zlib, by Jean-loup Gailly and Mark Adler.
   Benchmarks use the Silesia corpus, assembled by Sebastian Deorowicz.

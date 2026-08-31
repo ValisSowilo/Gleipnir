@@ -1,4 +1,4 @@
-/* Nyx -- a context-mixing archiver.
+/* Gleipnir -- a context-mixing archiver.
  *
  * Copyright (C) 2026 ValisSowilo
  * https://github.com/ValisSowilo
@@ -2359,7 +2359,7 @@ static const char *lvlname(int lvl) {
 /* Release version of the *program*, which moves independently of the archive
  * format version above.  A format bump breaks compatibility; a release bump
  * usually does not. */
-#define NYX_RELEASE "1.0.0"
+#define GLEIPNIR_RELEASE "1.0.0"
 #define HDR_BYTES   48
 #define TRL_BYTES   20
 #define SEG_MAX_DEF (64u << 20)          /* default cap on a segment, bytes */
@@ -2539,7 +2539,7 @@ static void bgrow(Buf *b, size_t need) {
     size_t c = b->cap ? b->cap * 2 : 65536;
     while (c < b->n + need) c *= 2;
     uint8_t *q = realloc(b->p, c);
-    if (!q) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+    if (!q) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     b->p = q; b->cap = c;
 }
 static void bput(Buf *b, const void *s, size_t k) {
@@ -2556,7 +2556,7 @@ static void bfree(Buf *b) { free(b->p); b->p = NULL; b->n = b->cap = 0; }
  * truncated archive and a success message. */
 static void wr(FILE *f, const void *p, size_t k, const char *what) {
     if (k && fwrite(p, 1, k, f) != k) {
-        fprintf(stderr, "nyx: write failed (%s): %s\n", what, strerror(errno));
+        fprintf(stderr, "gleipnir: write failed (%s): %s\n", what, strerror(errno));
         exit(1);
     }
 }
@@ -2653,13 +2653,13 @@ static void segw_prep(SegW *s, Job *j) {
 
     if (scan_alphabet(s->raw, s->rawlen, s->sym, &s->nsym, &s->bps)) {
         s->owned = malloc(s->rawlen / (8 / s->bps) + 8);
-        if (!s->owned) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+        if (!s->owned) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
         s->w = s->owned;
         s->wn = pack_syms(s->raw, s->rawlen, s->w, s->sym, s->nsym, s->bps);
     } else { s->bps = 0; s->nsym = 0; }
 
     s->fl = malloc(sizeof(Dfl) * MAXDFL);
-    if (!s->fl) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+    if (!s->fl) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     if (!s->bps) {
         size_t xn = 0;
         uint8_t *x = dfl_expand(s->w, s->wn, s->fl, &s->nd, &xn);
@@ -2874,7 +2874,7 @@ static void idx_addm(Index *x, Memb v) {
     if (x->nm == x->mcap) {
         x->mcap = x->mcap ? x->mcap * 2 : 64;
         x->m = realloc(x->m, x->mcap * sizeof(Memb));
-        if (!x->m) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+        if (!x->m) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     }
     x->m[x->nm++] = v;
 }
@@ -2882,7 +2882,7 @@ static void idx_adds(Index *x, Seg v) {
     if (x->ns == x->scap) {
         x->scap = x->scap ? x->scap * 2 : 256;
         x->s = realloc(x->s, x->scap * sizeof(Seg));
-        if (!x->s) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+        if (!x->s) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     }
     x->s[x->ns++] = v;
 }
@@ -2890,7 +2890,7 @@ static void idx_addp(Index *x, Par v) {
     if (x->np == x->pcap) {
         x->pcap = x->pcap ? x->pcap * 2 : 64;
         x->p = realloc(x->p, x->pcap * sizeof(Par));
-        if (!x->p) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+        if (!x->p) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     }
     x->p[x->np++] = v;
 }
@@ -2989,7 +2989,7 @@ static void nm_add(Names *s, const char *p) {
     if (s->n == s->cap) {
         s->cap = s->cap ? s->cap * 2 : 64;
         s->v = realloc(s->v, s->cap * sizeof(char *));
-        if (!s->v) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+        if (!s->v) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     }
     s->v[s->n++] = strdup(p);
 }
@@ -3120,16 +3120,16 @@ typedef struct {
 
 static int parse_header(const uint8_t *h, Head *o) {
     uint32_t magic; memcpy(&magic, h + 0, 4);
-    if (magic != GEN_MAGIC) { fprintf(stderr, "nyx: not a Nyx archive\n"); return -1; }
+    if (magic != GEN_MAGIC) { fprintf(stderr, "gleipnir: not a Gleipnir archive\n"); return -1; }
     uint16_t ver; memcpy(&ver, h + 4, 2);
     if (ver != GEN_VERSION) {
-        fprintf(stderr, "nyx: archive format v%u, this build reads v%u\n",
+        fprintf(stderr, "gleipnir: archive format v%u, this build reads v%u\n",
                 ver, GEN_VERSION);
         return -1;
     }
     uint64_t want; memcpy(&want, h + 40, 8);
     if (xxh64(h, 40, 0) != want) {
-        fprintf(stderr, "nyx: archive header is corrupt\n");
+        fprintf(stderr, "gleipnir: archive header is corrupt\n");
         return -1;
     }
     o->lvl = h[8]; o->memshift = (int)h[9] - 16;
@@ -3185,7 +3185,7 @@ static int threads_for(uint64_t segbytes) {
     if (fit < 1) fit = 1;
     if (fit < n) {
         if (VERBOSE)
-            fprintf(stderr, "nyx: -t%d needs ~%llu MB, capping at -t%d "
+            fprintf(stderr, "gleipnir: -t%d needs ~%llu MB, capping at -t%d "
                             "(%llu MB installed)\n",
                     n, (unsigned long long)((per * n) >> 20), fit,
                     (unsigned long long)(ram >> 20));
@@ -3197,10 +3197,10 @@ static int threads_for(uint64_t segbytes) {
 static int do_compress(char **paths, int npath, const char *outp, int lvl) {
     Names files = {0};
     size_t *bound = malloc(((size_t)npath + 1) * sizeof *bound);
-    if (!bound) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+    if (!bound) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     bound[0] = 0;
     for (int i = 0; i < npath; i++) { walk(paths[i], &files); bound[i + 1] = files.n; }
-    if (!files.n) { fprintf(stderr, "nyx: nothing to compress\n"); free(bound); return 1; }
+    if (!files.n) { fprintf(stderr, "gleipnir: nothing to compress\n"); free(bound); return 1; }
 
     /* Stored names are resolved here, once, because each input path has its own
      * root.  With a single input the archive is rooted at it, so
@@ -3214,7 +3214,7 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
      * extraction then correctly refused every one of them as unsafe, so the
      * archive was writable but not readable. */
     char **snames = calloc(files.n, sizeof *snames);
-    if (!snames) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+    if (!snames) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     for (int i = 0; i < npath; i++) {
         char root[NAME_MAX_B];
         if (npath == 1) snprintf(root, sizeof root, "%s", paths[0]);
@@ -3237,7 +3237,7 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
         }
         files.n = w;
     }
-    if (!files.n) { fprintf(stderr, "nyx: nothing to compress\n"); return 1; }
+    if (!files.n) { fprintf(stderr, "gleipnir: nothing to compress\n"); return 1; }
 
     /* Two inputs can resolve to the same stored name -- `gen c a.gen /x/data
      * /y/data` gives both members the name "data" -- and extraction would then
@@ -3246,12 +3246,12 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
      * do not let it pass unmentioned. */
     {
         NameRef *nr = malloc(files.n * sizeof *nr);
-        if (!nr) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+        if (!nr) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
         for (size_t i = 0; i < files.n; i++) { nr[i].name = snames[i]; nr[i].idx = i; }
         qsort(nr, files.n, sizeof *nr, nameref_cmp);
         for (size_t i = 1; i < files.n; i++)
             if (!strcmp(nr[i].name, nr[i-1].name)) {
-                fprintf(stderr, "nyx: warning: %s and %s both store as '%s'; "
+                fprintf(stderr, "gleipnir: warning: %s and %s both store as '%s'; "
                                 "extraction will keep only the last\n",
                         files.v[nr[i-1].idx], files.v[nr[i].idx], nr[i].name);
                 EXITCODE = 1;
@@ -3271,12 +3271,12 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
     long *dup_of   = malloc((files.n ? files.n : 1) * sizeof(long));
     long *memb_of  = malloc((files.n ? files.n : 1) * sizeof(long));
     if (!fsha || !fsz || !dup_of || !memb_of) {
-        fprintf(stderr, "nyx: out of memory\n"); exit(1);
+        fprintf(stderr, "gleipnir: out of memory\n"); exit(1);
     }
     for (size_t i = 0; i < files.n; i++) { dup_of[i] = -1; memb_of[i] = -1; }
     {
         uint8_t *rb = malloc(1 << 20);
-        if (!rb) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+        if (!rb) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
         for (size_t i = 0; i < files.n; i++) {
             FILE *f = fopen(files.v[i], "rb");
             if (!f) continue;
@@ -3309,7 +3309,7 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
     }
 
     FILE *fo = fopen(outp, "wb");
-    if (!fo) { fprintf(stderr, "nyx: %s: %s\n", outp, strerror(errno)); return 1; }
+    if (!fo) { fprintf(stderr, "gleipnir: %s: %s\n", outp, strerror(errno)); return 1; }
     put_header(fo, lvl, 0, 0, 0, (uint32_t)SEGMAX);
 
     Index idx = {0};
@@ -3345,7 +3345,7 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
 
         FILE *in = fopen(full, "rb");
         if (!in) {
-            fprintf(stderr, "nyx: %s: %s\n", full, strerror(errno));
+            fprintf(stderr, "gleipnir: %s: %s\n", full, strerror(errno));
             EXITCODE = 1; continue;
         }
         STAT_T st; memset(&st, 0, sizeof st);
@@ -3381,9 +3381,9 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
             if (first) {
                 size_t probe = (size_t)(sz < seg ? sz : seg);
                 uint8_t *pb = malloc(probe + 8);
-                if (!pb) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+                if (!pb) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
                 if (fread(pb, 1, probe, in) != probe) {
-                    fprintf(stderr, "nyx: %s: short read\n", full);
+                    fprintf(stderr, "gleipnir: %s: short read\n", full);
                     free(pb); EXITCODE = 1; break;
                 }
                 F_SEEK(in, 0, SEEK_SET);
@@ -3393,7 +3393,7 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
                 nthr = threads_for(seg);
                 sw = calloc((size_t)nthr, sizeof(SegW));
                 jb = calloc((size_t)nthr, sizeof(Job));
-                if (!sw || !jb) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+                if (!sw || !jb) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
                 first = 0;
             }
 
@@ -3401,9 +3401,9 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
             for (; nb < nthr && done < sz; nb++) {
                 size_t k = (size_t)(sz - done < seg ? sz - done : seg);
                 sw[nb].raw = malloc(k + 8);
-                if (!sw[nb].raw) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+                if (!sw[nb].raw) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
                 if (fread(sw[nb].raw, 1, k, in) != k) {
-                    fprintf(stderr, "nyx: %s: short read\n", full);
+                    fprintf(stderr, "gleipnir: %s: short read\n", full);
                     free(sw[nb].raw); EXITCODE = 1; break;
                 }
                 sw[nb].rawlen = k;
@@ -3487,14 +3487,14 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
         put_header(fo, lvl, idx.nm, idxoff, rawtotal, (uint32_t)SEGMAX);
     F_SEEK(fo, 0, SEEK_END);
     uint64_t outsz = (uint64_t)F_TELL(fo);
-    if (fclose(fo)) { fprintf(stderr, "nyx: %s: close failed\n", outp); return 1; }
+    if (fclose(fo)) { fprintf(stderr, "gleipnir: %s: close failed\n", outp); return 1; }
     bfree(&ix);
 
     double sec = (double)(time(NULL) - w0);
     if (sec < 1) sec = (double)(clock() - t0) / CLOCKS_PER_SEC;
     if (VERBOSE)
         fprintf(stderr,
-            "nyx -%s: %llu file%s, %llu -> %llu  %.3f bpc  %.1fs  %.2f MB/s"
+            "gleipnir -%s: %llu file%s, %llu -> %llu  %.3f bpc  %.1fs  %.2f MB/s"
             "  %.0f MB peak  [%llu segment%s]\n",
             lvlname(lvl), (unsigned long long)idx.nm, idx.nm == 1 ? "" : "s",
             (unsigned long long)rawtotal, (unsigned long long)outsz,
@@ -3503,7 +3503,7 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
             peak_rss() / 1048576.0, (unsigned long long)idx.ns,
             idx.ns == 1 ? "" : "s");
     if (VERBOSE && ndup)
-        fprintf(stderr, "nyx: %llu duplicate file%s stored once, %llu MB "
+        fprintf(stderr, "gleipnir: %llu duplicate file%s stored once, %llu MB "
                         "not recompressed\n",
                 (unsigned long long)ndup, ndup == 1 ? "" : "s",
                 (unsigned long long)(dupbytes >> 20));
@@ -3526,10 +3526,10 @@ typedef struct {
 static int arc_open(const char *path, Archive *a) {
     memset(a, 0, sizeof *a);
     a->f = fopen(path, "rb");
-    if (!a->f) { fprintf(stderr, "nyx: %s: %s\n", path, strerror(errno)); return -1; }
+    if (!a->f) { fprintf(stderr, "gleipnir: %s: %s\n", path, strerror(errno)); return -1; }
     a->fsz = fsize64(a->f);
     if (a->fsz < HDR_BYTES + TRL_BYTES) {
-        fprintf(stderr, "nyx: %s: too short to be an archive\n", path);
+        fprintf(stderr, "gleipnir: %s: too short to be an archive\n", path);
         return -1;
     }
     uint8_t hb[HDR_BYTES];
@@ -3550,21 +3550,21 @@ static int arc_open(const char *path, Archive *a) {
     memcpy(&ixn, trl + 8, 8);
     if (tmagic != GEN_MAGIC || ixn > INDEX_MAX ||
         ixn > a->fsz - HDR_BYTES - TRL_BYTES) {
-        fprintf(stderr, "nyx: %s: archive index is unreadable "
+        fprintf(stderr, "gleipnir: %s: archive index is unreadable "
                         "(truncated or corrupt)\n", path);
         return -1;
     }
     uint64_t ixoff = a->fsz - TRL_BYTES - ixn;
     if (a->h.idxoff && a->h.idxoff != ixoff)
-        fprintf(stderr, "nyx: warning: header and trailer disagree on index "
+        fprintf(stderr, "gleipnir: warning: header and trailer disagree on index "
                         "position; trusting the trailer\n");
 
     uint8_t *ib = malloc((size_t)ixn + 1);
-    if (!ib) { fprintf(stderr, "nyx: out of memory\n"); return -1; }
+    if (!ib) { fprintf(stderr, "gleipnir: out of memory\n"); return -1; }
     if (F_SEEK(a->f, (long long)ixoff, SEEK_SET) != 0 ||
         fread(ib, 1, (size_t)ixn, a->f) != ixn) { free(ib); return -1; }
     if (xxh64(ib, (size_t)ixn, 0) != ixh) {
-        fprintf(stderr, "nyx: %s: archive index is corrupt\n", path);
+        fprintf(stderr, "gleipnir: %s: archive index is corrupt\n", path);
         free(ib); return -1;
     }
 
@@ -3627,7 +3627,7 @@ static int arc_open(const char *path, Archive *a) {
     MEMSHIFT = a->h.memshift;
     return 0;
 bad:
-    fprintf(stderr, "nyx: %s: archive index is corrupt\n", path);
+    fprintf(stderr, "gleipnir: %s: archive index is corrupt\n", path);
     return -1;
 }
 
@@ -3749,7 +3749,7 @@ static int run_members(Archive *a, const char *destdir, int test_only,
     int  *map = calloc((size_t)nthr, sizeof(int));
     int  *hand = calloc((size_t)nthr, sizeof(int));
     if (!sr || !jb || !rj || !map || !hand) {
-        fprintf(stderr, "nyx: out of memory\n"); exit(1);
+        fprintf(stderr, "gleipnir: out of memory\n"); exit(1);
     }
 
     for (uint64_t i = 0; i < a->x.nm; i++) {
@@ -3760,7 +3760,7 @@ static int run_members(Archive *a, const char *destdir, int test_only,
             if (!hit) continue;
         }
         if (!name_is_safe(m->name)) {
-            fprintf(stderr, "nyx: refusing unsafe member name: %s\n", m->name);
+            fprintf(stderr, "gleipnir: refusing unsafe member name: %s\n", m->name);
             rc = 2; nbad++; continue;
         }
         FILE *fo = NULL;
@@ -3782,11 +3782,11 @@ static int run_members(Archive *a, const char *destdir, int test_only,
                  * the wrong place entirely. */
                 const char *blocker = blocking_component(path);
                 if (blocker)
-                    fprintf(stderr, "nyx: %s: cannot create, because '%s' "
+                    fprintf(stderr, "gleipnir: %s: cannot create, because '%s' "
                                     "already exists and is a file, not a "
                                     "directory\n", path, blocker);
                 else
-                    fprintf(stderr, "nyx: %s: %s\n", path, strerror(errno));
+                    fprintf(stderr, "gleipnir: %s: %s\n", path, strerror(errno));
                 rc = 1; nbad++; continue;
             }
         }
@@ -3806,7 +3806,7 @@ static int run_members(Archive *a, const char *destdir, int test_only,
                 sr[nb].out    = malloc((size_t)s->rawlen + 8);
                 sr[nb].cb     = malloc((size_t)s->clen + 1);
                 if (!sr[nb].out || !sr[nb].cb) {
-                    fprintf(stderr, "nyx: out of memory\n"); exit(1);
+                    fprintf(stderr, "gleipnir: out of memory\n"); exit(1);
                 }
                 if (F_SEEK(a->f, (long long)s->off, SEEK_SET) != 0 ||
                     fread(sr[nb].cb, 1, (size_t)s->clen, a->f) != s->clen) {
@@ -3851,7 +3851,7 @@ static int run_members(Archive *a, const char *destdir, int test_only,
                 if (why && try_recover(a, m->seg0 + (k - nb) + t,
                                        sr[t].out, a->h.lvl) == 0) {
                     if (VERBOSE)
-                        fprintf(stderr, "nyx: %s: segment %llu was damaged (%s)"
+                        fprintf(stderr, "gleipnir: %s: segment %llu was damaged (%s)"
                                         " and has been rebuilt from the recovery"
                                         " record\n",
                                 m->name, (unsigned long long)((k - nb) + t + 1), why);
@@ -3859,7 +3859,7 @@ static int run_members(Archive *a, const char *destdir, int test_only,
                     why = NULL;
                 }
                 if (why) {
-                    fprintf(stderr, "nyx: %s: segment %llu of %llu is bad (%s)\n",
+                    fprintf(stderr, "gleipnir: %s: segment %llu of %llu is bad (%s)\n",
                             m->name, (unsigned long long)((k - nb) + t + 1),
                             (unsigned long long)m->nseg, why);
                     member_ok = 0; rc = 2;
@@ -3884,12 +3884,12 @@ static int run_members(Archive *a, const char *destdir, int test_only,
 
         uint8_t dig[32]; sha_final(&sh, dig);
         if (member_ok && got != m->size) {
-            fprintf(stderr, "nyx: %s: length mismatch (%llu, expected %llu)\n",
+            fprintf(stderr, "gleipnir: %s: length mismatch (%llu, expected %llu)\n",
                     m->name, (unsigned long long)got, (unsigned long long)m->size);
             member_ok = 0; rc = 2;
         }
         if (member_ok && memcmp(dig, m->sha, 32) != 0) {
-            fprintf(stderr, "nyx: %s: SHA-256 mismatch\n", m->name);
+            fprintf(stderr, "gleipnir: %s: SHA-256 mismatch\n", m->name);
             member_ok = 0; rc = 2;
         }
         if (fo) {
@@ -3907,13 +3907,13 @@ static int run_members(Archive *a, const char *destdir, int test_only,
     double sec = (double)(time(NULL) - w0);
     if (sec < 1) sec = 1;
     if (VERBOSE)
-        fprintf(stderr, "nyx %s: %llu OK, %llu bad, %llu bytes  %.1fs  %.2f MB/s"
+        fprintf(stderr, "gleipnir %s: %llu OK, %llu bad, %llu bytes  %.1fs  %.2f MB/s"
                         "  %.0f MB peak\n",
                 test_only ? "-t" : "-d", (unsigned long long)nok,
                 (unsigned long long)nbad, (unsigned long long)bytes, sec,
                 bytes / 1e6 / sec, peak_rss() / 1048576.0);
     if (VERBOSE && nrec)
-        fprintf(stderr, "nyx: %llu segment%s rebuilt from recovery records\n",
+        fprintf(stderr, "gleipnir: %llu segment%s rebuilt from recovery records\n",
                 (unsigned long long)nrec, nrec == 1 ? "" : "s");
     return rc;
 }
@@ -3944,7 +3944,7 @@ static uint8_t *blob_read(Archive *a, uint64_t si, int *state) {
      * repair would otherwise copy whatever happened to be in the heap into the
      * output file. */
     uint8_t *b = calloc((size_t)s->clen + 1, 1);
-    if (!b) { fprintf(stderr, "nyx: out of memory\n"); exit(1); }
+    if (!b) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     int good = 0;
     if (F_SEEK(a->f, (long long)s->off, SEEK_SET) == 0 &&
         fread(b, 1, (size_t)s->clen, a->f) == s->clen)
@@ -3972,28 +3972,28 @@ static int do_scrub(Archive *a, const char *path) {
         else if (st == 1) {
             repaired++;
             if (VERBOSE)
-                fprintf(stderr, "nyx: %s: segment %llu is damaged but "
+                fprintf(stderr, "gleipnir: %s: segment %llu is damaged but "
                                 "recoverable from its recovery record\n",
                         member_of(a, i), (unsigned long long)i);
         } else {
             lost++;
-            fprintf(stderr, "nyx: %s: segment %llu is damaged and cannot be "
+            fprintf(stderr, "gleipnir: %s: segment %llu is damaged and cannot be "
                             "recovered\n", member_of(a, i), (unsigned long long)i);
         }
     }
     double sec = (double)(time(NULL) - w0);
     if (sec < 1) sec = 1;
     if (VERBOSE) {
-        fprintf(stderr, "nyx scrub: %llu segments intact", (unsigned long long)intact);
+        fprintf(stderr, "gleipnir scrub: %llu segments intact", (unsigned long long)intact);
         if (repaired) fprintf(stderr, ", %llu recoverable", (unsigned long long)repaired);
         if (lost)     fprintf(stderr, ", %llu LOST", (unsigned long long)lost);
         fprintf(stderr, "  (%llu MB read, %.0f MB/s)\n",
                 (unsigned long long)(bytes >> 20), bytes / 1e6 / sec);
         if (repaired && !lost)
-            fprintf(stderr, "nyx: run 'nyx r %s fixed.nyx' to write a clean copy\n",
+            fprintf(stderr, "gleipnir: run 'gleipnir r %s fixed.gl' to write a clean copy\n",
                     "archive");
         if (!a->x.np && VERBOSE)
-            fprintf(stderr, "nyx: note: this archive has no recovery records; "
+            fprintf(stderr, "gleipnir: note: this archive has no recovery records; "
                             "damage would be unrepairable\n");
     }
     return lost ? 2 : 0;
@@ -4005,7 +4005,7 @@ static int do_scrub(Archive *a, const char *path) {
  * output verifiable against the same digests as the original. */
 static int do_repair(Archive *a, const char *outp) {
     FILE *fo = fopen(outp, "wb");
-    if (!fo) { fprintf(stderr, "nyx: %s: %s\n", outp, strerror(errno)); return 1; }
+    if (!fo) { fprintf(stderr, "gleipnir: %s: %s\n", outp, strerror(errno)); return 1; }
     put_header(fo, a->h.lvl, 0, 0, 0, a->h.segmax);
 
     Index nx; memset(&nx, 0, sizeof nx);
@@ -4019,7 +4019,7 @@ static int do_repair(Archive *a, const char *outp) {
         if (st == 1) repaired++;
         if (st < 0) {
             lost++;
-            fprintf(stderr, "nyx: %s: segment %llu could not be recovered; "
+            fprintf(stderr, "gleipnir: %s: segment %llu could not be recovered; "
                             "copying it as-is\n", member_of(a, i),
                     (unsigned long long)i);
         }
@@ -4068,12 +4068,12 @@ static int do_repair(Archive *a, const char *outp) {
     wr(fo, trl, TRL_BYTES, "trailer");
     if (F_SEEK(fo, 0, SEEK_SET) == 0)
         put_header(fo, a->h.lvl, a->x.nm, idxoff, rawtotal, a->h.segmax);
-    if (fclose(fo)) { fprintf(stderr, "nyx: %s: close failed\n", outp); return 1; }
+    if (fclose(fo)) { fprintf(stderr, "gleipnir: %s: close failed\n", outp); return 1; }
     bfree(&ix);
     free(nx.s); free(nx.p);
 
     if (VERBOSE)
-        fprintf(stderr, "nyx repair: %llu segment%s rebuilt, %llu unrecoverable"
+        fprintf(stderr, "gleipnir repair: %llu segment%s rebuilt, %llu unrecoverable"
                         " -> %s\n",
                 (unsigned long long)repaired, repaired == 1 ? "" : "s",
                 (unsigned long long)lost, outp);
@@ -4151,15 +4151,15 @@ int _CRT_glob = 0;
 
 static void usage(void) {
     fprintf(stderr,
-      "Nyx -- a context-mixing archiver\n"
+      "Gleipnir -- a context-mixing archiver\n"
       "\n"
-      "usage: nyx c [opts] archive path...   compress files or directories\n"
-      "       nyx x [opts] archive [dir] [member...]\n"
+      "usage: gleipnir c [opts] archive path...   compress files or directories\n"
+      "       gleipnir x [opts] archive [dir] [member...]\n"
       "                                      extract (into dir, default .)\n"
       "                                      d and e do the same thing\n"
-      "       nyx t [opts] archive           check integrity\n"
-      "       nyx l [opts] archive           list contents\n"
-      "       nyx r archive out.nyx          rebuild damaged segments\n"
+      "       gleipnir t [opts] archive           check integrity\n"
+      "       gleipnir l [opts] archive           list contents\n"
+      "       gleipnir r archive out.gl          rebuild damaged segments\n"
       "\n"
       "  -1..-9    preset, -1 fastest .. -9 smallest (default 5)\n"
       "            -1  4 ctx  no SSE      -2  6 ctx  1 SSE\n"
@@ -4185,8 +4185,8 @@ static void usage(void) {
       "  -q        quiet\n"
       "  --version, --help\n"
       "\n"
-      "cold storage:  nyx c -5 -t0 -p32 archive.nyx /data   then verify with\n"
-      "               nyx t archive.nyx  before deleting the source\n"
+      "cold storage:  gleipnir c -5 -t0 -p32 archive.gl /data   then verify with\n"
+      "               gleipnir t archive.gl  before deleting the source\n"
       "\n"
       "exit: 0 ok, 1 usage or I/O error, 2 archive corrupt or verify failed\n");
 }
@@ -4197,7 +4197,7 @@ int main(int argc, char **argv) {
      * screen and exit 1 is the kind of small rudeness that makes a tool
      * annoying to script around. */
     if (argc >= 2 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-V"))) {
-        printf("Nyx %s\n", NYX_RELEASE);
+        printf("Gleipnir %s\n", GLEIPNIR_RELEASE);
         printf("archive format v%d  (this build reads and writes v%d only)\n",
                GEN_VERSION, GEN_VERSION);
         printf("built %s %s\n", __DATE__, __TIME__);
@@ -4253,7 +4253,7 @@ int main(int argc, char **argv) {
         }
         else if (c == 's') {
             int mb = atoi(argv[a] + 2);
-            if (mb < 1) { fprintf(stderr, "nyx: -s needs at least 1 MB\n"); return 1; }
+            if (mb < 1) { fprintf(stderr, "gleipnir: -s needs at least 1 MB\n"); return 1; }
             SEGMAX = mb << 20;
         }
         else if (c == 't') {
@@ -4267,7 +4267,7 @@ int main(int argc, char **argv) {
             lvl = 100 + f;
         }
         else if (c >= '1' && c <= '9' && !argv[a][2]) lvl = c - '0';
-        else { fprintf(stderr, "nyx: unknown option %s\n", argv[a]); return 1; }
+        else { fprintf(stderr, "gleipnir: unknown option %s\n", argv[a]); return 1; }
         a++;
     }
     if (a >= argc) { usage(); return 1; }
@@ -4276,7 +4276,7 @@ int main(int argc, char **argv) {
     build_tables(); build_states(); build_dt(); build_ccls();
 
     if (mode == 'c') {
-        if (a >= argc) { fprintf(stderr, "nyx: nothing to compress\n"); return 1; }
+        if (a >= argc) { fprintf(stderr, "gleipnir: nothing to compress\n"); return 1; }
         return do_compress(argv + a, argc - a, arc, lvl);
     }
 
@@ -4286,7 +4286,7 @@ int main(int argc, char **argv) {
     if (mode == 'l')      rc = do_list(&ar, longform, manifest);
     else if (mode == 'r') {
         if (a >= argc) {
-            fprintf(stderr, "nyx: r needs an output archive\n");
+            fprintf(stderr, "gleipnir: r needs an output archive\n");
             arc_close(&ar); return 1;
         }
         rc = do_repair(&ar, argv[a]);

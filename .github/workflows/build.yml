@@ -1,4 +1,4 @@
-# Build and test Nyx on Linux and Windows.
+# Build and test Gleipnir on Linux and Windows.
 #
 # This exists because Linux support was written on a Windows machine and could
 # not be verified there: MinGW's headers refuse to compile with _WIN32
@@ -33,33 +33,33 @@ jobs:
         run: make test
 
       - name: Round-trip fuzz across thread counts
-        run: python3 scripts/tfuzz.py --v2 nyx
+        run: python3 scripts/tfuzz.py --v2 gleipnir
 
       - name: Corruption fuzz
-        run: python3 scripts/gfuzz.py 40 --exe nyx
+        run: python3 scripts/gfuzz.py 40 --exe gleipnir
 
       - name: Archive built on Linux must read on Linux
         run: |
           mkdir -p /tmp/xplat/src
           head -c 300000 /dev/urandom > /tmp/xplat/src/rand.bin
-          cp nyx.c /tmp/xplat/src/code.c
-          ./nyx c -3 -q /tmp/xplat/a.nyx /tmp/xplat/src
-          ./nyx t /tmp/xplat/a.nyx
-          ./nyx x -q /tmp/xplat/a.nyx /tmp/xplat/out
+          cp gleipnir.c /tmp/xplat/src/code.c
+          ./gleipnir c -3 -q /tmp/xplat/a.gl /tmp/xplat/src
+          ./gleipnir t /tmp/xplat/a.gl
+          ./gleipnir x -q /tmp/xplat/a.gl /tmp/xplat/out
           cmp /tmp/xplat/src/rand.bin /tmp/xplat/out/rand.bin
           cmp /tmp/xplat/src/code.c  /tmp/xplat/out/code.c
 
       - name: Upload the Linux binary
         uses: actions/upload-artifact@v7
         with:
-          name: nyx-linux-x86_64
-          path: nyx
+          name: gleipnir-linux-x86_64
+          path: gleipnir
 
       - name: Keep an archive for the cross-platform job
         uses: actions/upload-artifact@v7
         with:
           name: archive-from-linux
-          path: /tmp/xplat/a.nyx
+          path: /tmp/xplat/a.gl
 
   windows:
     runs-on: windows-latest
@@ -94,8 +94,8 @@ jobs:
       - name: Upload the Windows binary
         uses: actions/upload-artifact@v7
         with:
-          name: nyx-windows-x86_64
-          path: nyx.exe
+          name: gleipnir-windows-x86_64
+          path: gleipnir.exe
 
   # The format claim in the README is that an archive written on one platform
   # reads on the other.  That is worth testing rather than asserting: it is
@@ -124,8 +124,8 @@ jobs:
           path: .
       - name: Read the Linux-written archive on Windows
         run: |
-          ./nyx t a.nyx
-          ./nyx l a.nyx
-          ./nyx x -q a.nyx out
+          ./gleipnir t a.gl
+          ./gleipnir l a.gl
+          ./gleipnir x -q a.gl out
           test -f out/code.c && test -f out/rand.bin
           echo "cross-platform read OK"

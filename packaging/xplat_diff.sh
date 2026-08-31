@@ -5,24 +5,24 @@
 # permission bits -- not the compressed payload.  If the payloads differ, the
 # model behaves differently across platforms and that is a real problem.
 set -e
-cd /root/nyx
+cd /root/gleipnir
 
 echo "sizes:"
-stat -c '  %s  %n' linux-same.nyx win-written.nyx
+stat -c '  %s  %n' linux-same.gl win-written.gl
 
 echo
 echo "first differing byte:"
-cmp linux-same.nyx win-written.nyx || true
+cmp linux-same.gl win-written.gl || true
 
 echo
 echo "how many bytes differ in total:"
-cmp -l linux-same.nyx win-written.nyx | wc -l
+cmp -l linux-same.gl win-written.gl | wc -l
 
 echo
 echo "payload region (past the 48-byte header, excluding the index+trailer):"
 # The index lives at the end and holds names, mtimes and modes.  The segment
 # payload sits between the header and the index, so compare that region alone.
-SZ=$(stat -c %s linux-same.nyx)
+SZ=$(stat -c %s linux-same.gl)
 IDX=$((SZ - 4096))
-dd if=linux-same.nyx bs=1 skip=48 count=$((IDX - 48)) 2>/dev/null | sha256sum
-dd if=win-written.nyx bs=1 skip=48 count=$((IDX - 48)) 2>/dev/null | sha256sum
+dd if=linux-same.gl bs=1 skip=48 count=$((IDX - 48)) 2>/dev/null | sha256sum
+dd if=win-written.gl bs=1 skip=48 count=$((IDX - 48)) 2>/dev/null | sha256sum

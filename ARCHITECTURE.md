@@ -467,7 +467,7 @@ matters if you intend to change one:
   same table sizes the encoder used.
 
 The Tier 2 identifiers (`THINE`, `IXMIN`, `ISSEXIT`) live in `gen26.c` and
-`nyx.c`, not in `gen.c` — `gen.c` predates them.
+`gleipnir.c`, not in `gen.c` — `gen.c` predates them.
 
 ## 6. Period detection
 
@@ -1384,7 +1384,7 @@ LZ family's decode speed at any preset.
 
 # Part IV — The archive layer
 
-Everything below lives in `nyx.c` and nothing in it changes a single
+Everything below lives in `gleipnir.c` and nothing in it changes a single
 predicted bit. That claim was checked, not assumed: v1 and v2 output at `-3`
 share a 437,114-byte identical common suffix — the entire compressed stream
 after the differing container framing. The model region was touched in exactly
@@ -2302,7 +2302,7 @@ tools and different people.
 ### Code and format
 
 - **The benchmark harness still drives the old CLI.** The naming half of this
-  item is closed: `genv2.c` was promoted and is now `nyx.c`. What is not closed
+  item is closed: `genv2.c` was promoted and is now `gleipnir.c`. What is not closed
   is the reason promotion was deferred. The CLI argument order changed
   (`c archive path...`), and the benchmark scripts in the repo —
   `scripts/bench_final.py`, `scripts/ab_corpus.py` and the rest — still drive the old form

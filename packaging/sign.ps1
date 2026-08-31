@@ -1,4 +1,4 @@
-# Code-sign the Nyx binaries.
+# Code-sign the Gleipnir binaries.
 #
 # Copyright 2026 ValisSowilo.  GPL-3.0-or-later; see LICENSE.md.
 #
@@ -33,7 +33,7 @@
 #                                an Azure account and identity verification.
 #
 #   SignPath Foundation          FREE for OSI-approved open-source projects.
-#                                Nyx is GPL-3.0-or-later, which is
+#                                Gleipnir is GPL-3.0-or-later, which is
 #                                OSI-approved, so it qualifies.  Start here
 #                                before paying anyone.  https://signpath.org/
 #
@@ -56,8 +56,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $targets = @(
-    (Join-Path $root 'dist\nyx.exe'),
-    (Join-Path $root 'dist\nyx-1.0.0-setup.exe')
+    (Join-Path $root 'dist\gleipnir.exe'),
+    (Join-Path $root 'dist\gleipnir-1.0.0-setup.exe')
 ) | Where-Object { Test-Path $_ }
 
 if (-not $targets) { throw "nothing to sign in $root\dist" }
@@ -78,7 +78,7 @@ if ($Thumbprint) {
                     -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(3)
     }
     Write-Host "signing with SELF-SIGNED certificate -- see the notes at the top"
-    Write-Host "  of this script: this does not help anyone who downloads Nyx."
+    Write-Host "  of this script: this does not help anyone who downloads Gleipnir."
 }
 
 foreach ($t in $targets) {
@@ -94,7 +94,7 @@ Write-Host ""
 Write-Host "To trust this certificate on THIS machine only (optional, and a"
 Write-Host "genuine change to your trust store -- read it before running):"
 Write-Host ""
-Write-Host "  Export-Certificate -Cert Cert:\CurrentUser\My\$($cert.Thumbprint) -FilePath nyx-cert.cer"
-Write-Host "  Import-Certificate -FilePath nyx-cert.cer -CertStoreLocation Cert:\CurrentUser\Root"
+Write-Host "  Export-Certificate -Cert Cert:\CurrentUser\My\$($cert.Thumbprint) -FilePath gleipnir-cert.cer"
+Write-Host "  Import-Certificate -FilePath gleipnir-cert.cer -CertStoreLocation Cert:\CurrentUser\Root"
 Write-Host ""
 Write-Host "Do not ask anyone else to do that. Get a real certificate instead."

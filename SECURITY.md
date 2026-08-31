@@ -7,7 +7,7 @@ form on this repository, which opens a private advisory visible only to the
 maintainer. Do not open a public issue for a memory-safety or archive-parsing
 bug.
 
-Include the `nyx --version` output, the platform and compiler, and — most
+Include the `gleipnir --version` output, the platform and compiler, and — most
 usefully — the archive or input that triggers it. A file under a megabyte that
 reproduces the fault is worth more than a description of it.
 
@@ -26,7 +26,7 @@ breaks that assumption is in scope:
 - **Path traversal on extract.** Member names that are absolute, carry a drive
   letter, contain a `..` component, or hold control characters are refused, and
   extraction must not write outside the destination directory.
-- **Silent wrong output** — any input for which `nyx` exits 0 and produces
+- **Silent wrong output** — any input for which `gleipnir` exits 0 and produces
   bytes that are not what was compressed. Every field the reader parses is
   bounds-checked, and a damaged archive is required to produce a diagnostic
   and exit 2, never a crash, a hang, or plausible-looking wrong bytes.
@@ -40,7 +40,7 @@ defeats it is a good report.
 
 These are documented properties, not defects:
 
-- **There is no encryption**, and none is planned. `nyx` provides integrity,
+- **There is no encryption**, and none is planned. `gleipnir` provides integrity,
   not confidentiality. Encrypt the archive afterwards if the data needs it,
   and note that doing so removes the ability to scrub or repair it, since
   neither the checksums nor the parity blocks are readable through ciphertext.
@@ -56,7 +56,7 @@ These are documented properties, not defects:
   size plus tables plus an output buffer, which is a documented limit rather
   than a resource-exhaustion bug.
 - Anything requiring the attacker to already have write access to the machine
-  running `nyx`, or to the archive being read, without a crafted-input step.
+  running `gleipnir`, or to the archive being read, without a crafted-input step.
 
 ## Supported versions
 

@@ -31,8 +31,8 @@
 </style>
 <rect class="bg" width="860" height="462"/>
 <text class="ttl" x="20" y="22">enwik8 — 100 MB of Wikipedia text</text>
-<text class="sub" x="20" y="39">nyx measured here on the released binary, round-trip verified. The rest are LTCB published sizes (Mahoney's hardware); bits per byte is size-only,</text>
-<text class="sub" x="20" y="54">so it is machine-independent and comparable.</text>
+<text class="sub" x="20" y="39">gleipnir measured here on the released binary, round-trip verified. The rest are LTCB published sizes (Mahoney's hardware); bits per byte is</text>
+<text class="sub" x="20" y="54">size-only, so it is machine-independent and comparable.</text>
 <text class="lbl" x="419.0" y="452" text-anchor="middle">bits per byte — lower is better</text>
 <text class="lbl" x="14" y="241.0" text-anchor="middle" transform="rotate(-90 14 241.0)"></text>
 <line class="grid" x1="128.0" y1="76" x2="128.0" y2="406"/>
@@ -68,10 +68,10 @@
 <text class="tagb" x="385.1" y="185.0" text-anchor="start" fill="#d29922">1.428</text>
 <text class="sub" x="426.1" y="185.0" text-anchor="start">LTCB</text>
 <rect x="128.0" y="201.1" width="263.5" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
-<text class="tagb" x="118.0" y="215.0" text-anchor="end" fill="#0969da">nyx -9</text>
+<text class="tagb" x="118.0" y="215.0" text-anchor="end" fill="#0969da">gleipnir -9</text>
 <text class="tagb" x="398.5" y="215.0" text-anchor="start" fill="#0969da">1.505</text>
 <rect x="128.0" y="231.1" width="275.4" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
-<text class="tagb" x="118.0" y="245.0" text-anchor="end" fill="#0969da">nyx -5</text>
+<text class="tagb" x="118.0" y="245.0" text-anchor="end" fill="#0969da">gleipnir -5</text>
 <text class="tagb" x="410.4" y="245.0" text-anchor="start" fill="#0969da">1.573</text>
 <rect x="128.0" y="261.1" width="276.7" height="19.8" fill="#8250df" opacity="0.7" rx="1.5"/>
 <text class="tag" x="118.0" y="275.0" text-anchor="end">lpaq1 -9</text>
@@ -93,5 +93,5 @@
 <text class="tag" x="118.0" y="395.0" text-anchor="end">gzip -9</text>
 <text class="tagb" x="645.5" y="395.0" text-anchor="start" fill="#953800">2.916</text>
 <text class="sub" x="686.5" y="395.0" text-anchor="start">LTCB</text>
-<text class="sub" x="702.0" y="91.0" text-anchor="end">nyx in blue; bars are bits per byte</text>
+<text class="sub" x="702.0" y="91.0" text-anchor="end">gleipnir in blue; bars are bits per byte</text>
 </svg>

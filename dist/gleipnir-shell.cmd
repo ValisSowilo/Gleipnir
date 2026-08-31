@@ -1,5 +1,5 @@
 @echo off
-rem Explorer right-click helper for Nyx.
+rem Explorer right-click helper for Gleipnir.
 rem
 rem Copyright 2026 ValisSowilo.  GPL-3.0-or-later; see LICENSE.md.
 rem
@@ -9,38 +9,38 @@ rem registry value silently do nothing.  Inside a batch file %1 is a real
 rem argument again, so this is where "extract next to the archive, in a folder
 rem named after it" can actually be worked out.
 rem
-rem It also keeps the console open.  Nyx runs for minutes to hours; a window
+rem It also keeps the console open.  Gleipnir runs for minutes to hours; a window
 rem that closes the instant it finishes would hide both the result and any
 rem error.
 rem
 rem NAME COLLISIONS.  Both actions invent an output name from an input name, so
 rem both can collide with something already there:
 rem
-rem   compress  C:\data      -> C:\data.nyx    ...which may already exist
-rem   extract   C:\data.nyx  -> C:\data\       ...and C:\data may exist, and
+rem   compress  C:\data      -> C:\data.gl    ...which may already exist
+rem   extract   C:\data.gl  -> C:\data\       ...and C:\data may exist, and
 rem                                               may even be a FILE.  That is
 rem                                               exactly what happens when you
-rem                                               extract report.txt.nyx while
+rem                                               extract report.txt.gl while
 rem                                               report.txt is still sitting
-rem                                               next to it -- Nyx cannot make
+rem                                               next to it -- Gleipnir cannot make
 rem                                               a directory where a file of
 rem                                               that name already is.
 rem
 rem Overwriting is the wrong answer for either: replacing an archive destroys
 rem data, and merging into an existing folder makes it impossible to tell what
 rem actually came out of the archive.  So both count up to a free name --
-rem "data (1).nyx", "data (2)", and so on.
+rem "data (1).gl", "data (2)", and so on.
 rem
-rem   nyx-shell.cmd compress <path>
-rem   nyx-shell.cmd extract  <archive>
-rem   nyx-shell.cmd verify   <archive>
-rem   nyx-shell.cmd list     <archive>
+rem   gleipnir-shell.cmd compress <path>
+rem   gleipnir-shell.cmd extract  <archive>
+rem   gleipnir-shell.cmd verify   <archive>
+rem   gleipnir-shell.cmd list     <archive>
 
 setlocal
-set "NYX=%~dp0nyx.exe"
+set "GLEIPNIR=%~dp0gleipnir.exe"
 
-if not exist "%NYX%" (
-    echo nyx.exe not found next to this script ^(%~dp0^)
+if not exist "%GLEIPNIR%" (
+    echo gleipnir.exe not found next to this script ^(%~dp0^)
     goto :wait
 )
 
@@ -53,7 +53,7 @@ goto :wait
 
 rem --------------------------------------------------------------- compress
 :compress
-call :freename "%~2" ".nyx" TARGET
+call :freename "%~2" ".gl" TARGET
 if not defined TARGET goto :toomany
 echo Compressing "%~2"
 echo   into "%TARGET%"
@@ -61,28 +61,28 @@ echo.
 echo This is slow by design -- roughly 0.6 MB/s at the default preset.
 echo Press Ctrl+C to stop; nothing you are compressing will be modified.
 echo.
-"%NYX%" c "%TARGET%" "%~2"
+"%GLEIPNIR%" c "%TARGET%" "%~2"
 goto :wait
 
 rem ---------------------------------------------------------------- extract
 :extract
-rem  C:\foo\data.nyx  ->  C:\foo\data\   (or "data (1)" if that name is taken)
+rem  C:\foo\data.gl  ->  C:\foo\data\   (or "data (1)" if that name is taken)
 call :freename "%~dp2%~n2" "" TARGET
 if not defined TARGET goto :toomany
 echo Extracting "%~2"
 echo   into "%TARGET%\"
 echo.
-"%NYX%" x "%~2" "%TARGET%"
+"%GLEIPNIR%" x "%~2" "%TARGET%"
 goto :wait
 
 :verify
 echo Checking "%~2"
 echo.
-"%NYX%" t "%~2"
+"%GLEIPNIR%" t "%~2"
 goto :wait
 
 :list
-"%NYX%" l "%~2"
+"%GLEIPNIR%" l "%~2"
 goto :wait
 
 rem ------------------------------------------------------------------------
@@ -116,7 +116,7 @@ goto :eof
 :toomany
 echo.
 echo Could not find a free name near "%~2" -- 999 variants already exist.
-echo Move or delete some of them, or run Nyx from a terminal and name the
+echo Move or delete some of them, or run Gleipnir from a terminal and name the
 echo output yourself.
 goto :wait
 

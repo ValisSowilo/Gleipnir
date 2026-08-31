@@ -1,12 +1,12 @@
-# Nyx — a context-mixing archiver
+# Gleipnir — a context-mixing archiver
 
-`nyx` compresses substantially harder than general-purpose tools and is
+`gleipnir` compresses substantially harder than general-purpose tools and is
 correspondingly slower. This document is about deciding whether that trade is
 right for your data, and then operating it safely.
 
 ## Is this the right tool for your data?
 
-Read this section before the rest. `nyx` is a poor fit for most jobs.
+Read this section before the rest. `gleipnir` is a poor fit for most jobs.
 
 Measured on the full Silesia corpus (211,938,580 bytes), single-threaded, on a
 Ryzen 5 4500:
@@ -57,7 +57,7 @@ on this six-core box measured a 4.4× speedup (`-f1` went from 1.82 to 8.00
 MB/s on a 2.2 GB file), which brings that down to roughly **four and a half
 days each way**. Plan capacity from those numbers, not from the MB/s figure.
 
-So `nyx` earns its place on data that is:
+So `gleipnir` earns its place on data that is:
 
 - **written once and read rarely** — you pay the compression cost a single
   time and the storage saving every month afterwards;
@@ -72,20 +72,20 @@ It is the wrong tool for backups you might need to restore under time
 pressure, for anything in a latency-sensitive path, for data already
 compressed (video, JPEG, most archives), and for petabyte-scale stores.
 
-Against the closest comparable tool, `zpaq -m5`, `nyx -5` wins on all three
+Against the closest comparable tool, `zpaq -m5`, `gleipnir -5` wins on all three
 axes at once — 2.2% smaller, 1.6× faster, 43% less memory. That advantage is
 specific to `-5`: `-9` is 9.0% smaller than zpaq but costs 1.07× the time and
-1.26× the memory, so it wins on size alone. Against `zstd --long -19` nyx is
+1.26× the memory, so it wins on size alone. Against `zstd --long -19` gleipnir is
 far smaller and far slower. Those are the comparisons worth making.
 
 ## Quick start
 
 ```bash
-nyx c -5 archive.nyx /data/logs        # compress a directory
-nyx l archive.nyx                      # list what is in it
-nyx t archive.nyx                      # check integrity
-nyx x archive.nyx /restore             # extract
-nyx r archive.nyx fixed.nyx            # rebuild damaged segments
+gleipnir c -5 archive.gl /data/logs        # compress a directory
+gleipnir l archive.gl                      # list what is in it
+gleipnir t archive.gl                      # check integrity
+gleipnir x archive.gl /restore             # extract
+gleipnir r archive.gl fixed.gl            # rebuild damaged segments
 ```
 
 `x`, `e` and `d` all extract and are interchangeable — `x` is the spelling
@@ -99,7 +99,7 @@ archive is corrupt or fails verification. Scripts should check it.
 ## Recommended cold-storage settings
 
 ```bash
-nyx c -5 -t0 -p32 archive.nyx /data/2019-invoices
+gleipnir c -5 -t0 -p32 archive.gl /data/2019-invoices
 ```
 
 - **`-5`** is the value preset, and `-7` is the one to consider next. Going
@@ -151,7 +151,7 @@ cleanly, and every size in the table is exact.
 Then, and this is the part people skip:
 
 ```bash
-nyx t -D archive.nyx && echo "verified"
+gleipnir t -D archive.gl && echo "verified"
 ```
 
 Verify before you delete the source, and keep verifying afterwards. That is
@@ -163,8 +163,8 @@ There are two verify modes, and the distinction is operational rather than
 cosmetic.
 
 ```bash
-nyx t archive.nyx        # fast: checks stored checksums, no decoding
-nyx t -D archive.nyx     # deep: decodes everything, checks SHA-256 too
+gleipnir t archive.gl        # fast: checks stored checksums, no decoding
+gleipnir t -D archive.gl     # deep: decodes everything, checks SHA-256 too
 ```
 
 The fast scrub reads each stored segment and checks it against a checksum of
@@ -176,8 +176,8 @@ Measured on a real 2.2 GB archive (34 segments, `-f1`):
 
 | | time | rate | peak RAM |
 |---|---|---|---|
-| `nyx t` (scrub) | **0.98 s** | 399 MB/s | 4 MB |
-| `nyx t -D` (deep) | **1301 s** | 1.71 MB/s | 305 MB |
+| `gleipnir t` (scrub) | **0.98 s** | 399 MB/s | 4 MB |
+| `gleipnir t -D` (deep) | **1301 s** | 1.71 MB/s | 305 MB |
 
 **1330× apart.** The scrub is limited by how fast the disk hands over the
 bytes; the deep verify is limited by the model. Scaled to a terabyte, that is
@@ -185,10 +185,10 @@ roughly forty-five minutes against something over a fortnight.
 
 Use them for different jobs:
 
-- **`nyx t` on a schedule** — monthly, quarterly, whatever your retention
+- **`gleipnir t` on a schedule** — monthly, quarterly, whatever your retention
   policy says. It catches storage decay, which is what actually happens to
   archived data, and it is cheap enough that you will really run it.
-- **`nyx t -D` once, before deleting the source.** It additionally proves the
+- **`gleipnir t -D` once, before deleting the source.** It additionally proves the
   data decodes and matches the SHA-256 you can reconcile against a manifest.
   That catches a different class of problem — an encoder bug rather than a bad
   sector — and is worth doing exactly once, when the original still exists.
@@ -196,21 +196,21 @@ Use them for different jobs:
 When a scrub reports damage:
 
 ```
-nyx: logs/2019.json: segment 41 is damaged but recoverable from its recovery record
-nyx scrub: 812 segments intact, 1 recoverable  (2196 MB read, 480 MB/s)
-nyx: run 'nyx r archive.nyx fixed.nyx' to write a clean copy
+gleipnir: logs/2019.json: segment 41 is damaged but recoverable from its recovery record
+gleipnir scrub: 812 segments intact, 1 recoverable  (2196 MB read, 480 MB/s)
+gleipnir: run 'gleipnir r archive.gl fixed.gl' to write a clean copy
 ```
 
-`nyx r` rewrites the archive with every recoverable segment rebuilt. The
+`gleipnir r` rewrites the archive with every recoverable segment rebuilt. The
 payloads and all their checksums carry across unchanged, so the repaired copy
 verifies against the same digests as the original:
 
 ```
-nyx repair: 1 segment rebuilt, 0 unrecoverable -> fixed.nyx
+gleipnir repair: 1 segment rebuilt, 0 unrecoverable -> fixed.gl
 ```
 
 If a segment cannot be recovered — no recovery records, or two failures in one
-group — `nyx r` says so, copies it through as-is rather than pretending, and
+group — `gleipnir r` says so, copies it through as-is rather than pretending, and
 exits 2.
 
 ## What protects your data
@@ -226,7 +226,7 @@ corruption, not loud corruption.
    hashed. Together they turn "your restore is subtly wrong" into "segment 7
    of 40 is bad".
 3. **SHA-256 per member**, stored in the index and verified on extract. Also
-   printable with `nyx l -L`, so an archive can be reconciled against a
+   printable with `gleipnir l -L`, so an archive can be reconciled against a
    manifest you already keep without restoring it.
 4. **A checksummed index, recorded twice.** Its position is in the header and
    implied by the trailer; the trailer wins, because the header is the only
@@ -259,7 +259,7 @@ with three segments and `-p32` pays a full extra block — measured at +54%, not
 +3%. Recovery records are for archives large enough to have many groups. Below
 a few hundred megabytes, keeping a second copy is cheaper and strictly better.
 
-Check what you actually paid with `nyx l`, which now reports it:
+Check what you actually paid with `gleipnir l`, which now reports it:
 
 ```
         650000         136569  1.681  total
@@ -274,7 +274,7 @@ complexity when you must locate the errors too, and here the index already
 did.
 
 The limit is one loss per group. Two damaged segments in the same group cannot
-be recovered, and `nyx` will say so rather than hand you a reconstruction it
+be recovered, and `gleipnir` will say so rather than hand you a reconstruction it
 cannot vouch for: the garbage XOR fails the same segment checksum that
 triggered the attempt.
 
@@ -282,11 +282,11 @@ triggered the attempt.
 
 Each worker owns a complete private model, so memory scales with `-t`. At `-9`
 a single model is over a gigabyte, which means `-t0` on a twelve-thread machine
-would ask for roughly 18 GB. `nyx` measures installed RAM and caps the thread
+would ask for roughly 18 GB. `gleipnir` measures installed RAM and caps the thread
 count to fit, telling you when it does:
 
 ```
-nyx: -t12 needs ~18432 MB, capping at -t7 (16384 MB installed)
+gleipnir: -t12 needs ~18432 MB, capping at -t7 (16384 MB installed)
 ```
 
 Memory is bounded by the segment size and thread count, **not** by how large
@@ -297,17 +297,17 @@ Neither figure is a function of the 2.2 GB.
 `-sN` sets the maximum segment size in MB (default 64). Smaller segments bound
 memory and shrink the blast radius of damage; larger ones compress better,
 because the model sees more history before it resets. Segments are also the
-unit of parallelism, so on a file smaller than `N × -t`, `nyx` shrinks them to
+unit of parallelism, so on a file smaller than `N × -t`, `gleipnir` shrinks them to
 keep every core busy.
 
 **Solid mode — one segment, best ratio.** Setting `-s` above the file size puts
 the whole input in a single segment, so the model never resets mid-file:
 
 ```bash
-nyx c -9 -s2000 archive.nyx bigfile     # one segment for anything under 2 GB
+gleipnir c -9 -s2000 archive.gl bigfile     # one segment for anything under 2 GB
 ```
 
-On a single large file this is the smallest `nyx` can go. `enwik8 -9` drops 1.8%
+On a single large file this is the smallest `gleipnir` can go. `enwik8 -9` drops 1.8%
 (19,155,646 → 18,810,676) and `enwik9 -9` drops 4.3% (164,080,953 → 157,073,377),
 the gain widening with preset because a cold restart wastes more of a stronger
 model. Time is unchanged — the work is identical, only the segment boundaries
@@ -326,18 +326,18 @@ that much memory to read back.
 
 ## How members are named
 
-With **one input**, the archive is rooted at it — `nyx c a.nyx /data/tree`
+With **one input**, the archive is rooted at it — `gleipnir c a.gl /data/tree`
 stores `/data/tree/logs/app.log` as `logs/app.log`.
 
 With **several inputs**, each keeps its own last component, so they cannot
-collide with each other — `nyx c a.nyx /data/tree /other/set` stores
+collide with each other — `gleipnir c a.gl /data/tree /other/set` stores
 `tree/logs/app.log` and `set/...`.
 
-If two inputs still resolve to the same stored name, `nyx` warns and exits 1
+If two inputs still resolve to the same stored name, `gleipnir` warns and exits 1
 rather than letting extraction silently keep only the last one:
 
 ```
-nyx: warning: /x/data/f and /y/data/f both store as 'data/f';
+gleipnir: warning: /x/data/f and /y/data/f both store as 'data/f';
      extraction will keep only the last
 ```
 
@@ -349,12 +349,12 @@ Windows extracts correctly on Linux and back.
 `-x GLOB` skips paths matching a pattern, and is repeatable:
 
 ```bash
-nyx c -5 -t0 -p32 -x '*.iso' -x '*.mp4' -x 'cache/*' archive.nyx /data
+gleipnir c -5 -t0 -p32 -x '*.iso' -x '*.mp4' -x 'cache/*' archive.gl /data
 ```
 
 **Every option has to come before the archive name.** Anything after it is an
 input path, so a trailing `-x '*.iso'` is read as two files that do not exist —
-`nyx` reports them and exits 1, having archived everything you meant to skip.
+`gleipnir` reports them and exits 1, having archived everything you meant to skip.
 
 Patterns support `*` and `?`, and are matched against both the name the file
 will have *inside* the archive and its bare filename — so `-x '*.log'` works
@@ -362,13 +362,13 @@ regardless of how deep the tree goes, and `-x 'cache/*'` refers to the
 archive's own layout rather than to a path on the machine you happen to be
 running from.
 
-Excluding data that is already compressed is usually worth it. `nyx` will
+Excluding data that is already compressed is usually worth it. `gleipnir` will
 detect incompressible input and store it verbatim, but it pays full model
 speed to discover that.
 
 ## Inventory and manifests
 
-`nyx l -M` prints a `sha256sum`-compatible manifest:
+`gleipnir l -M` prints a `sha256sum`-compatible manifest:
 
 ```
 7838d85690aa8248ee7a45a9053903dab5777695339836b6e71941609de8ca65  logs/app.log
@@ -377,30 +377,30 @@ speed to discover that.
 
 Two uses. Before archiving, save it next to the archive so the contents are
 auditable without opening it. After restoring, pipe it to `sha256sum -c` to
-confirm the extracted tree independently of `nyx`'s own verification — a check
+confirm the extracted tree independently of `gleipnir`'s own verification — a check
 that does not share code with the thing being checked.
 
 ## Deduplication
 
-Identical files are compressed once. `nyx` hashes every input before
+Identical files are compressed once. `gleipnir` hashes every input before
 compressing anything — reading at disk speed to avoid re-compressing at under
 a megabyte a second — and duplicates become index entries pointing at the same
 segments. On redundant directory trees this is not a small effect, and it is
 reported:
 
 ```
-nyx: 2 duplicate files stored once, 1 MB not recompressed
+gleipnir: 2 duplicate files stored once, 1 MB not recompressed
 ```
 
 ## Full option list
 
 ```
-nyx c [opts] archive path...            compress files or directories
-nyx x [opts] archive [dir] [member...]  extract (into dir, default .)
+gleipnir c [opts] archive path...            compress files or directories
+gleipnir x [opts] archive [dir] [member...]  extract (into dir, default .)
                                         d and e do the same thing
-nyx t [opts] archive                    check integrity
-nyx l [opts] archive                    list contents
-nyx r archive out.nyx                   rebuild damaged segments
+gleipnir t [opts] archive                    check integrity
+gleipnir l [opts] archive                    list contents
+gleipnir r archive out.gl                   rebuild damaged segments
 
 -1..-9    preset, -1 fastest .. -9 smallest (default 5)
 -f1/-f2   throughput presets below -1
@@ -417,11 +417,11 @@ nyx r archive out.nyx                   rebuild damaged segments
 ```
 
 Extraction takes an optional list of member names after the destination, so
-`nyx x archive.nyx /restore logs/2019.json` pulls out just that one.
+`gleipnir x archive.gl /restore logs/2019.json` pulls out just that one.
 
 ## Safety when extracting
 
-An archive is untrusted input. `nyx` refuses member names that are absolute,
+An archive is untrusted input. `gleipnir` refuses member names that are absolute,
 carry a drive letter, contain a `..` component, or hold control characters, so
 extraction cannot write outside the destination directory. Stored names are
 always relative and slash-separated, so an archive written on Windows extracts
@@ -477,12 +477,12 @@ Everything above is checked by three suites that must all pass before a build
 is used:
 
 ```bash
-python scripts/fuzz.py  nyx.exe --v2      # 81 edge cases x 8 presets = 648 round trips
-python scripts/tfuzz.py nyx.exe --v2      # decode at a different -t than encoded
-python scripts/gfuzz.py 250 --exe nyx.exe     # corruption: every mode, every damage model
+python scripts/fuzz.py  gleipnir.exe --v2      # 81 edge cases x 8 presets = 648 round trips
+python scripts/tfuzz.py gleipnir.exe --v2      # decode at a different -t than encoded
+python scripts/gfuzz.py 250 --exe gleipnir.exe     # corruption: every mode, every damage model
 ```
 
 `scripts/gfuzz.py` is the one specific to this format. It asserts the contract that
-makes an archiver trustworthy: for *any* input, `nyx` either exits 0 with
+makes an archiver trustworthy: for *any* input, `gleipnir` either exits 0 with
 byte-exact output or exits non-zero with a diagnostic. Never a crash, never a
 hang, and never exit 0 with wrong bytes.

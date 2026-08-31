@@ -1,4 +1,4 @@
-Nyx -- a context-mixing archiver
+Gleipnir -- a context-mixing archiver
 
 Copyright (C) 2026 ValisSowilo
 https://github.com/ValisSowilo
@@ -6,17 +6,17 @@ https://github.com/ValisSowilo
 
 LICENCE
 
-Nyx is free software, licensed under the GNU General Public License, version 3
+Gleipnir is free software, licensed under the GNU General Public License, version 3
 or (at your option) any later version. The full text is in LICENSE.md, which
 ships alongside this file and is the authoritative statement of your rights.
 The summary below is a convenience, not a substitute for it.
 
-  You may     run Nyx for any purpose, including in production, commercially,
+  You may     run Gleipnir for any purpose, including in production, commercially,
                 at any scale, without paying anyone and without asking
               read the source, study it, and modify it
               redistribute copies, modified or not, and charge for doing so
 
-  You must    pass on the same freedoms to anyone you give Nyx to
+  You must    pass on the same freedoms to anyone you give Gleipnir to
               offer them the corresponding source under the GPL
               keep the copyright notices and this licence text intact
               state clearly what you changed, if you distribute a modified
@@ -36,7 +36,7 @@ ENTIRE RISK AS TO ITS QUALITY AND PERFORMANCE IS WITH YOU. SEE SECTIONS 15 AND
 COMMERCIAL LICENSING
 
 The copyright is retained by the author, so a separate licence can be granted
-where the GPL does not fit -- embedding Nyx in a product distributed under
+where the GPL does not fit -- embedding Gleipnir in a product distributed under
 other terms, or obtaining a warranty, indemnity or support commitment. Nothing
 about ordinary use, including commercial use, requires this. COMMERCIAL.md in
 the source repository has the detail.
@@ -46,21 +46,21 @@ the source repository has the detail.
 
 LICENCE HISTORY
 
-Nyx 1.0.0 was first published under the Business Source License 1.1 with a
-Change Date of 2030-08-04. That conversion has been brought forward and Nyx is
+Gleipnir 1.0.0 was first published under the Business Source License 1.1 with a
+Change Date of 2030-08-04. That conversion has been brought forward and Gleipnir is
 now GPL-3.0-or-later; the BSL terms no longer apply to any version.
 
 
 THIRD-PARTY COMPONENTS
 
-Nyx links zlib, used to recover and re-emit DEFLATE streams found inside the
+Gleipnir links zlib, used to recover and re-emit DEFLATE streams found inside the
 data being compressed.
 
   zlib 1.3.1
   Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler
   https://zlib.net/
 
-  The zlib licence is permissive and places no restriction on the terms Nyx
+  The zlib licence is permissive and places no restriction on the terms Gleipnir
   itself is offered under, so bundling it creates no conflict. Its terms
   require this notice travel with any distribution, so here it is in full:
 
@@ -85,12 +85,12 @@ data being compressed.
 
 The Windows installer is produced with Inno Setup (Copyright (C) 1997-2025
 Jordan Russell, https://jrsoftware.org/), used as a build tool only. It places
-no licence obligation on Nyx.
+no licence obligation on Gleipnir.
 
 
 ACKNOWLEDGEMENTS
 
-Nyx's engine follows the context-mixing lineage established by Matt Mahoney's
+Gleipnir's engine follows the context-mixing lineage established by Matt Mahoney's
 PAQ series and ZPAQ, and the lpaq family. The techniques it builds on -- bit-
 history state machines, logistic mixing in the stretched domain, SSE/APM
 refinement stages, and indirect secondary symbol estimation -- originate in

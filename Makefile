@@ -1,7 +1,7 @@
-# Nyx -- a context-mixing archiver
+# Gleipnir -- a context-mixing archiver
 # Copyright 2026 ValisSowilo.  GPL-3.0-or-later; see LICENSE.md.
 #
-#   make            build ./nyx
+#   make            build ./gleipnir
 #   make test       build, then round-trip a couple of files through it
 #   make install    copy to $(PREFIX)/bin        (default ~/.local/bin)
 #   make uninstall
@@ -30,8 +30,8 @@ CFLAGS  ?= -O3 -funroll-loops $(ARCH) -ffp-contract=off
 LDFLAGS ?=
 LIBS    ?= -lz -lm -lpthread
 
-SRC = nyx.c
-BIN = nyx
+SRC = gleipnir.c
+BIN = gleipnir
 
 .PHONY: all test install uninstall clean
 
@@ -46,9 +46,9 @@ test: $(BIN)
 	@./$(BIN) --version
 	@tmp=$$(mktemp -d) && \
 	  cp $(SRC) $$tmp/big.c && cp Makefile $$tmp/small.txt && \
-	  ./$(BIN) c -3 -q $$tmp/a.nyx $$tmp/big.c $$tmp/small.txt && \
-	  ./$(BIN) t $$tmp/a.nyx && \
-	  mkdir -p $$tmp/out && ./$(BIN) x -q $$tmp/a.nyx $$tmp/out && \
+	  ./$(BIN) c -3 -q $$tmp/a.gl $$tmp/big.c $$tmp/small.txt && \
+	  ./$(BIN) t $$tmp/a.gl && \
+	  mkdir -p $$tmp/out && ./$(BIN) x -q $$tmp/a.gl $$tmp/out && \
 	  cmp $$tmp/big.c $$tmp/out/big.c && \
 	  cmp $$tmp/small.txt $$tmp/out/small.txt && \
 	  echo "round trip OK" && rm -rf $$tmp
@@ -57,7 +57,7 @@ install: $(BIN)
 	install -d $(DESTDIR)$(PREFIX)/bin
 	install -m 755 $(BIN) $(DESTDIR)$(PREFIX)/bin/$(BIN)
 	@echo "installed to $(DESTDIR)$(PREFIX)/bin/$(BIN)"
-	@echo "if 'nyx' is not found, add $(PREFIX)/bin to your PATH"
+	@echo "if 'gleipnir' is not found, add $(PREFIX)/bin to your PATH"
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(BIN)

@@ -1,4 +1,4 @@
-; Inno Setup script for Nyx -- builds nyx-1.0.0-setup.exe
+; Inno Setup script for Gleipnir -- builds gleipnir-1.0.0-setup.exe
 ;
 ; Copyright 2026 ValisSowilo.  GPL-3.0-or-later; see LICENSE.md.
 ;
@@ -8,11 +8,11 @@
 ; to have people run the whole thing as admin out of habit.
 ;
 ; Build:
-;   "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" packaging\nyx.iss
+;   "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" packaging\gleipnir.iss
 
-#define AppName    "Nyx"
+#define AppName    "Gleipnir"
 #define AppVer     "1.0.0"
-#define AppExe     "nyx.exe"
+#define AppExe     "gleipnir.exe"
 #define AppPublish "ValisSowilo"
 
 [Setup]
@@ -24,14 +24,14 @@ AppPublisher={#AppPublish}
 AppPublisherURL=https://github.com/ValisSowilo
 AppSupportURL=https://github.com/ValisSowilo
 AppCopyright=Copyright 2026 ValisSowilo - GPL-3.0-or-later
-DefaultDirName={localappdata}\Programs\Nyx
+DefaultDirName={localappdata}\Programs\Gleipnir
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 DisableDirPage=no
 ; Per-user: no UAC prompt, installs under the user's own profile.
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=nyx-{#AppVer}-setup
+OutputBaseFilename=gleipnir-{#AppVer}-setup
 Compression=lzma2/max
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
@@ -52,29 +52,29 @@ VersionInfoProductName={#AppName}
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "addtopath"; Description: "Add Nyx to my PATH (lets you run 'nyx' from any terminal)"; GroupDescription: "Command line:"
-Name: "contextmenu"; Description: "Add Nyx to the right-click menu in File Explorer"; GroupDescription: "Explorer:"
+Name: "addtopath"; Description: "Add Gleipnir to my PATH (lets you run 'gleipnir' from any terminal)"; GroupDescription: "Command line:"
+Name: "contextmenu"; Description: "Add Gleipnir to the right-click menu in File Explorer"; GroupDescription: "Explorer:"
 
 ; End-user files only.  ARCHITECTURE.md and EXPERIENCES.md are development
 ; notes -- why the engine is built the way it is, and what went wrong while
-; building it.  They are useful to someone working on Nyx and pure clutter in
+; building it.  They are useful to someone working on Gleipnir and pure clutter in
 ; an install directory, so they stay with the source rather than shipping.
 [Files]
-Source: "..\dist\nyx.exe";       DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\gleipnir.exe";       DestDir: "{app}"; Flags: ignoreversion
 Source: "..\dist\README.txt";    DestDir: "{app}"; Flags: ignoreversion
 Source: "..\dist\USAGE.txt";     DestDir: "{app}"; Flags: ignoreversion
 Source: "..\dist\LICENSE.txt";   DestDir: "{app}"; Flags: ignoreversion
 Source: "..\dist\LICENSE.md";    DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\nyx-shell.cmd"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\gleipnir-shell.cmd"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\Nyx README"; Filename: "{app}\README.txt"
-Name: "{group}\Nyx usage reference"; Filename: "{app}\USAGE.txt"
-Name: "{group}\Uninstall Nyx"; Filename: "{uninstallexe}"
+Name: "{group}\Gleipnir README"; Filename: "{app}\README.txt"
+Name: "{group}\Gleipnir usage reference"; Filename: "{app}\USAGE.txt"
+Name: "{group}\Uninstall Gleipnir"; Filename: "{uninstallexe}"
 
 ; Explorer integration, all under HKCU so no elevation is needed and nothing
 ; is written outside this user's profile.  Every key carries uninsdeletekey,
-; so removing Nyx removes the menu entries with it.
+; so removing Gleipnir removes the menu entries with it.
 ;
 ; On Windows 11 these appear under "Show more options" (or Shift+F10), not on
 ; the short menu that opens by default.  Getting onto the short menu requires
@@ -82,28 +82,28 @@ Name: "{group}\Uninstall Nyx"; Filename: "{uninstallexe}"
 ; machinery for two entries.
 [Registry]
 ; --- right-click a folder: compress it
-Root: HKCU; Subkey: "Software\Classes\Directory\shell\nyx_compress"; ValueType: string; ValueName: ""; ValueData: "Compress with Nyx"; Tasks: contextmenu; Flags: uninsdeletekey
-Root: HKCU; Subkey: "Software\Classes\Directory\shell\nyx_compress"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\nyx.exe,0"; Tasks: contextmenu
-Root: HKCU; Subkey: "Software\Classes\Directory\shell\nyx_compress\command"; ValueType: string; ValueName: ""; ValueData: """{app}\nyx-shell.cmd"" compress ""%1"""; Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\Directory\shell\gleipnir_compress"; ValueType: string; ValueName: ""; ValueData: "Compress with Gleipnir"; Tasks: contextmenu; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\Directory\shell\gleipnir_compress"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\gleipnir.exe,0"; Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\Directory\shell\gleipnir_compress\command"; ValueType: string; ValueName: ""; ValueData: """{app}\gleipnir-shell.cmd"" compress ""%1"""; Tasks: contextmenu
 
 ; --- right-click any file: compress it
-Root: HKCU; Subkey: "Software\Classes\*\shell\nyx_compress"; ValueType: string; ValueName: ""; ValueData: "Compress with Nyx"; Tasks: contextmenu; Flags: uninsdeletekey
-Root: HKCU; Subkey: "Software\Classes\*\shell\nyx_compress"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\nyx.exe,0"; Tasks: contextmenu
-Root: HKCU; Subkey: "Software\Classes\*\shell\nyx_compress\command"; ValueType: string; ValueName: ""; ValueData: """{app}\nyx-shell.cmd"" compress ""%1"""; Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\*\shell\gleipnir_compress"; ValueType: string; ValueName: ""; ValueData: "Compress with Gleipnir"; Tasks: contextmenu; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\*\shell\gleipnir_compress"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\gleipnir.exe,0"; Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\*\shell\gleipnir_compress\command"; ValueType: string; ValueName: ""; ValueData: """{app}\gleipnir-shell.cmd"" compress ""%1"""; Tasks: contextmenu
 
-; --- .nyx files get their own type, with extract / verify / list
-Root: HKCU; Subkey: "Software\Classes\.nyx"; ValueType: string; ValueName: ""; ValueData: "Nyx.archive"; Tasks: contextmenu; Flags: uninsdeletevalue
-Root: HKCU; Subkey: "Software\Classes\Nyx.archive"; ValueType: string; ValueName: ""; ValueData: "Nyx archive"; Tasks: contextmenu; Flags: uninsdeletekey
-Root: HKCU; Subkey: "Software\Classes\Nyx.archive\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\nyx.exe,0"; Tasks: contextmenu
+; --- .gl files get their own type, with extract / verify / list
+Root: HKCU; Subkey: "Software\Classes\.gl"; ValueType: string; ValueName: ""; ValueData: "Gleipnir.archive"; Tasks: contextmenu; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\Gleipnir.archive"; ValueType: string; ValueName: ""; ValueData: "Gleipnir archive"; Tasks: contextmenu; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\Gleipnir.archive\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\gleipnir.exe,0"; Tasks: contextmenu
 
-Root: HKCU; Subkey: "Software\Classes\Nyx.archive\shell\extract"; ValueType: string; ValueName: ""; ValueData: "Extract here"; Tasks: contextmenu
-Root: HKCU; Subkey: "Software\Classes\Nyx.archive\shell\extract\command"; ValueType: string; ValueName: ""; ValueData: """{app}\nyx-shell.cmd"" extract ""%1"""; Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\Gleipnir.archive\shell\extract"; ValueType: string; ValueName: ""; ValueData: "Extract here"; Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\Gleipnir.archive\shell\extract\command"; ValueType: string; ValueName: ""; ValueData: """{app}\gleipnir-shell.cmd"" extract ""%1"""; Tasks: contextmenu
 
-Root: HKCU; Subkey: "Software\Classes\Nyx.archive\shell\verify"; ValueType: string; ValueName: ""; ValueData: "Verify (fast check)"; Tasks: contextmenu
-Root: HKCU; Subkey: "Software\Classes\Nyx.archive\shell\verify\command"; ValueType: string; ValueName: ""; ValueData: """{app}\nyx-shell.cmd"" verify ""%1"""; Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\Gleipnir.archive\shell\verify"; ValueType: string; ValueName: ""; ValueData: "Verify (fast check)"; Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\Gleipnir.archive\shell\verify\command"; ValueType: string; ValueName: ""; ValueData: """{app}\gleipnir-shell.cmd"" verify ""%1"""; Tasks: contextmenu
 
-Root: HKCU; Subkey: "Software\Classes\Nyx.archive\shell\list"; ValueType: string; ValueName: ""; ValueData: "List contents"; Tasks: contextmenu
-Root: HKCU; Subkey: "Software\Classes\Nyx.archive\shell\list\command"; ValueType: string; ValueName: ""; ValueData: """{app}\nyx-shell.cmd"" list ""%1"""; Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\Gleipnir.archive\shell\list"; ValueType: string; ValueName: ""; ValueData: "List contents"; Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\Gleipnir.archive\shell\list\command"; ValueType: string; ValueName: ""; ValueData: """{app}\gleipnir-shell.cmd"" list ""%1"""; Tasks: contextmenu
 
 [Run]
 Filename: "{app}\README.txt"; Description: "Open the README (it explains why this is slow)"; Flags: shellexec postinstall skipifsilent unchecked

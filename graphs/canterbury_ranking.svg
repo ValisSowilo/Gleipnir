@@ -51,10 +51,10 @@
 <text class="tag" x="118.0" y="95.0" text-anchor="end">paq8px -8</text>
 <text class="tagb" x="345.2" y="95.0" text-anchor="start" fill="#bf3989">0.862</text>
 <rect x="128.0" y="111.1" width="247.0" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
-<text class="tagb" x="118.0" y="125.0" text-anchor="end" fill="#0969da">nyx -9</text>
+<text class="tagb" x="118.0" y="125.0" text-anchor="end" fill="#0969da">gleipnir -9</text>
 <text class="tagb" x="382.0" y="125.0" text-anchor="start" fill="#0969da">1.013</text>
 <rect x="128.0" y="141.1" width="249.8" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
-<text class="tagb" x="118.0" y="155.0" text-anchor="end" fill="#0969da">nyx -7</text>
+<text class="tagb" x="118.0" y="155.0" text-anchor="end" fill="#0969da">gleipnir -7</text>
 <text class="tagb" x="384.8" y="155.0" text-anchor="start" fill="#0969da">1.024</text>
 <rect x="128.0" y="171.1" width="251.9" height="19.8" fill="#d29922" opacity="0.7" rx="1.5"/>
 <text class="tag" x="118.0" y="185.0" text-anchor="end">zpaq -m5</text>
@@ -71,5 +71,5 @@
 <rect x="128.0" y="291.1" width="510.5" height="19.8" fill="#953800" opacity="0.7" rx="1.5"/>
 <text class="tag" x="118.0" y="305.0" text-anchor="end">gzip -9</text>
 <text class="tagb" x="645.5" y="305.0" text-anchor="start" fill="#953800">2.093</text>
-<text class="sub" x="702.0" y="91.0" text-anchor="end">nyx in blue; bars are bits per byte</text>
+<text class="sub" x="702.0" y="91.0" text-anchor="end">gleipnir in blue; bars are bits per byte</text>
 </svg>

@@ -1,26 +1,26 @@
-Nyx 1.0.0 -- usage reference
+Gleipnir 1.0.0 -- usage reference
 ============================
 
-Run `nyx --help` for a short version of the option list below.
+Run `gleipnir --help` for a short version of the option list below.
 
 
 COMMANDS
 --------
 
-  nyx c [opts] archive path...              compress files or directories
-  nyx x [opts] archive [dir] [member...]    extract
-  nyx t [opts] archive                      check integrity
-  nyx l [opts] archive                      list contents
-  nyx r archive out.nyx                     rebuild damaged segments
+  gleipnir c [opts] archive path...              compress files or directories
+  gleipnir x [opts] archive [dir] [member...]    extract
+  gleipnir t [opts] archive                      check integrity
+  gleipnir l [opts] archive                      list contents
+  gleipnir r archive out.gl                     rebuild damaged segments
 
 `x`, `e` and `d` all extract and are interchangeable. Note that 7-Zip's `e`
-flattens directories and Nyx's does not. Nyx always restores the stored
+flattens directories and Gleipnir's does not. Gleipnir always restores the stored
 structure, so here `e` and `x` are the same thing.
 
 If you extract with no directory given, files land in the current directory.
 Naming specific members after the directory extracts only those:
 
-  nyx x archive.nyx restored a.txt logs/x.log
+  gleipnir x archive.gl restored a.txt logs/x.log
 
 Exit codes, which are the contract for scripting:
 
@@ -67,29 +67,29 @@ TYPICAL USE
 
 Compress a folder, check it, extract it:
 
-  nyx c archive.nyx myfolder
-  nyx t archive.nyx
-  nyx d archive.nyx restored
+  gleipnir c archive.gl myfolder
+  gleipnir t archive.gl
+  gleipnir d archive.gl restored
 
 For cold storage:
 
-  nyx c -5 -t0 -p32 archive.nyx /data
-  nyx t archive.nyx
+  gleipnir c -5 -t0 -p32 archive.gl /data
+  gleipnir t archive.gl
 
-then delete the originals yourself, once `nyx t` has passed. Nyx never
+then delete the originals yourself, once `gleipnir t` has passed. Gleipnir never
 deletes or modifies anything you point it at.
 
 Excluding things you do not want stored:
 
-  nyx c archive.nyx /data -x "*.tmp" -x "cache/*" -x "*.iso"
+  gleipnir c archive.gl /data -x "*.tmp" -x "cache/*" -x "*.iso"
 
 Saving an inventory next to the archive, so its contents are auditable
 without opening it:
 
-  nyx l -M archive.nyx > archive.manifest
+  gleipnir l -M archive.gl > archive.manifest
 
 After restoring, that manifest can be checked with a tool that shares no
-code with Nyx at all:
+code with Gleipnir at all:
 
   sha256sum -c archive.manifest
 
@@ -125,8 +125,8 @@ understood. Every other preset repeats consistently.
 VERIFYING WITHOUT A FULL RESTORE
 --------------------------------
 
-  nyx t archive.nyx       checks stored checksums.  Runs at disk speed.
-  nyx t -D archive.nyx    decodes everything and checks SHA-256 per member.
+  gleipnir t archive.gl       checks stored checksums.  Runs at disk speed.
+  gleipnir t -D archive.gl    decodes everything and checks SHA-256 per member.
                           Runs at compression speed, so ~1300x slower.
 
 The fast check is what makes routine scrubbing affordable: on a 2.2 GB
@@ -134,11 +134,11 @@ archive it takes seconds where the deep check takes most of an hour. It
 catches storage decay, meaning bits that changed on disk after writing, which
 is the failure that actually happens to archived data.
 
-Use `nyx t` on a schedule. Use `nyx t -D` before you rely on a restore.
+Use `gleipnir t` on a schedule. Use `gleipnir t -D` before you rely on a restore.
 
 A scheduled scrub is just:
 
-  nyx t archive.nyx || echo "archive failed check" | mail -s ALERT you@host
+  gleipnir t archive.gl || echo "archive failed check" | mail -s ALERT you@host
 
 
 RECOVERY RECORDS
@@ -148,9 +148,9 @@ RECOVERY RECORDS
 block in the group. Any ONE damaged segment per group can then be rebuilt
 from the survivors.
 
-  nyx c -p32 archive.nyx /data     about 3% larger
-  nyx t archive.nyx                reports which segments are damaged
-  nyx r archive.nyx fixed.nyx      writes a repaired copy
+  gleipnir c -p32 archive.gl /data     about 3% larger
+  gleipnir t archive.gl                reports which segments are damaged
+  gleipnir r archive.gl fixed.gl      writes a repaired copy
 
 `r` never modifies the damaged archive. It writes a new one. A repaired
 segment is fully decoded and checksummed before it is accepted, so a
@@ -167,7 +167,7 @@ Each worker thread holds a complete model, so memory is roughly
 
   (model size for the preset) x (thread count)
 
-`-t8 -9` therefore wants about 8 GB. Nyx clamps the thread count to what the
+`-t8 -9` therefore wants about 8 GB. Gleipnir clamps the thread count to what the
 machine can actually hold rather than thrashing, but a lower preset is
 usually a better answer than being clamped.
 
@@ -176,13 +176,13 @@ mean less peak memory and less lost to one damaged region, at a small cost
 in ratio.
 
 
-WHAT NYX TOUCHES
+WHAT GLEIPNIR TOUCHES
 ----------------
 
 Inputs are opened read-only. There is no delete call anywhere in the
 program, so it can't remove your files.
 
-The one thing Nyx overwrites without asking is its own output. If the
+The one thing Gleipnir overwrites without asking is its own output. If the
 archive name given to `c` already exists it is replaced, and `d` overwrites
 same-named files in the destination directory. Be careful with the
 destination and not the source.

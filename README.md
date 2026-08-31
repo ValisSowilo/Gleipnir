@@ -1,10 +1,10 @@
-# Nyx — a context-mixing compressor
+# Gleipnir — a context-mixing compressor
 
 A from-scratch lossless compressor in one C file. It predicts each bit with 27
 statistical models — 30 on raster data — blends their predictions with a learned
 mixer, and codes the result with an arithmetic coder.
 
-> **Using it as an archiver?** See **[USAGE.md](USAGE.md)**. `nyx.c` wraps the
+> **Using it as an archiver?** See **[USAGE.md](USAGE.md)**. `gleipnir.c` wraps the
 > engine documented here in a real archive format — directories, per-segment and
 > per-member checksums, cheap integrity scrubbing, recovery records, and
 > deduplication — and is the thing to point at data you intend to keep. This
@@ -12,24 +12,24 @@ mixer, and codes the result with an arithmetic coder.
 
 ```
                       total       ratio     bpc     comp     decomp          peak
-nyx -9           35,582,296       5.96x   1.343     597s       672s       1055 MB
-nyx -7           36,493,092       5.81x   1.377     451s       467s        922 MB
-nyx -5           38,273,415       5.54x   1.445     337s       342s        483 MB
+gleipnir -9           35,582,296       5.96x   1.343     597s       672s       1055 MB
+gleipnir -7           36,493,092       5.81x   1.377     451s       467s        922 MB
+gleipnir -5           38,273,415       5.54x   1.445     337s       342s        483 MB
 zpaq -m5         39,113,069       5.42x   1.476     559s       582s      839 MB *
-nyx -3           39,510,297       5.36x   1.491     248s       248s        305 MB
-nyx -2           40,605,710       5.22x   1.533     187s       188s        234 MB
-nyx -f2          41,376,463       5.12x   1.562     155s       162s        238 MB
+gleipnir -3           39,510,297       5.36x   1.491     248s       248s        305 MB
+gleipnir -2           40,605,710       5.22x   1.533     187s       188s        234 MB
+gleipnir -f2          41,376,463       5.12x   1.562     155s       162s        238 MB
 lpaq1 -6         43,006,234       4.93x   1.623     173s       186s      199 MB *
-nyx -1           43,207,157       4.91x   1.631     139s       139s        196 MB
-nyx -f1          44,279,445       4.79x   1.671     115s       115s        204 MB
+gleipnir -1           43,207,157       4.91x   1.631     139s       139s        196 MB
+gleipnir -f1          44,279,445       4.79x   1.671     115s       115s        204 MB
 xz -9e           48,456,100       4.37x   1.829     114s         2s      509 MB *
 brotli -q11      49,564,563       4.28x   1.871     387s         1s      219 MB *
 bzip2 -9         54,506,769       3.89x   2.057      18s        11s       12 MB *
 gzip -9          67,631,918       3.13x   2.553      17s         3s        8 MB *
 ```
 
-Silesia, 211,938,580 bytes, one machine, single thread, every `nyx` result
-round-trip verified against its SHA-256. `nyx` reports its own peak RSS from
+Silesia, 211,938,580 bytes, one machine, single thread, every `gleipnir` result
+round-trip verified against its SHA-256. `gleipnir` reports its own peak RSS from
 inside the process, which is exact; the codecs marked `*` do not, so theirs is
 **sampled at 50 ms and is a lower bound** — never compare the two as equals.
 
@@ -37,7 +37,7 @@ The `peak` column is **compression**. Decompression peaks 37–40 MB higher at
 every preset (`-9` needs 1095 MB, not 1055), so size a restore host off the
 decompression figure — that is the one that has to succeed when it matters.
 
-**Every row above was measured in one session**, interleaved, with `nyx -7` and
+**Every row above was measured in one session**, interleaved, with `gleipnir -7` and
 `zpaq -m5` repeated at both ends as drift sentinels
 (`scripts/bench_session.py`, 2 h 25 m). Earlier revisions of this table mixed sessions,
 which is not safe here — see below.
@@ -113,13 +113,13 @@ Six presets span the speed/ratio curve, and **`-7` is within 1.5% of `-9` for
 ## Build and use
 
 Prebuilt binaries are on the [releases
-page](https://github.com/ValisSowilo/Nyx/releases/latest) with a SHA-256 beside
+page](https://github.com/ValisSowilo/Gleipnir/releases/latest) with a SHA-256 beside
 each. Two things to know before taking one:
 
 - The Windows installer is **not code-signed**, so SmartScreen will warn on it.
-  `nyx.exe` is standalone if you would rather skip the installer -- statically
+  `gleipnir.exe` is standalone if you would rather skip the installer -- statically
   linked, KERNEL32 and the UCRT only, so Windows 10 and later need nothing else.
-- `nyx-linux-x86_64` is the unmodified binary from the CI run for that commit,
+- `gleipnir-linux-x86_64` is the unmodified binary from the CI run for that commit,
   so its hash is checkable against that run. It is dynamically linked and needs
   **glibc 2.38 or newer** -- Ubuntu 24.04, Debian 13, Fedora 39 -- plus
   `libz.so.1`. On anything older it will not start, and there is no fallback
@@ -161,13 +161,13 @@ unrolling is what pays. `-ffast-math` is pointless — there is no floating poin
 in the bit path, only in one-off detection.
 
 ```
-usage: nyx c [opts] archive path...   compress files or directories
-       nyx x [opts] archive [dir] [member...]
+usage: gleipnir c [opts] archive path...   compress files or directories
+       gleipnir x [opts] archive [dir] [member...]
                                       extract (into dir, default .)
                                       d and e do the same thing
-       nyx t [opts] archive           check integrity
-       nyx l [opts] archive           list contents
-       nyx r archive out.nyx          rebuild damaged segments
+       gleipnir t [opts] archive           check integrity
+       gleipnir l [opts] archive           list contents
+       gleipnir r archive out.gl          rebuild damaged segments
 
   -1..-9    preset, -1 fastest .. -9 smallest (default 5)
             -1  4 ctx  no SSE      -2  6 ctx  1 SSE
@@ -184,7 +184,7 @@ usage: nyx c [opts] archive path...   compress files or directories
   -q        quiet
 ```
 
-`nyx --help` has the full text; [USAGE.md](USAGE.md) has the reasoning behind
+`gleipnir --help` has the full text; [USAGE.md](USAGE.md) has the reasoning behind
 each option and the cold-storage recipes.
 
 The preset, memory shift, detected period and chunk count are all stored in the
@@ -194,7 +194,7 @@ and decodes correctly at **any** `-t` regardless of what it was encoded with.
 Each run reports its own peak resident set:
 
 ```
-nyx -9: 1 file, 10192446 -> 2048642  1.608 bpc  46.0s  0.22 MB/s  846 MB peak  [1 segment]
+gleipnir -9: 1 file, 10192446 -> 2048642  1.608 bpc  46.0s  0.22 MB/s  846 MB peak  [1 segment]
 ```
 
 ---
@@ -845,23 +845,23 @@ runs it against zpaq, xz and lpaq1. Results at `-9`, all round-trip verified:
 Margins below are against the **best** of zpaq/xz/lpaq1 on that file, not against
 zpaq alone:
 
-| file | nyx -9 | bpc | best | margin |
+| file | gleipnir -9 | bpc | best | margin |
 |---|---|---|---|---|
-| `precomp.zlib` | 713,000 | 4.106 | **nyx** | −48.67%; DEFLATE recompression unpacks it |
-| `x64.dll` | 807,740 | 1.789 | **nyx** | −10.02%; E8/E9 works on x86-64 |
-| `csv.txt` | 1,096,636 | 2.092 | **nyx** | −6.24% |
-| `python.src` | 580,606 | 1.107 | **nyx** | −5.00% |
-| `dna.fasta` | 1,035,296 | 1.975 | **nyx** | −1.59%; alphabet is 19 chars, so packing declines |
-| `json.txt` | 238,222 | 0.454 | **nyx** | −1.51% |
-| `font.ttf` | 1,045,966 | 3.328 | **nyx** | −0.41% |
-| `pcm16.bin` | 2,285,501 | 4.359 | **nyx** | −0.36%; stride 4 found |
-| `log.txt` | 474,828 | 0.906 | **nyx** | −0.19% |
+| `precomp.zlib` | 713,000 | 4.106 | **gleipnir** | −48.67%; DEFLATE recompression unpacks it |
+| `x64.dll` | 807,740 | 1.789 | **gleipnir** | −10.02%; E8/E9 works on x86-64 |
+| `csv.txt` | 1,096,636 | 2.092 | **gleipnir** | −6.24% |
+| `python.src` | 580,606 | 1.107 | **gleipnir** | −5.00% |
+| `dna.fasta` | 1,035,296 | 1.975 | **gleipnir** | −1.59%; alphabet is 19 chars, so packing declines |
+| `json.txt` | 238,222 | 0.454 | **gleipnir** | −1.51% |
+| `font.ttf` | 1,045,966 | 3.328 | **gleipnir** | −0.41% |
+| `pcm16.bin` | 2,285,501 | 4.359 | **gleipnir** | −0.36%; stride 4 found |
+| `log.txt` | 474,828 | 0.906 | **gleipnir** | −0.19% |
 | `base64.txt` | 3,154,964 | 6.018 | lpaq1 | +0.13%; random underneath, all codecs within 0.1% |
 | `i32.bin` | 740,932 | 1.413 | zpaq | +0.18% after the Alpha gates, was +2.93% |
 | `utf16.txt` | 151,856 | 0.290 | lpaq1 | +0.81%; level with zpaq |
 | `f64.bin` | 3,248,873 | 6.197 | zpaq | +0.84% |
 
-**Nine of thirteen go to nyx**, and the four losses are worth separating.
+**Nine of thirteen go to gleipnir**, and the four losses are worth separating.
 `base64.txt` and `utf16.txt` are near-ties — every codec lands within 0.9%, and
 base64 within 0.13%, because the payload underneath is random. The two real
 losses are both **numeric arrays**, and they are the clearest remaining
@@ -945,7 +945,7 @@ need full-size tables, so shrinking them costs little ratio while cutting the
 per-thread footprint roughly four-fold — which is the multiplier that matters.
 
 ```bash
-nyx c -9 -m-2 -t8 archive.nyx input
+gleipnir c -9 -m-2 -t8 archive.gl input
 ```
 
 ---
@@ -1032,7 +1032,7 @@ every row round-trip verified against its SHA-256 — a failed verify invalidate
 the row, not just its timing.
 
 Times come from a **single interleaved session** (`scripts/bench_session.py`, 2 h 25 m),
-with `nyx -7` and `zpaq -m5` repeated at both ends as drift sentinels. `nyx`
+with `gleipnir -7` and `zpaq -m5` repeated at both ends as drift sentinels. `gleipnir`
 archives the whole directory; reference codecs run per file and are summed,
 which is the published protocol kept unchanged so these numbers stay comparable
 to the ones they replace.
@@ -1073,7 +1073,7 @@ session** as the preset table above, so they are comparable to it. The peak RSS
 column is not, and cannot be: that harness does not sample the reference
 codecs' memory, so those figures come from a separate `scripts/bench_refs.ps1` run.
 They are **sampled at 50 ms while the process runs, so they are a lower bound**
-— `PeakWorkingSet64` read after exit returns zero here, and only `nyx` reports
+— `PeakWorkingSet64` read after exit returns zero here, and only `gleipnir` reports
 its own figure exactly.
 
 | | output | comp | decomp | peak (sampled, separate run) |
@@ -1098,7 +1098,7 @@ original name into its header, and `work.bin` plus its NUL terminator is 9 bytes
 members, exactly the 108 bytes by which that run's gzip total exceeded the
 piped one. xz differs by 96 bytes for a related reason: it is invoked as
 `-T1` on a file there and piped here. **"Sizes are deterministic" holds for a
-fixed invocation, not across two different ones.** `nyx`'s own sizes are
+fixed invocation, not across two different ones.** `gleipnir`'s own sizes are
 byte-identical in both runs, which is what that claim was ever about.
 
 Where each preset sits against `zpaq -m5`:
@@ -1123,7 +1123,7 @@ Six points worth pulling out:
   claimed.** The size win is exact and has reproduced in every session ever
   run: 6.70% smaller. The speed figure needed two corrections. The original
   **1.35× divided one session's zpaq time by another session's `-7`**. A later
-  attempt to correct it to 1.06× was also wrong — it compared `nyx`'s
+  attempt to correct it to 1.06× was also wrong — it compared `gleipnir`'s
   whole-directory archive against a whole-directory zpaq run, while every
   published reference figure is per-file-summed, so it was a methodology
   mismatch rather than a fix. Measured in one session under the published
@@ -1172,13 +1172,13 @@ single files, Calgary and Canterbury are their canonical file sets concatenated
 in order — so every codec sees identical bytes with no per-file container
 overhead. For the two large single files this means the whole file in one
 segment (`-s` set above the file size), which is how the reference codecs
-compress them too; at the default 64 MB segment size `nyx` splits enwik8 into two
+compress them too; at the default 64 MB segment size `gleipnir` splits enwik8 into two
 segments and enwik9 into sixteen, each restarting from a cold model, which costs
-about 1.8% on enwik8 and 4.3% on enwik9. Every `nyx` row was measured here on the
+about 1.8% on enwik8 and 4.3% on enwik9. Every `gleipnir` row was measured here on the
 released binary and round-trip verified against its SHA-256.
 
 **The competitor provenance differs by corpus, and it matters.** For enwik8 and
-enwik9 the non-`nyx` sizes are the published figures from Matt Mahoney's [Large
+enwik9 the non-`gleipnir` sizes are the published figures from Matt Mahoney's [Large
 Text Compression Benchmark](http://mattmahoney.net/dc/text.html), measured on his
 hardware. Read those as sizes, not as a speed comparison against these times. The
 LTCB entries also use the tunings listed on that page, some of which — notably
@@ -1194,22 +1194,22 @@ competitors was measured on this machine and is directly comparable throughout.
 | `nncp v3.2` | 14,915,298 | 1.193 | | | LTCB |
 | `paq8px_v206 -12L` | 15,849,084 | 1.268 | | | LTCB |
 | `zpaq 6.42 -max` | 17,855,729 | 1.428 | | | LTCB |
-| **`nyx -9`** | **18,810,676** | **1.505** | 347.1s | 324.4s | here |
-| **`nyx -5`** | **19,660,660** | **1.573** | 179.6s | 181.7s | here |
+| **`gleipnir -9`** | **18,810,676** | **1.505** | 347.1s | 324.4s | here |
+| **`gleipnir -5`** | **19,660,660** | **1.573** | 179.6s | 181.7s | here |
 | `lpaq1 -9` | 19,755,948 | 1.580 | | | LTCB |
 | `xz -9e` (tuned) | 24,703,772 | 1.976 | | | LTCB |
 | `brotli -q11` | 25,764,698 | 2.061 | | | LTCB |
 | `bzip2 -9` | 29,008,736 | 2.321 | | | LTCB |
 | `gzip -9` | 36,445,248 | 2.916 | | | LTCB |
 
-`nyx -9` is 4.8% smaller than `lpaq1 -9` and beats every LZ codec by a wide
+`gleipnir -9` is 4.8% smaller than `lpaq1 -9` and beats every LZ codec by a wide
 margin, while trailing `zpaq -max` by 5.3% and the heavy CM and neural engines by
-more. The two `nyx` rows compress at 0.29 MB/s (`-9`) and 0.56 MB/s (`-5`),
+more. The two `gleipnir` rows compress at 0.29 MB/s (`-9`) and 0.56 MB/s (`-5`),
 decoding within a few percent of that. Text is where this engine is weakest
 relative to the field — the full preset ladder and the reason are in [Where it
 struggles](#where-it-struggles).
 
-![enwik8: where nyx lands in the field, bits per byte](graphs/enwik8_ranking.svg)
+![enwik8: where gleipnir lands in the field, bits per byte](graphs/enwik8_ranking.svg)
 
 ### enwik9 — 1,000,000,000 bytes
 
@@ -1219,15 +1219,15 @@ struggles](#where-it-struggles).
 | `cmix v21` | 107,963,380 | 0.864 | | | LTCB |
 | `paq8px_v206 -12L` | 124,696,410 | 0.998 | | | LTCB |
 | `zpaq 6.42 -max` | 142,252,605 | 1.138 | | | LTCB |
-| **`nyx -9`** | **157,073,377** | **1.257** | 3186.3s | 3261.6s | here |
+| **`gleipnir -9`** | **157,073,377** | **1.257** | 3186.3s | 3261.6s | here |
 | `lpaq1 -9` | 164,508,919 | 1.316 | | | LTCB |
-| **`nyx -5`** | **167,360,632** | **1.339** | 1620.0s | 1690.5s | here |
+| **`gleipnir -5`** | **167,360,632** | **1.339** | 1620.0s | 1690.5s | here |
 | `xz` (tuned) | 197,331,816 | 1.579 | | | LTCB |
 | `brotli` | 223,597,884 | 1.789 | | | LTCB |
 | `bzip2 -9` | 253,977,839 | 2.032 | | | LTCB |
 | `gzip -9` | 322,591,995 | 2.581 | | | LTCB |
 
-At the gigabyte scale `nyx -9` is 4.5% smaller than `lpaq1 -9` and beats every LZ
+At the gigabyte scale `gleipnir -9` is 4.5% smaller than `lpaq1 -9` and beats every LZ
 codec by a wide margin, while trailing `zpaq -max` by 10.4% and the dedicated text
 engines by more, running at 0.31 MB/s where `-5` runs at 0.62. Its 157,073,377
 would sit mid-table on the LTCB leaderboard, behind the CM and neural engines and
@@ -1235,16 +1235,16 @@ ahead of `lpaq1` and every LZ codec. Compressing the whole gigabyte in one
 segment peaks at 3.0 GB, decoding at 3.8 GB; the default 64 MB segmentation holds
 near 1 GB for about 4.3% more output.
 
-![enwik9: where nyx lands in the field, bits per byte](graphs/enwik9_ranking.svg)
+![enwik9: where gleipnir lands in the field, bits per byte](graphs/enwik9_ranking.svg)
 
 ### Calgary — 3,141,622 bytes, fourteen files
 
 | codec | size | bpc |
 |---|---|---|
 | `paq8px -8` | 560,705 | 1.428 |
-| **`nyx -9`** | **651,967** | **1.660** |
+| **`gleipnir -9`** | **651,967** | **1.660** |
 | `zpaq -m5` | 659,513 | 1.679 |
-| `nyx -7` | 661,432 | 1.684 |
+| `gleipnir -7` | 661,432 | 1.684 |
 | `lpaq1 -6` | 682,211 | 1.737 |
 | `xz -9e` | 819,440 | 2.086 |
 | `bzip2 -9` | 859,448 | 2.188 |
@@ -1257,8 +1257,8 @@ near 1 GB for about 4.3% more output.
 | codec | size | bpc |
 |---|---|---|
 | `paq8px -8` | 302,791 | 0.862 |
-| **`nyx -9`** | **355,766** | **1.013** |
-| `nyx -7` | 359,844 | 1.024 |
+| **`gleipnir -9`** | **355,766** | **1.013** |
+| `gleipnir -7` | 359,844 | 1.024 |
 | `zpaq -m5` | 362,880 | 1.033 |
 | `lpaq1 -6` | 388,787 | 1.107 |
 | `xz -9e` | 483,616 | 1.376 |
@@ -1267,10 +1267,10 @@ near 1 GB for about 4.3% more output.
 
 ![Canterbury: codecs ranked by bits per byte](graphs/canterbury_ranking.svg)
 
-On both small corpora `nyx -9` lands ahead of `zpaq -m5` and behind `paq8px -8`,
+On both small corpora `gleipnir -9` lands ahead of `zpaq -m5` and behind `paq8px -8`,
 the same order it holds on Silesia, and on Canterbury even `-7` passes `zpaq`.
 Times at this scale are dominated by process startup, so these two lead on size.
-The picture is consistent across all five corpora: `nyx` beats `zpaq -m5` on
+The picture is consistent across all five corpora: `gleipnir` beats `zpaq -m5` on
 general and structured data, edges `lpaq1` on text, and trails the engines that
 spend far more time per bit.
 
@@ -1373,8 +1373,8 @@ timing in it must be thrown away rather than corrected.
 No change ships without both suites passing:
 
 ```bash
-python scripts/fuzz.py nyx.exe --v2    # 81 edge cases x 8 presets = 648 round trips
-python scripts/tfuzz.py nyx.exe --v2   # 10 cases x 6 thread counts = 60 round trips
+python scripts/fuzz.py gleipnir.exe --v2    # 81 edge cases x 8 presets = 648 round trips
+python scripts/tfuzz.py gleipnir.exe --v2   # 10 cases x 6 thread counts = 60 round trips
 ```
 
 708 round trips, every one byte-exact. The level sweep in `scripts/fuzz.py` is not
@@ -1441,8 +1441,8 @@ and carried neither the word-pair nor the line model, the two things that
 actually pay on text. Rebuilt around orders 1–6 plus word, word-pair, line,
 previous-line, indirect and one sparse.
 
-enwik8, single thread, released binary, all `nyx` rows round-trip verified. The
-`nyx` ladder and the two reference codecs were each run as an uninterrupted pass
+enwik8, single thread, released binary, all `gleipnir` rows round-trip verified. The
+`gleipnir` ladder and the two reference codecs were each run as an uninterrupted pass
 on the same idle machine (not interleaved with drift sentinels the way the
 Silesia table is, so read the times as same-machine rather than same-session):
 
@@ -1545,7 +1545,7 @@ deployment would.
 Per file against `zpaq -m5` and against the published Silesia record
 (`paq8px_v215 -12L`, 29 GB):
 
-| file | nyx -9 | zpaq -m5 | vs zpaq | record | vs record |
+| file | gleipnir -9 | zpaq -m5 | vs zpaq | record | vs record |
 |---|---|---|---|---|---|
 | xml | 311,357 | 326,987 | −4.8% | 245,000 | +27.1% |
 | ooffice | 1,749,356 | 1,766,594 | −1.0% | 1,212,000 | +44.3% |
@@ -1566,7 +1566,7 @@ x-ray is no longer the one file behind zpaq; the raster models moved it from
 
 Measured directly against paq8px at comparable memory (`-6`, ~830 MB):
 
-| | paq8px -6 | nyx -9 | gap | paq8px time |
+| | paq8px -6 | gleipnir -9 | gap | paq8px time |
 |---|---|---|---|---|
 | dickens | 1,927,665 | 2,051,952 | +6.4% | 1,639s vs 37s |
 | samba | 1,661,309 | 2,662,288 | +60.2% | 3,392s vs 74s |
@@ -1575,7 +1575,7 @@ Measured directly against paq8px at comparable memory (`-6`, ~830 MB):
 paq8px is decisively smaller and **44–60× slower** on the same machine, at 2.7×
 the memory on mozilla. The paq8px column was measured in an earlier session and
 its sizes are deterministic, so the comparison holds; only its *times* are from
-a different session than nyx's, and at a 44× gap that does not change anything.
+a different session than gleipnir's, and at a 44× gap that does not change anything.
 
 The remaining gap is **concentrated, not spread**. mozilla, samba, ooffice and
 nci account for the bulk of it, and all four are containers holding
@@ -1642,7 +1642,7 @@ values. Before this, on ooffice the stride changed 18,944 times.
 
 ## Repository layout
 
-`nyx.c` is the whole compressor and archiver. Everything else is the tooling
+`gleipnir.c` is the whole compressor and archiver. Everything else is the tooling
 that produced the numbers in this file, kept under `scripts/` so every claim has
 a script behind it rather than a screenshot. Each runs from the repo root
 (`python scripts/<name>`). Grouped by what it does:
@@ -1689,7 +1689,7 @@ is in [USAGE.md](USAGE.md).
 **GNU General Public License v3.0 or later** — full text in
 [LICENSE.md](LICENSE.md).
 
-Nyx is free software. There is nothing to pay, no thresholds to check, and no
+Gleipnir is free software. There is nothing to pay, no thresholds to check, and no
 distinction between production and any other use.
 
 - **Run it** for any purpose, including commercially and in production, at any
@@ -1697,26 +1697,26 @@ distinction between production and any other use.
 - **Study and modify** the source.
 - **Redistribute** copies, modified or not, and charge for doing so.
 
-The one obligation is copyleft, and it only applies if you *distribute* Nyx or
+The one obligation is copyleft, and it only applies if you *distribute* Gleipnir or
 something built from it: whoever receives it must get the same freedoms, which
 means offering them the corresponding source under the GPL, keeping the
-copyright and licence notices intact, and marking what you changed. Running Nyx
+copyright and licence notices intact, and marking what you changed. Running Gleipnir
 inside your own organisation, however large, is not distribution and triggers
 none of this.
 
 I retain the copyright, so a separate licence can be granted where the GPL does
-not fit — embedding Nyx in a product shipped under other terms, or wanting a
+not fit — embedding Gleipnir in a product shipped under other terms, or wanting a
 warranty, indemnity or support commitment. See [COMMERCIAL.md](COMMERCIAL.md).
 Ordinary use never needs it.
 
 ### Licence history
 
-Nyx 1.0.0 was first published under the Business Source License 1.1 with a
+Gleipnir 1.0.0 was first published under the Business Source License 1.1 with a
 Change Date of 2030-08-04, on which it would have converted to
-GPL-3.0-or-later. That conversion has been brought forward. Nyx is
+GPL-3.0-or-later. That conversion has been brought forward. Gleipnir is
 GPL-3.0-or-later as of now, the BSL terms no longer apply to any version, and
-describing Nyx as open source is accurate — GPL-3.0 is OSI-approved.
+describing Gleipnir as open source is accurate — GPL-3.0 is OSI-approved.
 
 zlib is linked for DEFLATE recovery under its own permissive licence,
 reproduced in full in `dist/LICENSE.txt`. It is GPL-compatible and places no
-restriction on the terms Nyx itself is offered under.
+restriction on the terms Gleipnir itself is offered under.

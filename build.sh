@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build a distributable nyx.exe.
+# Build a distributable gleipnir.exe.
 #
 # Three things matter here and none of them are obvious, so they are spelled
 # out rather than buried in flags:
@@ -33,8 +33,8 @@ set -e
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 ZL="$HERE/tools/zlib-1.3.1"
-OUT="${1:-nyx.exe}"
-SRC="$HERE/nyx.c"
+OUT="${1:-gleipnir.exe}"
+SRC="$HERE/gleipnir.c"
 
 if [ ! -f "$ZL/libz.a" ]; then
     echo "build.sh: $ZL/libz.a not found." >&2

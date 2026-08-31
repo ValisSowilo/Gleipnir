@@ -17,7 +17,7 @@
 !.gitignore
 
 # --- the compressor itself ------------------------------------------------
-!nyx.c
+!gleipnir.c
 !Makefile
 !build.sh
 
@@ -106,5 +106,5 @@ dist/*.sha256
 tools/
 __pycache__/
 *.pyc
-nyx
-nyx.exe
+gleipnir
+gleipnir.exe
