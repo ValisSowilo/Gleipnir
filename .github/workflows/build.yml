@@ -26,11 +26,20 @@ jobs:
       - name: Install zlib headers
         run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
 
-      - name: Build
-        run: make
+      - name: Build (static, so it runs on any distro regardless of glibc)
+        run: make LDFLAGS=-static
 
       - name: Version and round trip
-        run: make test
+        run: make test LDFLAGS=-static
+
+      - name: Confirm it is statically linked
+        run: |
+          file gleipnir
+          if ! file gleipnir | grep -q "statically linked"; then
+            echo "binary is NOT static -- it would fail on older distros" >&2
+            exit 1
+          fi
+          ldd gleipnir || true
 
       - name: Round-trip fuzz across thread counts
         run: python3 scripts/tfuzz.py --v2 gleipnir
@@ -85,17 +94,50 @@ jobs:
             python
             diffutils
 
-      - name: Build
-        run: make CC=gcc
+      # LDFLAGS=-static on every make call: the target is `gleipnir` but gcc
+      # emits `gleipnir.exe`, so make relinks each time and a bare `make test`
+      # would drop -static and pull libgcc/libwinpthread back in.
+      - name: Build (static -- KERNEL32 + UCRT only, no MSYS2 DLLs)
+        run: make CC=gcc LDFLAGS=-static
 
       - name: Version and round trip
-        run: make test CC=gcc
+        run: make test CC=gcc LDFLAGS=-static
+
+      - name: Confirm no non-system runtime DLLs
+        run: |
+          objdump -p gleipnir.exe | grep -i 'DLL Name' || true
+          if objdump -p gleipnir.exe | grep -iE 'libgcc|winpthread|libstdc'; then
+            echo "unexpected DLL dependency -- it would not start on a clean Windows" >&2
+            exit 1
+          fi
 
       - name: Upload the Windows binary
         uses: actions/upload-artifact@v7
         with:
           name: gleipnir-windows-x86_64
           path: gleipnir.exe
+
+      - name: Stage the files the installer bundles
+        run: cp gleipnir.exe dist/gleipnir.exe
+
+      - name: Build the one-click installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc "packaging\gleipnir.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit $LASTEXITCODE" }
+          if (-not (Test-Path "dist\gleipnir-1.0.0-setup.exe")) {
+            throw "installer was not produced"
+          }
+
+      - name: Upload the one-click installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: gleipnir-windows-setup
+          path: dist/gleipnir-1.0.0-setup.exe
 
   # The format claim in the README is that an archive written on one platform
   # reads on the other.  That is worth testing rather than asserting: it is
