@@ -165,9 +165,9 @@ unsigned installer. Extract it, then in that folder run
    ```
 3. Check it: `gleipnir --version`.
 
-This prebuilt binary needs **glibc 2.38 or newer** (Ubuntu 24.04, Debian 13,
-Fedora 39) and `libz.so.1`. On anything older it will not start — [build from
-source](#build-from-source) instead, which takes seconds.
+This binary is **statically linked, so it runs on any x86-64 Linux** — no glibc
+version requirement and no `libz.so.1` needed on the system. If you would still
+rather build it yourself, see [Build from source](#build-from-source).
 
 ### Verify your download
 
@@ -192,8 +192,8 @@ cold-storage recipes and every option, see **[USAGE.md](USAGE.md)**.
 
 ## Build from source
 
-Building is the supported path on any platform, and the only option on Linux
-older than glibc 2.38.
+Building is fully supported on every platform; the prebuilt binaries above are
+just there to save you the step.
 
 Linux, against the system zlib:
 
