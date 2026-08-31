@@ -64,16 +64,16 @@
 <text class="tag" x="118.0" y="170.0" text-anchor="end">zpaq -max</text>
 <text class="tagb" x="360.1" y="170.0" text-anchor="start" fill="#d29922">1.138</text>
 <text class="sub" x="401.1" y="170.0" text-anchor="start">LTCB</text>
-<rect x="128.0" y="186.1" width="259.7" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="128.0" y="186.1" width="248.6" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
 <text class="tagb" x="118.0" y="200.0" text-anchor="end" fill="#0969da">nyx -9</text>
-<text class="tagb" x="394.7" y="200.0" text-anchor="start" fill="#0969da">1.313</text>
+<text class="tagb" x="383.6" y="200.0" text-anchor="start" fill="#0969da">1.257</text>
 <rect x="128.0" y="216.1" width="260.3" height="19.8" fill="#8250df" opacity="0.7" rx="1.5"/>
 <text class="tag" x="118.0" y="230.0" text-anchor="end">lpaq1 -9</text>
 <text class="tagb" x="395.3" y="230.0" text-anchor="start" fill="#8250df">1.316</text>
 <text class="sub" x="436.3" y="230.0" text-anchor="start">LTCB</text>
-<rect x="128.0" y="246.1" width="272.4" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="128.0" y="246.1" width="264.9" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
 <text class="tagb" x="118.0" y="260.0" text-anchor="end" fill="#0969da">nyx -5</text>
-<text class="tagb" x="407.4" y="260.0" text-anchor="start" fill="#0969da">1.377</text>
+<text class="tagb" x="399.9" y="260.0" text-anchor="start" fill="#0969da">1.339</text>
 <rect x="128.0" y="276.1" width="312.3" height="19.8" fill="#1a7f37" opacity="0.7" rx="1.5"/>
 <text class="tag" x="118.0" y="290.0" text-anchor="end">xz tuned</text>
 <text class="tagb" x="447.3" y="290.0" text-anchor="start" fill="#1a7f37">1.579</text>

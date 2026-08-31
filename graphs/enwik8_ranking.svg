@@ -67,16 +67,16 @@
 <text class="tag" x="118.0" y="185.0" text-anchor="end">zpaq -max</text>
 <text class="tagb" x="385.1" y="185.0" text-anchor="start" fill="#d29922">1.428</text>
 <text class="sub" x="426.1" y="185.0" text-anchor="start">LTCB</text>
-<rect x="128.0" y="201.1" width="268.3" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="128.0" y="201.1" width="263.5" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
 <text class="tagb" x="118.0" y="215.0" text-anchor="end" fill="#0969da">nyx -9</text>
-<text class="tagb" x="403.3" y="215.0" text-anchor="start" fill="#0969da">1.532</text>
-<rect x="128.0" y="231.1" width="276.7" height="19.8" fill="#8250df" opacity="0.7" rx="1.5"/>
-<text class="tag" x="118.0" y="245.0" text-anchor="end">lpaq1 -9</text>
-<text class="tagb" x="411.7" y="245.0" text-anchor="start" fill="#8250df">1.580</text>
-<text class="sub" x="452.7" y="245.0" text-anchor="start">LTCB</text>
-<rect x="128.0" y="261.1" width="279.0" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
-<text class="tagb" x="118.0" y="275.0" text-anchor="end" fill="#0969da">nyx -5</text>
-<text class="tagb" x="414.0" y="275.0" text-anchor="start" fill="#0969da">1.594</text>
+<text class="tagb" x="398.5" y="215.0" text-anchor="start" fill="#0969da">1.505</text>
+<rect x="128.0" y="231.1" width="275.4" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
+<text class="tagb" x="118.0" y="245.0" text-anchor="end" fill="#0969da">nyx -5</text>
+<text class="tagb" x="410.4" y="245.0" text-anchor="start" fill="#0969da">1.573</text>
+<rect x="128.0" y="261.1" width="276.7" height="19.8" fill="#8250df" opacity="0.7" rx="1.5"/>
+<text class="tag" x="118.0" y="275.0" text-anchor="end">lpaq1 -9</text>
+<text class="tagb" x="411.7" y="275.0" text-anchor="start" fill="#8250df">1.580</text>
+<text class="sub" x="452.7" y="275.0" text-anchor="start">LTCB</text>
 <rect x="128.0" y="291.1" width="346.1" height="19.8" fill="#1a7f37" opacity="0.7" rx="1.5"/>
 <text class="tag" x="118.0" y="305.0" text-anchor="end">xz -9e</text>
 <text class="tagb" x="481.1" y="305.0" text-anchor="start" fill="#1a7f37">1.976</text>

@@ -99,13 +99,13 @@ sit on the diagonal. `xz` decodes ~50× faster than it encodes and `brotli`
 
 ![compression size against speed](graphs/speed_vs_size.svg)
 
-On enwik8 (100 MB of Wikipedia text) it reaches **19,155,646** — 2.4% below
+On enwik8 (100 MB of Wikipedia text) it reaches **18,810,676** — 4.2% below
 `zpaq -m5`'s 19,625,046 measured on the same machine, but well behind the Large
 Text Compression Benchmark leaders, which is where this engine is weakest.
 `cmix v21` reaches 14,623,723 at 31 GB, and `durilca'kingsize` reaches
 16,209,219 while running roughly 4× *faster* — the case for a text preprocessor.
 
-Six presets span the speed/ratio curve, and **`-7` is within 2.4% of `-9` for
+Six presets span the speed/ratio curve, and **`-7` is within 1.5% of `-9` for
 29% less time** — the better default for anything that is not a ratio contest.
 
 ---
@@ -1170,8 +1170,12 @@ Silesia is one corpus. These are four more, so the picture does not rest on a
 single file. Each is compressed as **one stream** — enwik8 and enwik9 are already
 single files, Calgary and Canterbury are their canonical file sets concatenated
 in order — so every codec sees identical bytes with no per-file container
-overhead. Every `nyx` row was measured here on the released binary and round-trip
-verified against its SHA-256.
+overhead. For the two large single files this means the whole file in one
+segment (`-s` set above the file size), which is how the reference codecs
+compress them too; at the default 64 MB segment size `nyx` splits enwik8 into two
+segments and enwik9 into sixteen, each restarting from a cold model, which costs
+about 1.8% on enwik8 and 4.3% on enwik9. Every `nyx` row was measured here on the
+released binary and round-trip verified against its SHA-256.
 
 **The competitor provenance differs by corpus, and it matters.** For enwik8 and
 enwik9 the non-`nyx` sizes are the published figures from Matt Mahoney's [Large
@@ -1190,16 +1194,16 @@ competitors was measured on this machine and is directly comparable throughout.
 | `nncp v3.2` | 14,915,298 | 1.193 | | | LTCB |
 | `paq8px_v206 -12L` | 15,849,084 | 1.268 | | | LTCB |
 | `zpaq 6.42 -max` | 17,855,729 | 1.428 | | | LTCB |
-| **`nyx -9`** | **19,155,646** | **1.532** | 347.1s | 324.4s | here |
+| **`nyx -9`** | **18,810,676** | **1.505** | 347.1s | 324.4s | here |
+| **`nyx -5`** | **19,660,660** | **1.573** | 179.6s | 181.7s | here |
 | `lpaq1 -9` | 19,755,948 | 1.580 | | | LTCB |
-| **`nyx -5`** | **19,920,367** | **1.594** | 179.6s | 181.7s | here |
 | `xz -9e` (tuned) | 24,703,772 | 1.976 | | | LTCB |
 | `brotli -q11` | 25,764,698 | 2.061 | | | LTCB |
 | `bzip2 -9` | 29,008,736 | 2.321 | | | LTCB |
 | `gzip -9` | 36,445,248 | 2.916 | | | LTCB |
 
-`nyx -9` is 3.0% smaller than `lpaq1 -9` and beats every LZ codec by a wide
-margin, while trailing `zpaq -max` by 7.3% and the heavy CM and neural engines by
+`nyx -9` is 4.8% smaller than `lpaq1 -9` and beats every LZ codec by a wide
+margin, while trailing `zpaq -max` by 5.3% and the heavy CM and neural engines by
 more. The two `nyx` rows compress at 0.29 MB/s (`-9`) and 0.56 MB/s (`-5`),
 decoding within a few percent of that. Text is where this engine is weakest
 relative to the field — the full preset ladder and the reason are in [Where it
@@ -1215,19 +1219,21 @@ struggles](#where-it-struggles).
 | `cmix v21` | 107,963,380 | 0.864 | | | LTCB |
 | `paq8px_v206 -12L` | 124,696,410 | 0.998 | | | LTCB |
 | `zpaq 6.42 -max` | 142,252,605 | 1.138 | | | LTCB |
-| **`nyx -9`** | **164,080,953** | **1.313** | 3186.3s | 3261.6s | here |
+| **`nyx -9`** | **157,073,377** | **1.257** | 3186.3s | 3261.6s | here |
 | `lpaq1 -9` | 164,508,919 | 1.316 | | | LTCB |
-| **`nyx -5`** | **172,143,092** | **1.377** | 1620.0s | 1690.5s | here |
+| **`nyx -5`** | **167,360,632** | **1.339** | 1620.0s | 1690.5s | here |
 | `xz` (tuned) | 197,331,816 | 1.579 | | | LTCB |
 | `brotli` | 223,597,884 | 1.789 | | | LTCB |
 | `bzip2 -9` | 253,977,839 | 2.032 | | | LTCB |
 | `gzip -9` | 322,591,995 | 2.581 | | | LTCB |
 
-At the gigabyte scale `nyx -9` edges `lpaq1 -9` by 0.26% and is 15.3% smaller
-than `zpaq -max`, running at 0.31 MB/s where `-5` runs at 0.62. Its 164,080,953
-would sit mid-table on the LTCB leaderboard, ahead of every zpaq entry and behind
-the dedicated text engines. Memory held at 977 MB compressing, 1028 MB
-decompressing.
+At the gigabyte scale `nyx -9` is 4.5% smaller than `lpaq1 -9` and beats every LZ
+codec by a wide margin, while trailing `zpaq -max` by 10.4% and the dedicated text
+engines by more, running at 0.31 MB/s where `-5` runs at 0.62. Its 157,073,377
+would sit mid-table on the LTCB leaderboard, behind the CM and neural engines and
+ahead of `lpaq1` and every LZ codec. Compressing the whole gigabyte in one
+segment peaks at 3.0 GB, decoding at 3.8 GB; the default 64 MB segmentation holds
+near 1 GB for about 4.3% more output.
 
 ![enwik9: where nyx lands in the field, bits per byte](graphs/enwik9_ranking.svg)
 
@@ -1442,24 +1448,24 @@ Silesia table is, so read the times as same-machine rather than same-session):
 
 | | output | bpc | comp | decomp |
 |---|---|---|---|---|
-| `-1` | 23,279,021 | 1.862 | 72.3s | 74.5s |
-| `-3` | 20,328,118 | 1.626 | 144.5s | 133.4s |
-| `-5` | 19,920,367 | 1.594 | 179.6s | 181.7s |
-| `-7` | 19,422,742 | 1.554 | 239.9s | 243.5s |
-| `-9` | 19,155,646 | 1.532 | 347.1s | 324.4s |
+| `-1` | 23,263,174 | 1.861 | 72.3s | 74.5s |
+| `-3` | 20,125,007 | 1.610 | 144.5s | 133.4s |
+| `-5` | 19,660,660 | 1.573 | 179.6s | 181.7s |
+| `-7` | 19,088,707 | 1.527 | 239.9s | 243.5s |
+| `-9` | 18,810,676 | 1.505 | 347.1s | 324.4s |
 | lpaq1 -6 | 20,078,550 | 1.606 | 87.0s | 93.1s |
 | zpaq -m5 | 19,625,046 | 1.570 | 297.8s | 298.3s |
 
-The old strict domination is gone: `-5` is now **0.79% smaller than lpaq1**
+The old strict domination is gone: `-5` is now **2.08% smaller than lpaq1**
 where the pre-rebuild `-5` was 2.4% larger. But **lpaq1 is still ahead at
-comparable ratio** — it is 1.23% smaller than `-3` *and* faster (87.0s against
+comparable ratio** — it is 0.23% smaller than `-3` *and* faster (87.0s against
 144.5s), reaching output between `-3` and `-5` in half of `-5`'s time. It
 dominates `-3` outright and sits on this engine's size-time frontier just below
 `-5`, which is a fair summary of where text modelling here still falls short.
 
-Against `zpaq -m5` on enwik8, only `-7` and `-9` win on size: `-5` is 1.50%
-*larger* (though 1.7× faster), `-7` is 1.03% smaller and still 1.2× faster, `-9`
-is 2.39% smaller at 1.2× the time. This is a much thinner margin than the −9.03%
+Against `zpaq -m5` on enwik8, only `-7` and `-9` win on size: `-5` is 0.18%
+*larger* (though 1.7× faster), `-7` is 2.73% smaller and still 1.2× faster, `-9`
+is 4.15% smaller at 1.2× the time. This is a much thinner margin than the −9.03%
 on Silesia, and that contrast is the point: **the Silesia advantage comes from
 structured and binary content, not from text.**
 
@@ -1506,7 +1512,12 @@ uniform and detection is easy.
 so they can be decoded in parallel, which means every chunk starts with a cold
 model. See the threading table for the measured curve. There is no fix that
 preserves parallel decode; priming chunk *k* from chunk *k−1* would serialise
-decompression.
+decompression. The same restart applies to segments on a single thread: at the
+default 64 MB segment size a larger file is split and each segment starts cold, so
+the single-thread enwik8 and enwik9 figures above still pay it. Compressing the
+whole file as one segment — `-s` set above the file size — removes the restart,
+worth about 1.8% on enwik8 and 4.3% on enwik9, at the cost of buffering the entire
+input (below).
 
 **The whole input is buffered in RAM.** `readfile` reads the entire file and the
 match model indexes absolute positions into it. For a 1 GB input that is ~1 GB

@@ -300,6 +300,25 @@ because the model sees more history before it resets. Segments are also the
 unit of parallelism, so on a file smaller than `N × -t`, `nyx` shrinks them to
 keep every core busy.
 
+**Solid mode — one segment, best ratio.** Setting `-s` above the file size puts
+the whole input in a single segment, so the model never resets mid-file:
+
+```bash
+nyx c -9 -s2000 archive.nyx bigfile     # one segment for anything under 2 GB
+```
+
+On a single large file this is the smallest `nyx` can go. `enwik8 -9` drops 1.8%
+(19,155,646 → 18,810,676) and `enwik9 -9` drops 4.3% (164,080,953 → 157,073,377),
+the gain widening with preset because a cold restart wastes more of a stronger
+model. Time is unchanged — the work is identical, only the segment boundaries
+move — but memory rises with the segment, which is now the whole file: `enwik9
+-9` peaks near 3.0 GB compressing and 3.8 GB decompressing, against roughly 1 GB
+at the default. Use it for a single large file going to cold storage where ratio
+is the point and the RAM is there; keep the default for multi-file archives,
+where every member already starts fresh and 64 MB segments bound both memory and
+the blast radius of damage. A file under 64 MB is already one segment and gains
+nothing.
+
 `-mN` scales every context table by `2^N`. `-m-1` halves memory; `-m1` doubles
 it. This changes the format's memory requirement on the *decode* side too, and
 that requirement is recorded in the archive — so a file written with `-m2` needs
