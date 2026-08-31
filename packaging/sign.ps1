@@ -57,7 +57,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $targets = @(
     (Join-Path $root 'dist\gleipnir.exe'),
-    (Join-Path $root 'dist\gleipnir-1.0.0-setup.exe')
+    (Join-Path $root 'dist\gleipnir-1.0.1-setup.exe')
 ) | Where-Object { Test-Path $_ }
 
 if (-not $targets) { throw "nothing to sign in $root\dist" }

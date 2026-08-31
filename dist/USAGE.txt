@@ -1,4 +1,4 @@
-Gleipnir 1.0.0 -- usage reference
+Gleipnir 1.0.1 -- usage reference
 ============================
 
 Run `gleipnir --help` for a short version of the option list below.

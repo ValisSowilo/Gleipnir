@@ -2359,7 +2359,7 @@ static const char *lvlname(int lvl) {
 /* Release version of the *program*, which moves independently of the archive
  * format version above.  A format bump breaks compatibility; a release bump
  * usually does not. */
-#define GLEIPNIR_RELEASE "1.0.0"
+#define GLEIPNIR_RELEASE "1.0.1"
 #define HDR_BYTES   48
 #define TRL_BYTES   20
 #define SEG_MAX_DEF (64u << 20)          /* default cap on a segment, bytes */

@@ -123,7 +123,7 @@ download](#verify-your-download).
 **Easiest — the one-click installer:**
 
 1. Open the **[Releases page](https://github.com/ValisSowilo/Gleipnir/releases/latest)**.
-   Under **Assets**, click **`gleipnir-1.0.0-setup.exe`** to download it, then
+   Under **Assets**, click **`gleipnir-1.0.1-setup.exe`** to download it, then
    double-click the downloaded file.
 2. Because it is not code-signed, Windows shows a blue **"Windows protected your
    PC"** box — click **More info**, then **Run anyway**. (It installs only into

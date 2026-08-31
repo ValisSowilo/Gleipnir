@@ -1,4 +1,4 @@
-Gleipnir 1.0.0 -- a context-mixing archiver
+Gleipnir 1.0.1 -- a context-mixing archiver
 ======================================
 
 WHAT THIS IS
@@ -38,7 +38,7 @@ QUICK START
 
 RIGHT-CLICK MENU
 
-If you used the Windows setup installer (gleipnir-1.0.0-setup.exe) and ticked the
+If you used the Windows setup installer (gleipnir-1.0.1-setup.exe) and ticked the
 Explorer option during install, File Explorer gains:
 
   right-click a folder or file   ->  Compress with Gleipnir

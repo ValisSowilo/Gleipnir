@@ -126,7 +126,7 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             ver="${GITHUB_REF#refs/tags/v}"
           else
-            ver="1.0.0"
+            ver="1.0.1"
           fi
           echo "GLEIPNIR_VER=$ver" >> "$GITHUB_ENV"
           echo "version: $ver"

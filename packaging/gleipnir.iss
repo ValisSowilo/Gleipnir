@@ -1,4 +1,4 @@
-; Inno Setup script for Gleipnir -- builds gleipnir-1.0.0-setup.exe
+; Inno Setup script for Gleipnir -- builds gleipnir-1.0.1-setup.exe
 ;
 ; Copyright 2026 ValisSowilo.  GPL-3.0-or-later; see LICENSE.md.
 ;
@@ -14,7 +14,7 @@
 ; AppVer may be overridden from the command line (CI passes the git tag):
 ;   ISCC /DAppVer=1.2.3 packaging\gleipnir.iss
 #ifndef AppVer
-  #define AppVer   "1.0.0"
+  #define AppVer   "1.0.1"
 #endif
 #define AppExe     "gleipnir.exe"
 #define AppPublish "ValisSowilo"
