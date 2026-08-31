@@ -1,16 +1,16 @@
-# Install gen for the current user.
+# Install gleipnir for the current user.
 #
 # Copies the program OUT of wherever you unpacked it and into
-#   %LOCALAPPDATA%\Programs\gen
+#   %LOCALAPPDATA%\Programs\gleipnir
 # then puts that directory on your user PATH.
 #
 # The copy is the point.  Pointing PATH at a download folder, a build tree or a
-# USB stick works until that folder moves, and then `gen` disappears with no
+# USB stick works until that folder moves, and then `gleipnir` disappears with no
 # obvious cause.  An installed program should not care what happened to the
 # thing it was installed from.
 #
 # Per-user, so it needs no administrator rights and touches nothing outside
-# your own profile.  For a machine-wide install, put gen.exe in a directory of
+# your own profile.  For a machine-wide install, put gleipnir.exe in a directory of
 # your choosing and add it to the system PATH yourself -- that needs elevation
 # and is not something this script should do behind your back.
 #
@@ -19,21 +19,21 @@
 $ErrorActionPreference = 'Stop'
 
 $src = Split-Path -Parent $MyInvocation.MyCommand.Path
-$dest = Join-Path $env:LOCALAPPDATA 'Programs\gen'
+$dest = Join-Path $env:LOCALAPPDATA 'Programs\gleipnir'
 
-Write-Host "installing gen"
+Write-Host "installing gleipnir"
 Write-Host "  from: $src"
 Write-Host "  to:   $dest"
 
-if (-not (Test-Path (Join-Path $src 'gen.exe'))) {
-    throw "gen.exe not found next to this script ($src)"
+if (-not (Test-Path (Join-Path $src 'gleipnir.exe'))) {
+    throw "gleipnir.exe not found next to this script ($src)"
 }
 
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 
 # End-user files only.  ARCHITECTURE.md and EXPERIENCES.md are development
 # notes and belong with the source, not in an install directory.
-foreach ($f in @('gen.exe', 'README.txt', 'USAGE.txt', 'uninstall.ps1')) {
+foreach ($f in @('gleipnir.exe', 'README.txt', 'USAGE.txt', 'uninstall.ps1')) {
     $p = Join-Path $src $f
     if (Test-Path $p) {
         Copy-Item $p -Destination $dest -Force
@@ -58,9 +58,9 @@ if ($entries -contains $dest) {
 
 # Verify against the installed copy rather than whatever is on the current
 # PATH, which in this session may still be stale.
-$exe = Join-Path $dest 'gen.exe'
+$exe = Join-Path $dest 'gleipnir.exe'
 Write-Host ""
 & $exe --version
 Write-Host ""
-Write-Host "done.  Open a NEW terminal, then:  gen --help"
+Write-Host "done.  Open a NEW terminal, then:  gleipnir --help"
 Write-Host "to remove:  powershell -ExecutionPolicy Bypass -File `"$dest\uninstall.ps1`""

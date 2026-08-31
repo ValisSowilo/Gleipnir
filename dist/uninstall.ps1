@@ -1,18 +1,18 @@
-# Remove gen for the current user.
+# Remove gleipnir for the current user.
 #
 # Takes the install directory off your user PATH and deletes it.  Removes only
 # the entry it put there, by exact match, and leaves every other PATH entry
 # alone -- an uninstaller that rewrites the whole variable is a good way to
 # lose someone's toolchain.
 #
-# Your archives are not touched.  Nothing here reads or writes .gen files.
+# Your archives are not touched.  Nothing here reads or writes .gl files.
 #
 #   powershell -ExecutionPolicy Bypass -File uninstall.ps1
 
 $ErrorActionPreference = 'Stop'
 
-$dest = Join-Path $env:LOCALAPPDATA 'Programs\gen'
-Write-Host "removing gen from $dest"
+$dest = Join-Path $env:LOCALAPPDATA 'Programs\gleipnir'
+Write-Host "removing gleipnir from $dest"
 
 $old = [Environment]::GetEnvironmentVariable('Path', 'User')
 $entries = $old -split ';' | Where-Object { $_ }
@@ -28,7 +28,7 @@ if (Test-Path $dest) {
     # The script is running from inside the directory it is deleting, so the
     # delete is queued rather than done here: Windows will not remove a folder
     # while a file in it is open.
-    $bat = Join-Path $env:TEMP 'gen-uninstall.bat'
+    $bat = Join-Path $env:TEMP 'gleipnir-uninstall.bat'
     @"
 @echo off
 ping -n 3 127.0.0.1 >nul
@@ -42,4 +42,4 @@ del "%~f0"
 }
 
 Write-Host "done.  Open a new terminal for the PATH change to take effect."
-Write-Host "Any .gen archives you made are untouched."
+Write-Host "Any .gl archives you made are untouched."

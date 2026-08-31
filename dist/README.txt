@@ -11,6 +11,23 @@ It is built for data you intend to keep and rarely read: archives you will
 store and scrub periodically and restore once or never.
 
 
+INSTALL (WINDOWS)
+
+You have already unzipped this folder. Two ways to use it:
+
+  * Run it straight from here -- double-clicking does nothing useful, so open a
+    terminal in this folder (type `cmd` in File Explorer's address bar) and run
+    gleipnir.exe with a command from QUICK START below.
+
+  * Install it so you can type `gleipnir` from anywhere:
+      1. Hold Shift, right-click the empty space in this folder, and choose
+         "Open PowerShell window here".
+      2. Run:  powershell -ExecutionPolicy Bypass -File install.ps1
+      3. Open a NEW terminal. `gleipnir` now works from any folder.
+    It installs into your own account only and needs no administrator rights.
+    To remove it:  powershell -ExecutionPolicy Bypass -File uninstall.ps1
+
+
 QUICK START
 
   gleipnir c archive.gl mydir            compress a directory (default preset -5)
@@ -21,7 +38,8 @@ QUICK START
 
 RIGHT-CLICK MENU
 
-If you ticked the Explorer option during install, File Explorer gains:
+If you used the Windows setup installer (gleipnir-1.0.0-setup.exe) and ticked the
+Explorer option during install, File Explorer gains:
 
   right-click a folder or file   ->  Compress with Gleipnir
   right-click a .gl archive     ->  Extract here

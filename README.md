@@ -110,22 +110,95 @@ Six presets span the speed/ratio curve, and **`-7` is within 1.5% of `-9` for
 
 ---
 
-## Build and use
+## Download and install
 
-Prebuilt binaries are on the [releases
-page](https://github.com/ValisSowilo/Gleipnir/releases/latest) with a SHA-256 beside
-each. Two things to know before taking one:
+You do not need to build anything. Take a prebuilt file from the
+**[Releases page](https://github.com/ValisSowilo/Gleipnir/releases/latest)** and
+follow the steps for your system below. Every download has a `.sha256` file next
+to it so you can confirm it arrived intact — see [Verify your
+download](#verify-your-download).
 
-- The Windows installer is **not code-signed**, so SmartScreen will warn on it.
-  `gleipnir.exe` is standalone if you would rather skip the installer -- statically
-  linked, KERNEL32 and the UCRT only, so Windows 10 and later need nothing else.
-- `gleipnir-linux-x86_64` is the unmodified binary from the CI run for that commit,
-  so its hash is checkable against that run. It is dynamically linked and needs
-  **glibc 2.38 or newer** -- Ubuntu 24.04, Debian 13, Fedora 39 -- plus
-  `libz.so.1`. On anything older it will not start, and there is no fallback
-  build. Compile it instead; that takes seconds.
+### Windows
 
-Building from source is the supported path either way.
+**The quick way — one file, nothing to install:**
+
+1. Open the **[Releases page](https://github.com/ValisSowilo/Gleipnir/releases/latest)**.
+   Under **Assets**, click **`gleipnir.exe`** to download it. Save it somewhere you
+   will find again, such as your Desktop.
+2. That one file *is* the whole program. Because it is not code-signed, Windows
+   may show a blue **"Windows protected your PC"** box the first time you run it —
+   click **More info**, then **Run anyway**. (The SHA-256 below proves the file is
+   exactly the published one.)
+3. Open a command window in that folder: in File Explorer, click the white
+   **address bar**, type `cmd`, and press **Enter**. A black window opens, already
+   pointing at the folder.
+4. Try it. This packs a whole folder into a single `.gl` file:
+   ```
+   gleipnir.exe c backup.gl "C:\Users\you\Documents"
+   ```
+   and this unpacks it again into the current folder:
+   ```
+   gleipnir.exe x backup.gl
+   ```
+
+**The tidy way — so you can type `gleipnir` from anywhere:**
+
+1. From the same page, download **`gleipnir-windows-x86_64.zip`**. Right-click it
+   in File Explorer and choose **Extract All**.
+2. Open the extracted folder. Hold **Shift**, right-click the empty space inside
+   it, and choose **Open PowerShell window here**.
+3. Paste this line and press **Enter**:
+   ```
+   powershell -ExecutionPolicy Bypass -File install.ps1
+   ```
+   It copies the program into your own account and adds it to your PATH — no
+   administrator rights, and nothing is touched outside your profile.
+4. Close that window, open a **new** terminal, and confirm it worked:
+   ```
+   gleipnir --version
+   ```
+   To remove it later, run `uninstall.ps1` the same way.
+
+### Linux
+
+1. From the **[Releases page](https://github.com/ValisSowilo/Gleipnir/releases/latest)**,
+   download **`gleipnir-linux-x86_64`**.
+2. Make it executable and put it on your PATH:
+   ```bash
+   chmod +x gleipnir-linux-x86_64
+   sudo mv gleipnir-linux-x86_64 /usr/local/bin/gleipnir
+   ```
+3. Check it: `gleipnir --version`.
+
+This prebuilt binary needs **glibc 2.38 or newer** (Ubuntu 24.04, Debian 13,
+Fedora 39) and `libz.so.1`. On anything older it will not start — [build from
+source](#build-from-source) instead, which takes seconds.
+
+### Verify your download
+
+Optional, but it is one command and proves the file is the real one:
+
+- **Windows** (PowerShell): `Get-FileHash gleipnir.exe` — the hash it prints must
+  match the text inside `gleipnir.exe.sha256`.
+- **Linux**: `sha256sum -c gleipnir-linux-x86_64.sha256` should print `OK`.
+
+## Everyday use
+
+Three commands cover almost everything:
+
+```
+gleipnir c backup.gl file1 folder2 ...   compress files/folders into backup.gl
+gleipnir x backup.gl                      extract everything into the current folder
+gleipnir t backup.gl                      test that the archive is intact
+```
+
+Add a preset from `-1` (fastest) to `-9` (smallest); the default is `-5`. For
+cold-storage recipes and every option, see **[USAGE.md](USAGE.md)**.
+
+## Build from source
+
+Building is the supported path on any platform, and the only option on Linux
+older than glibc 2.38.
 
 Linux, against the system zlib:
 
