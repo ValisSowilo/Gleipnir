@@ -11,7 +11,11 @@
 ;   "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" packaging\gleipnir.iss
 
 #define AppName    "Gleipnir"
-#define AppVer     "1.0.0"
+; AppVer may be overridden from the command line (CI passes the git tag):
+;   ISCC /DAppVer=1.2.3 packaging\gleipnir.iss
+#ifndef AppVer
+  #define AppVer   "1.0.0"
+#endif
 #define AppExe     "gleipnir.exe"
 #define AppPublish "ValisSowilo"
 

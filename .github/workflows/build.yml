@@ -14,6 +14,7 @@ name: build
 on:
   push:
     branches: [ main, master ]
+    tags: [ 'v*' ]
   pull_request:
   workflow_dispatch:
 
@@ -117,6 +118,19 @@ jobs:
           name: gleipnir-windows-x86_64
           path: gleipnir.exe
 
+      # Version comes from the git tag on a tag build (refs/tags/v1.2.3 -> 1.2.3)
+      # and falls back to the .iss default otherwise. It names the installer and
+      # is written into its version resource.
+      - name: Determine version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            ver="${GITHUB_REF#refs/tags/v}"
+          else
+            ver="1.0.0"
+          fi
+          echo "GLEIPNIR_VER=$ver" >> "$GITHUB_ENV"
+          echo "version: $ver"
+
       - name: Stage the files the installer bundles
         run: cp gleipnir.exe dist/gleipnir.exe
 
@@ -127,17 +141,32 @@ jobs:
           if (-not (Test-Path $iscc)) {
             choco install innosetup -y --no-progress
           }
-          & $iscc "packaging\gleipnir.iss"
+          & $iscc "/DAppVer=$env:GLEIPNIR_VER" "packaging\gleipnir.iss"
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit $LASTEXITCODE" }
-          if (-not (Test-Path "dist\gleipnir-1.0.0-setup.exe")) {
-            throw "installer was not produced"
-          }
+          $setup = "dist\gleipnir-$env:GLEIPNIR_VER-setup.exe"
+          if (-not (Test-Path $setup)) { throw "installer $setup was not produced" }
 
       - name: Upload the one-click installer
         uses: actions/upload-artifact@v7
         with:
           name: gleipnir-windows-setup
-          path: dist/gleipnir-1.0.0-setup.exe
+          path: dist/gleipnir-*-setup.exe
+
+      # The same gleipnir.exe plus the script installer and text docs, for people
+      # who would rather not run an unsigned .exe installer.
+      - name: Build the Windows zip bundle
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force bundle | Out-Null
+          Copy-Item gleipnir.exe, dist/install.ps1, dist/uninstall.ps1, `
+                    dist/README.txt, dist/USAGE.txt bundle/
+          Compress-Archive -Path bundle/* -DestinationPath gleipnir-windows-x86_64.zip -Force
+
+      - name: Upload the Windows zip bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: gleipnir-windows-zip
+          path: gleipnir-windows-x86_64.zip
 
   # The format claim in the README is that an archive written on one platform
   # reads on the other.  That is worth testing rather than asserting: it is
@@ -171,3 +200,49 @@ jobs:
           ./gleipnir x -q a.gl out
           test -f out/code.c && test -f out/rand.bin
           echo "cross-platform read OK"
+
+  # Publish. Runs only when a version tag (v1.2.3) is pushed, and only after the
+  # build/test jobs above have passed on that same commit -- so nothing ships
+  # that has not round-tripped and cross-platform-verified. It gathers the four
+  # binaries built above, writes a SHA-256 next to each, and attaches all eight
+  # files to the release for the tag (creating it with generated notes if it
+  # does not exist yet). Re-running is safe: --clobber replaces same-named
+  # assets rather than erroring.
+  release:
+    needs: [linux, windows, cross-platform]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Determine version
+        run: echo "GLEIPNIR_VER=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_ENV"
+
+      - name: Download every build artifact
+        uses: actions/download-artifact@v8
+        with:
+          path: art
+
+      - name: Lay out the release files with checksums
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp "art/gleipnir-linux-x86_64/gleipnir"            "out/gleipnir-linux-x86_64"
+          cp "art/gleipnir-windows-x86_64/gleipnir.exe"      "out/gleipnir.exe"
+          cp "art/gleipnir-windows-zip/gleipnir-windows-x86_64.zip" "out/"
+          cp art/gleipnir-windows-setup/gleipnir-*-setup.exe "out/"
+          cd out
+          for f in *; do sha256sum "$f" > "$f.sha256"; done
+          ls -l
+
+      - name: Create or update the release, attach the files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="v${GLEIPNIR_VER}"
+          if ! gh release view "$tag" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" -R "$GITHUB_REPOSITORY" \
+              --title "Gleipnir ${GLEIPNIR_VER}" --generate-notes
+          fi
+          gh release upload "$tag" -R "$GITHUB_REPOSITORY" --clobber out/*
