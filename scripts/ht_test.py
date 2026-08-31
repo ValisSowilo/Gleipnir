@@ -17,7 +17,7 @@ says whether the hardware has room.
 """
 import os, sys, time, subprocess
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 SIL = os.path.join(HERE, "tools", "corpora", "silesia")
 TMP = os.path.join(os.environ.get("TEMP", "/tmp"), "httest")
 os.makedirs(TMP, exist_ok=True)

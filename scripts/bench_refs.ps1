@@ -12,7 +12,8 @@
 #
 #   powershell -File bench_refs.ps1          # writes bench_refs.json
 
-$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+# repo root: this script lives in scripts/, so climb one more level
+$here = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $sil  = Join-Path $here "tools\corpora\silesia"
 $tmp  = Join-Path $env:TEMP "refbench"
 if (-not (Test-Path $tmp)) { New-Item -ItemType Directory $tmp | Out-Null }

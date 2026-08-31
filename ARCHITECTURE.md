@@ -1039,7 +1039,7 @@ is a cost, not insurance.
 
 The gates originally shipped as 400 / 128 / 96 / **48**, with 48 at `-1` and
 `-3` chosen from a sweep on samba alone. Swept across six files that disagree
-(`byt_sweep.py`), 48 turns out to be actively harmful:
+(`scripts/byt_sweep.py`), 48 turns out to be actively harmful:
 
 | preset | gate | total size | time | worst file |
 |---|---|---|---|---|
@@ -1950,7 +1950,7 @@ not overhead — it is the algorithm. Reducing it means running fewer contexts,
 which is exactly what the preset ladder exposes.
 
 **Both detectors were fixed the same way**: replicate the decision in a
-standalone probe (`t_period.c`, `t_adiv.c`), dump the distribution it is
+standalone probe (`scripts/t_period.c`, `scripts/t_adiv.c`), dump the distribution it is
 deciding on, and choose thresholds from that. Both times, thresholds chosen by
 intuition were wrong in a way that surfaced only as a ratio loss on one file.
 
@@ -1990,7 +1990,7 @@ is **not** what the `-5`→`-7` disagreement was about. §26 is.
 ## 26. The reproducibility problem
 
 **Resolved for the comparison table, still open for `-7` itself.**
-`bench_session.py` measured all eight presets and all six reference codecs in
+`scripts/bench_session.py` measured all eight presets and all six reference codecs in
 one interleaved 2 h 25 m session, with `gen -7` and `zpaq -m5` repeated at both
 ends as drift sentinels. That settles what the cross-codec ratios are. It does
 not explain why `-7` is unstable, and it produced a sharper version of that
@@ -2244,7 +2244,7 @@ not a compatibility story, so each build refuses the other's archives by name.
 Verified: all six pre-existing levels byte-identical to `genv2.exe` past the
 header, and all nine levels round-trip byte-exact (`lvcheck.py`).
 
-Not done: no timing (§26 makes it meaningless until task #26), no `gfuzz.py`
+Not done: no timing (§26 makes it meaningless until task #26), no `scripts/gfuzz.py`
 corruption run against v3 archives, no sweep of the new rungs' gates on the
 six-file set — only the `-8` ablation above, on one file.
 ## 28. Status: what is and is not done
@@ -2264,11 +2264,11 @@ six-file set — only the `-8` ablation above, on one file.
 | threading with a RAM-aware clamp | done |
 | 2 GB ceiling removed; O(segment) memory | done, verified to 2.2 GB |
 | mtime and POSIX permission restore | done |
-| 8 presets benchmarked on full Silesia, one interleaved session | done, `bench_session.py` |
+| 8 presets benchmarked on full Silesia, one interleaved session | done, `scripts/bench_session.py` |
 
 **Verification gates.** Three suites must pass before a build is used:
-`fuzz.py` and `tfuzz.py` (round-trip, `--v2` for the new CLI) and `gfuzz.py`
-(corruption). `gfuzz.py` asserts the property that matters for a backup tool:
+`scripts/fuzz.py` and `scripts/tfuzz.py` (round-trip, `--v2` for the new CLI) and `scripts/gfuzz.py`
+(corruption). `scripts/gfuzz.py` asserts the property that matters for a backup tool:
 for *any* input, `gen` either exits 0 with byte-exact output, or exits 1/2 with
 a diagnostic. 250 randomized trials across seven damage models — bitflip,
 burst, truncate, zero, splice, extend, noise — produced no crash, no hang, and
@@ -2305,7 +2305,7 @@ tools and different people.
   item is closed: `genv2.c` was promoted and is now `nyx.c`. What is not closed
   is the reason promotion was deferred. The CLI argument order changed
   (`c archive path...`), and the benchmark scripts in the repo —
-  `bench_final.py`, `ab_corpus.py` and the rest — still drive the old form
+  `scripts/bench_final.py`, `scripts/ab_corpus.py` and the rest — still drive the old form
   against dev-era binaries (`gen.exe`, `gen11.exe`, `gen17.exe`, `g26a.exe`).
   Those `.exe` names are deliberately left alone: they are the measurement
   record, and renaming them piecemeal would make the harness less coherent, not
@@ -2348,7 +2348,7 @@ tools and different people.
 - **enwik8 figures in README are from the previous build** and are flagged as
   such in place. Only the Silesia cross-reference was updated.
 - **RESOLVED: reference-codec timings are no longer from another session.**
-  `bench_session.py` measures every preset and every reference codec in one
+  `scripts/bench_session.py` measures every preset and every reference codec in one
   interleaved run, so the asymmetry that favoured gen on the time axis is gone.
   The protocol asymmetry on the *size* axis has since been measured and is
   negligible: whole-directory and per-file-summed differ by 1,100 bytes out of

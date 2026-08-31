@@ -2,7 +2,7 @@
 Usage: cmp_gen.py baseline.exe candidate.exe [file ...]"""
 import os, subprocess, time, hashlib, sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 SL = os.path.join(HERE, "slices")
 TMP = os.path.join(os.environ.get("TEMP", HERE), "cmpgen")
 os.makedirs(TMP, exist_ok=True)

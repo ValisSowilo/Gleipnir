@@ -195,12 +195,12 @@ explicit ±6% and a stated range, because its instability is real and unexplaine
 Every other preset repeated cleanly and carries no caveat. A number with an
 honest error bar is worth more than a precise one that quietly is not.
 
-**Never let a pipe eat an exit code.** Running `python tfuzz.py … | tail -6` in
+**Never let a pipe eat an exit code.** Running `python scripts/tfuzz.py … | tail -6` in
 the release check reported success, because the shell returns `tail`'s status
 and not the fuzzer's. Re-run without the pipe: **exit 1**. The verdict line had
 been scrolled off by `tail` and the failure had been invisible.
 
-The failure turned out to be an invocation error — `tfuzz.py` takes an
+The failure turned out to be an invocation error — `scripts/tfuzz.py` takes an
 executable as its argument, and it had been handed `40`, a trial count it does
 not accept, so every case ran against a nonexistent binary and failed
 identically. That is *precisely* the trap documented in the script's own header

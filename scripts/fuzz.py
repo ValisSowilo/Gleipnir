@@ -4,7 +4,7 @@ the pack threshold, sizes either side of the filter minimums, executables that
 are too short to filter, and incompressible input at every level."""
 import os, random, subprocess, hashlib, sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 # The v2 archiver takes "c archive input..." where v1 took "c input output",
 # so which CLI to drive has to be stated rather than guessed.
 V2 = "--v2" in sys.argv

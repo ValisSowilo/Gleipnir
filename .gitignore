@@ -30,42 +30,49 @@
 !ARCHITECTURE.md
 !EXPERIENCES.md
 
-# --- the three verification gates -----------------------------------------
-# fuzz.py (container/deflate edge cases), tfuzz.py (round trips across thread
-# counts), gfuzz.py (corruption).  CI runs the latter two on every push.
-!fuzz.py
-!tfuzz.py
-!gfuzz.py
+# --- scripts, all under scripts/ ------------------------------------------
+# The tooling that produced the numbers in the README lives here.  The
+# directory has to be re-admitted before anything inside it can be, and then
+# each script is admitted by name -- inclusion stays the deliberate act.
+!scripts/
 
-# --- standalone probes the docs cite as ground truth ----------------------
-!t_alpha.c
-!t_seg.c
-!t_period.c
-!t_adiv.c
+# the three verification gates: fuzz.py (container/deflate edge cases),
+# tfuzz.py (round trips across thread counts), gfuzz.py (corruption).  CI runs
+# the latter two on every push, from scripts/.
+!scripts/fuzz.py
+!scripts/tfuzz.py
+!scripts/gfuzz.py
 
-# --- support tools documented in README "Support tools" -------------------
-!readblk.py
-!cmp_gen.py
-!full_ab.py
-!final_bench.py
-!bench_final.py
-!make_mixed.py
-!bench_mixed.py
-!bench_refs.ps1
-!byt_sweep.py
-!t2_sweep.py
-!ident_check.py
-!ab_corpus.py
-!f_ablate.py
-!fshape.py
-!ht_test.py
-!ab_speedup.py
-!e8.py
-!e8_refs.py
-!mkgraphs.py
-!parse_bench_log.py
-!sweep.py
-!bench_session.py
+# standalone probes the docs cite as ground truth
+!scripts/t_alpha.c
+!scripts/t_seg.c
+!scripts/t_period.c
+!scripts/t_adiv.c
+
+# support tools indexed in README "Repository layout"
+!scripts/readblk.py
+!scripts/cmp_gen.py
+!scripts/full_ab.py
+!scripts/final_bench.py
+!scripts/bench_final.py
+!scripts/make_mixed.py
+!scripts/bench_mixed.py
+!scripts/bench_refs.ps1
+!scripts/byt_sweep.py
+!scripts/t2_sweep.py
+!scripts/ident_check.py
+!scripts/ab_corpus.py
+!scripts/f_ablate.py
+!scripts/fshape.py
+!scripts/ht_test.py
+!scripts/ab_speedup.py
+!scripts/e8.py
+!scripts/e8_refs.py
+!scripts/mkgraphs.py
+!scripts/mkcorpora.py
+!scripts/parse_bench_log.py
+!scripts/sweep.py
+!scripts/bench_session.py
 
 # The measurement records behind the two preset tables in the README.
 # bench_session.json is the single interleaved run the headline table and every

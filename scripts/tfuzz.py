@@ -5,7 +5,7 @@ path inside a worker.
 Usage: tfuzz.py [exe]"""
 import os, random, subprocess, hashlib, sys, zlib, time, tempfile
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 # The v2 archiver takes "c archive input..." where v1 took "c input output",
 # so which CLI to drive has to be stated rather than guessed.  Driving the
 # wrong one makes every case fail identically, which reads like a real

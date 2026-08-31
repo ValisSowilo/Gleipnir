@@ -14,7 +14,7 @@ half-finished level is dropped rather than reported short.
 """
 import os, re, sys, json
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 
 LEVEL = re.compile(r"^=== level -(\d+), -t(\d+) ===")
 # file  insize  outsize  bpc  Xs  Ys  AM  BM  OK

@@ -25,7 +25,7 @@ Ordered by measured cost, which is **not** the order the names suggest — the
 | `-7`   | 36,493,092 | 5.81× | 1.377 | 0.47 MB/s | 0.45 MB/s | 922 MB |
 | `-9`   | 35,582,296 | 5.96× | 1.343 | 0.36 MB/s | 0.32 MB/s | 1055 MB |
 
-Every row above comes from **one interleaved session** (`bench_session.py`,
+Every row above comes from **one interleaved session** (`scripts/bench_session.py`,
 2 h 25 m), with `-7` and `zpaq -m5` repeated at both ends as drift sentinels.
 Sizes are deterministic and reproduce across every session ever run; times are
 only comparable *within* one uninterrupted run, which is why this is a single
@@ -235,7 +235,7 @@ corruption, not loud corruption.
 
 Every field the reader parses is bounds-checked against the buffer it came
 from. A damaged archive produces a diagnostic and exit 2 — never a crash, a
-hang, or plausible-looking wrong bytes. This is verified by `gfuzz.py`, which
+hang, or plausible-looking wrong bytes. This is verified by `scripts/gfuzz.py`, which
 subjects archives to bit flips, decayed sectors, truncation, splices, zero
 holes, trailing junk and pure noise, and asserts that every single outcome is
 either byte-exact output or a non-zero exit.
@@ -458,12 +458,12 @@ Everything above is checked by three suites that must all pass before a build
 is used:
 
 ```bash
-python fuzz.py  nyx.exe --v2      # 81 edge cases x 8 presets = 648 round trips
-python tfuzz.py nyx.exe --v2      # decode at a different -t than encoded
-python gfuzz.py 250 --exe nyx.exe     # corruption: every mode, every damage model
+python scripts/fuzz.py  nyx.exe --v2      # 81 edge cases x 8 presets = 648 round trips
+python scripts/tfuzz.py nyx.exe --v2      # decode at a different -t than encoded
+python scripts/gfuzz.py 250 --exe nyx.exe     # corruption: every mode, every damage model
 ```
 
-`gfuzz.py` is the one specific to this format. It asserts the contract that
+`scripts/gfuzz.py` is the one specific to this format. It asserts the contract that
 makes an archiver trustworthy: for *any* input, `nyx` either exits 0 with
 byte-exact output or exits non-zero with a diagnostic. Never a crash, never a
 hang, and never exit 0 with wrong bytes.

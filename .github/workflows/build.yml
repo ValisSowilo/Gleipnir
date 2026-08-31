@@ -33,10 +33,10 @@ jobs:
         run: make test
 
       - name: Round-trip fuzz across thread counts
-        run: python3 tfuzz.py --v2 nyx
+        run: python3 scripts/tfuzz.py --v2 nyx
 
       - name: Corruption fuzz
-        run: python3 gfuzz.py 40 --exe nyx
+        run: python3 scripts/gfuzz.py 40 --exe nyx
 
       - name: Archive built on Linux must read on Linux
         run: |

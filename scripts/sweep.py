@@ -3,7 +3,7 @@ text-heavy subset.  Sizes only -- round-trip is checked once at the end on the
 chosen point, since the parameters are symmetric between encode and decode."""
 import os, subprocess, sys, time
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 SL = os.path.join(HERE, "slices")
 TMP = os.path.join(os.environ["TEMP"], "swp")
 os.makedirs(TMP, exist_ok=True)

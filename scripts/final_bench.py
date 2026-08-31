@@ -3,7 +3,7 @@ reference codecs' numbers from bench_large.log alongside so the position is
 readable without cross-checking two files."""
 import os, subprocess, time, hashlib, sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 SIL = os.path.join(HERE, "tools", "corpora", "silesia")
 TMP = os.path.join(os.environ["TEMP"], "finalb")
 os.makedirs(TMP, exist_ok=True)

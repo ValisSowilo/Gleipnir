@@ -20,7 +20,7 @@ tell it otherwise.
 """
 import os, sys, random, shutil, subprocess, hashlib, tempfile
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 SIL  = os.path.join(HERE, "tools", "corpora", "silesia")
 TMP  = os.path.join(tempfile.gettempdir(), "gfuzz")
 TIMEOUT = 300

@@ -12,7 +12,7 @@ Real files are copied from the system where a realistic example exists.
 """
 import os, sys, json, random, struct, zlib, base64, shutil, glob, sysconfig
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 OUT = os.path.join(HERE, "tools", "corpora", "mixed")
 os.makedirs(OUT, exist_ok=True)
 R = random.Random(20260730)

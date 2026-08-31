@@ -7,7 +7,7 @@ have been seen to differ by 11%.
 """
 import os, time, subprocess
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 SRC = os.path.join(HERE, "tools", "corpora", "enwik8")
 TMP = os.path.join(os.environ["TEMP"], "e8refs")
 os.makedirs(TMP, exist_ok=True)

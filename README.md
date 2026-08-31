@@ -39,7 +39,7 @@ decompression figure — that is the one that has to succeed when it matters.
 
 **Every row above was measured in one session**, interleaved, with `nyx -7` and
 `zpaq -m5` repeated at both ends as drift sentinels
-(`bench_session.py`, 2 h 25 m). Earlier revisions of this table mixed sessions,
+(`scripts/bench_session.py`, 2 h 25 m). Earlier revisions of this table mixed sessions,
 which is not safe here — see below.
 
 **Sizes are exact and reproduce across every session ever run**, including
@@ -99,8 +99,8 @@ sit on the diagonal. `xz` decodes ~50× faster than it encodes and `brotli`
 
 ![compression size against speed](graphs/speed_vs_size.svg)
 
-On enwik8 (100 MB of Wikipedia text) it reaches **18,909,067** — 3.6% below
-`zpaq -m5`'s 19,625,031 measured on the same machine, but well behind the Large
+On enwik8 (100 MB of Wikipedia text) it reaches **19,155,646** — 2.4% below
+`zpaq -m5`'s 19,625,046 measured on the same machine, but well behind the Large
 Text Compression Benchmark leaders, which is where this engine is weakest.
 `cmix v21` reaches 14,623,723 at 31 GB, and `durilca'kingsize` reaches
 16,209,219 while running roughly 4× *faster* — the case for a text preprocessor.
@@ -838,8 +838,8 @@ already-compressed input, no audio, no genomic data and no 64-bit code — and
 tuning only against it is how a detector that byte-swaps integer arrays survives
 for months.
 
-`make_mixed.py` generates a 13-file corpus covering those gaps (synthetic files
-use a fixed seed; the DLL, font and Python sources are real). `bench_mixed.py`
+`scripts/make_mixed.py` generates a 13-file corpus covering those gaps (synthetic files
+use a fixed seed; the DLL, font and Python sources are real). `scripts/bench_mixed.py`
 runs it against zpaq, xz and lpaq1. Results at `-9`, all round-trip verified:
 
 Margins below are against the **best** of zpaq/xz/lpaq1 on that file, not against
@@ -890,7 +890,7 @@ Not detected, because nothing in the corpora needs it: JPEG (would need a full
 DCT-coefficient model), audio/WAV, UTF-16 text, base64, and BMP/TIFF headers.
 The absent capability that *would* pay on this corpora is not a detector at all
 but a **text preprocessor** — a dictionary/word-substitution stage of the kind
-`durilca'kingsize` uses to reach 16,209,219 on enwik8, 14% below this compressor
+`durilca'kingsize` uses to reach 16,209,219 on enwik8, 15% below this compressor
 while running about 4× faster.
 
 ---
@@ -1031,7 +1031,7 @@ Compression and decompression both measured, RSS reported by the engine itself,
 every row round-trip verified against its SHA-256 — a failed verify invalidates
 the row, not just its timing.
 
-Times come from a **single interleaved session** (`bench_session.py`, 2 h 25 m),
+Times come from a **single interleaved session** (`scripts/bench_session.py`, 2 h 25 m),
 with `nyx -7` and `zpaq -m5` repeated at both ends as drift sentinels. `nyx`
 archives the whole directory; reference codecs run per file and are summed,
 which is the published protocol kept unchanged so these numbers stay comparable
@@ -1071,7 +1071,7 @@ question. See
 Against the reference codecs. Sizes and times are from the **same interleaved
 session** as the preset table above, so they are comparable to it. The peak RSS
 column is not, and cannot be: that harness does not sample the reference
-codecs' memory, so those figures come from a separate `bench_refs.ps1` run.
+codecs' memory, so those figures come from a separate `scripts/bench_refs.ps1` run.
 They are **sampled at 50 ms while the process runs, so they are a lower bound**
 — `PeakWorkingSet64` read after exit returns zero here, and only `nyx` reports
 its own figure exactly.
@@ -1088,10 +1088,10 @@ its own figure exactly.
 `zpaq` is a drift sentinel, so it has two readings: 559.4 s both times on the
 compression side, and 581.7 s is the mean of 587.6 and 575.8.
 
-**This table used to be the `bench_refs.ps1` run throughout, and that is how it
+**This table used to be the `scripts/bench_refs.ps1` run throughout, and that is how it
 came to disagree with its own surroundings** — it gave zpaq 544.8 s while every
 ratio computed from it correctly used the session's 559.4 s. Two of its sizes
-disagreed as well, and that part is not measurement noise. `bench_refs.ps1`
+disagreed as well, and that part is not measurement noise. `scripts/bench_refs.ps1`
 redirects stdout in order to sample memory, so it cannot use `-c`; it copies
 each member to `work.bin` and compresses the file. gzip in file mode writes the
 original name into its header, and `work.bin` plus its NUL terminator is 9 bytes — times twelve
@@ -1161,6 +1161,112 @@ mixing is worth it when the data will be stored far more often than it is read,
 or when the bytes saved are worth more than the seconds spent.
 
 ![memory against size](graphs/ram_vs_size.svg)
+
+---
+
+## Standard corpora
+
+Silesia is one corpus. These are four more, so the picture does not rest on a
+single file. Each is compressed as **one stream** — enwik8 and enwik9 are already
+single files, Calgary and Canterbury are their canonical file sets concatenated
+in order — so every codec sees identical bytes with no per-file container
+overhead. Every `nyx` row was measured here on the released binary and round-trip
+verified against its SHA-256.
+
+**The competitor provenance differs by corpus, and it matters.** For enwik8 and
+enwik9 the non-`nyx` sizes are the published figures from Matt Mahoney's [Large
+Text Compression Benchmark](http://mattmahoney.net/dc/text.html), measured on his
+hardware. Read those as sizes, not as a speed comparison against these times. The
+LTCB entries also use the tunings listed on that page, some of which — notably
+`xz`'s 1 GiB dictionary — differ from a codec's defaults, so a plain invocation
+will not reproduce them. For Calgary and Canterbury every row including the
+competitors was measured on this machine and is directly comparable throughout.
+
+### enwik8 — 100,000,000 bytes of Wikipedia text
+
+| codec | size | bpc | comp | decomp | source |
+|---|---|---|---|---|---|
+| `cmix v21` | 14,623,723 | 1.170 | | | LTCB |
+| `nncp v3.2` | 14,915,298 | 1.193 | | | LTCB |
+| `paq8px_v206 -12L` | 15,849,084 | 1.268 | | | LTCB |
+| `zpaq 6.42 -max` | 17,855,729 | 1.428 | | | LTCB |
+| **`nyx -9`** | **19,155,646** | **1.532** | 347.1s | 324.4s | here |
+| `lpaq1 -9` | 19,755,948 | 1.580 | | | LTCB |
+| **`nyx -5`** | **19,920,367** | **1.594** | 179.6s | 181.7s | here |
+| `xz -9e` (tuned) | 24,703,772 | 1.976 | | | LTCB |
+| `brotli -q11` | 25,764,698 | 2.061 | | | LTCB |
+| `bzip2 -9` | 29,008,736 | 2.321 | | | LTCB |
+| `gzip -9` | 36,445,248 | 2.916 | | | LTCB |
+
+`nyx -9` is 3.0% smaller than `lpaq1 -9` and beats every LZ codec by a wide
+margin, while trailing `zpaq -max` by 7.3% and the heavy CM and neural engines by
+more. The two `nyx` rows compress at 0.29 MB/s (`-9`) and 0.56 MB/s (`-5`),
+decoding within a few percent of that. Text is where this engine is weakest
+relative to the field — the full preset ladder and the reason are in [Where it
+struggles](#where-it-struggles).
+
+![enwik8: where nyx lands in the field, bits per byte](graphs/enwik8_ranking.svg)
+
+### enwik9 — 1,000,000,000 bytes
+
+| codec | size | bpc | comp | decomp | source |
+|---|---|---|---|---|---|
+| `nncp v3.2` | 106,632,363 | 0.853 | | | LTCB |
+| `cmix v21` | 107,963,380 | 0.864 | | | LTCB |
+| `paq8px_v206 -12L` | 124,696,410 | 0.998 | | | LTCB |
+| `zpaq 6.42 -max` | 142,252,605 | 1.138 | | | LTCB |
+| **`nyx -9`** | **164,080,953** | **1.313** | 3186.3s | 3261.6s | here |
+| `lpaq1 -9` | 164,508,919 | 1.316 | | | LTCB |
+| **`nyx -5`** | **172,143,092** | **1.377** | 1620.0s | 1690.5s | here |
+| `xz` (tuned) | 197,331,816 | 1.579 | | | LTCB |
+| `brotli` | 223,597,884 | 1.789 | | | LTCB |
+| `bzip2 -9` | 253,977,839 | 2.032 | | | LTCB |
+| `gzip -9` | 322,591,995 | 2.581 | | | LTCB |
+
+At the gigabyte scale `nyx -9` edges `lpaq1 -9` by 0.26% and is 15.3% smaller
+than `zpaq -max`, running at 0.31 MB/s where `-5` runs at 0.62. Its 164,080,953
+would sit mid-table on the LTCB leaderboard, ahead of every zpaq entry and behind
+the dedicated text engines. Memory held at 977 MB compressing, 1028 MB
+decompressing.
+
+![enwik9: where nyx lands in the field, bits per byte](graphs/enwik9_ranking.svg)
+
+### Calgary — 3,141,622 bytes, fourteen files
+
+| codec | size | bpc |
+|---|---|---|
+| `paq8px -8` | 560,705 | 1.428 |
+| **`nyx -9`** | **651,967** | **1.660** |
+| `zpaq -m5` | 659,513 | 1.679 |
+| `nyx -7` | 661,432 | 1.684 |
+| `lpaq1 -6` | 682,211 | 1.737 |
+| `xz -9e` | 819,440 | 2.086 |
+| `bzip2 -9` | 859,448 | 2.188 |
+| `gzip -9` | 1,021,855 | 2.602 |
+
+![Calgary: codecs ranked by bits per byte](graphs/calgary_ranking.svg)
+
+### Canterbury — 2,810,784 bytes, eleven files
+
+| codec | size | bpc |
+|---|---|---|
+| `paq8px -8` | 302,791 | 0.862 |
+| **`nyx -9`** | **355,766** | **1.013** |
+| `nyx -7` | 359,844 | 1.024 |
+| `zpaq -m5` | 362,880 | 1.033 |
+| `lpaq1 -6` | 388,787 | 1.107 |
+| `xz -9e` | 483,616 | 1.376 |
+| `bzip2 -9` | 569,486 | 1.621 |
+| `gzip -9` | 735,312 | 2.093 |
+
+![Canterbury: codecs ranked by bits per byte](graphs/canterbury_ranking.svg)
+
+On both small corpora `nyx -9` lands ahead of `zpaq -m5` and behind `paq8px -8`,
+the same order it holds on Silesia, and on Canterbury even `-7` passes `zpaq`.
+Times at this scale are dominated by process startup, so these two lead on size.
+The picture is consistent across all five corpora: `nyx` beats `zpaq -m5` on
+general and structured data, edges `lpaq1` on text, and trails the engines that
+spend far more time per bit.
 
 ---
 
@@ -1261,52 +1367,52 @@ timing in it must be thrown away rather than corrected.
 No change ships without both suites passing:
 
 ```bash
-python fuzz.py nyx.exe --v2    # 81 edge cases x 8 presets = 648 round trips
-python tfuzz.py nyx.exe --v2   # 10 cases x 6 thread counts = 60 round trips
+python scripts/fuzz.py nyx.exe --v2    # 81 edge cases x 8 presets = 648 round trips
+python scripts/tfuzz.py nyx.exe --v2   # 10 cases x 6 thread counts = 60 round trips
 ```
 
-708 round trips, every one byte-exact. The level sweep in `fuzz.py` is not
+708 round trips, every one byte-exact. The level sweep in `scripts/fuzz.py` is not
 redundant with a single level: each preset is a different context set, ISSE
 depth, SSE stage count and match-bypass gate, so a preset can have a container
 or state bug the others do not.
 
-`fuzz.py` covers empty and near-empty files, single-symbol files, alphabet sizes
+`scripts/fuzz.py` covers empty and near-empty files, single-symbol files, alphabet sizes
 either side of the packing threshold, MZ headers too short to filter, zlib at
 every level and memLevel, strategies deliberately *not* searched (must fall back,
 not corrupt), raw deflate, gzip, truncated and corrupted streams, nested zlib, a
 real ZIP, and incompressible input at every level.
 
-`tfuzz.py` decodes every archive at a **different** `-t` than it was encoded
+`scripts/tfuzz.py` decodes every archive at a **different** `-t` than it was encoded
 with, and includes sizes exactly at and either side of the 1 MB chunk boundary.
 
 Support tools:
 
 | file | purpose |
 |---|---|
-| `readblk.py` | parses the block table straight out of a container — ground truth, no instrumentation to get wrong |
-| `t_alpha.c`, `t_seg.c` | exercise the Alpha detector and the segmenter in isolation |
-| `cmp_gen.py` | A/B two builds on slices |
-| `full_ab.py` | A/B on full Silesia with zpaq's per-file numbers inline |
-| `final_bench.py` | full corpus run with round-trip verification |
-| `bench_final.py` | all presets: size, both directions, RSS, hash check |
-| `make_mixed.py` | generate the 13-file mixed-type corpus (fixed seed) |
-| `bench_mixed.py` | mixed corpus vs zpaq / xz / lpaq1 |
-| `bench_refs.ps1` | reference codecs: size, both directions, sampled peak RSS |
-| `byt_sweep.py` | match-bypass gate sweep across files that disagree |
-| `t2_sweep.py` | sweep any compile-time gate across the six files that disagree |
-| `ident_check.py` | prove two builds are byte-identical per file and preset |
-| `ab_corpus.py` | before/after on the full corpus, interleaved in one session |
-| `f_ablate.py` | remove one table at a time to locate where the time goes |
-| `fshape.py` | pick a preset's table shape on the size-vs-time frontier |
-| `ht_test.py` | SMT pairing: is the loop latency-bound or resource-bound? |
-| `ab_speedup.py` | same-session A/B of two builds on the same files |
-| `e8.py`, `e8_refs.py` | enwik8 preset ladder and its reference rows |
-| `mkgraphs.py` | the graphs in this file, as dependency-free SVG |
-| `bench_session.py` | **every preset and every reference codec in one interleaved session**, with drift sentinels at both ends — the harness behind the preset table above; writes `bench_session.json` |
-| `parse_bench_log.py` | rebuild `bench_final.json` from an interrupted sweep's log |
-| `t_period.c` | MAD curve per stride — ground truth for the record model |
-| `t_adiv.c` | opcode-diversity distributions — ground truth for Alpha detection |
-| `sweep.py` | rebuild across a `-D` parameter grid |
+| `scripts/readblk.py` | parses the block table straight out of a container — ground truth, no instrumentation to get wrong |
+| `scripts/t_alpha.c`, `scripts/t_seg.c` | exercise the Alpha detector and the segmenter in isolation |
+| `scripts/cmp_gen.py` | A/B two builds on slices |
+| `scripts/full_ab.py` | A/B on full Silesia with zpaq's per-file numbers inline |
+| `scripts/final_bench.py` | full corpus run with round-trip verification |
+| `scripts/bench_final.py` | all presets: size, both directions, RSS, hash check |
+| `scripts/make_mixed.py` | generate the 13-file mixed-type corpus (fixed seed) |
+| `scripts/bench_mixed.py` | mixed corpus vs zpaq / xz / lpaq1 |
+| `scripts/bench_refs.ps1` | reference codecs: size, both directions, sampled peak RSS |
+| `scripts/byt_sweep.py` | match-bypass gate sweep across files that disagree |
+| `scripts/t2_sweep.py` | sweep any compile-time gate across the six files that disagree |
+| `scripts/ident_check.py` | prove two builds are byte-identical per file and preset |
+| `scripts/ab_corpus.py` | before/after on the full corpus, interleaved in one session |
+| `scripts/f_ablate.py` | remove one table at a time to locate where the time goes |
+| `scripts/fshape.py` | pick a preset's table shape on the size-vs-time frontier |
+| `scripts/ht_test.py` | SMT pairing: is the loop latency-bound or resource-bound? |
+| `scripts/ab_speedup.py` | same-session A/B of two builds on the same files |
+| `scripts/e8.py`, `scripts/e8_refs.py` | enwik8 preset ladder and its reference rows |
+| `scripts/mkgraphs.py` | the graphs in this file, as dependency-free SVG |
+| `scripts/bench_session.py` | **every preset and every reference codec in one interleaved session**, with drift sentinels at both ends — the harness behind the preset table above; writes `bench_session.json` |
+| `scripts/parse_bench_log.py` | rebuild `bench_final.json` from an interrupted sweep's log |
+| `scripts/t_period.c` | MAD curve per stride — ground truth for the record model |
+| `scripts/t_adiv.c` | opcode-diversity distributions — ground truth for Alpha detection |
+| `scripts/sweep.py` | rebuild across a `-D` parameter grid |
 
 The two `t_*.c` probes exist because both detectors were fixed the same way:
 replicate the decision in isolation, dump the distribution it is deciding on,
@@ -1329,43 +1435,40 @@ and carried neither the word-pair nor the line model, the two things that
 actually pay on text. Rebuilt around orders 1–6 plus word, word-pair, line,
 previous-line, indirect and one sparse.
 
-enwik8, single thread, all `nyx` rows round-trip verified, all rows from one
-uninterrupted session:
+enwik8, single thread, released binary, all `nyx` rows round-trip verified. The
+`nyx` ladder and the two reference codecs were each run as an uninterrupted pass
+on the same idle machine (not interleaved with drift sentinels the way the
+Silesia table is, so read the times as same-machine rather than same-session):
 
 | | output | bpc | comp | decomp |
 |---|---|---|---|---|
-| `-1` | 23,262,955 | 1.861 | 72.9s | 74.7s |
-| `-3` | 20,139,636 | 1.611 | 131.0s | 134.1s |
-| `-5` | 19,692,710 | 1.575 | 173.5s | 176.8s |
-| `-7` | 19,162,984 | 1.533 | 242.7s | 246.1s |
-| `-9` | 18,909,067 | 1.513 | 370.6s | 370.8s |
-| lpaq1 -6 | 20,078,550 | 1.606 | 79.0s | 85.4s |
-| zpaq -m5 | 19,625,046 | 1.570 | 268.0s | 270.8s |
+| `-1` | 23,279,021 | 1.862 | 72.3s | 74.5s |
+| `-3` | 20,328,118 | 1.626 | 144.5s | 133.4s |
+| `-5` | 19,920,367 | 1.594 | 179.6s | 181.7s |
+| `-7` | 19,422,742 | 1.554 | 239.9s | 243.5s |
+| `-9` | 19,155,646 | 1.532 | 347.1s | 324.4s |
+| lpaq1 -6 | 20,078,550 | 1.606 | 87.0s | 93.1s |
+| zpaq -m5 | 19,625,046 | 1.570 | 297.8s | 298.3s |
 
-The strict domination is gone: `-5` is now **1.92% smaller than lpaq1** where
-the old `-5` was 2.4% larger. But **lpaq1 is still faster at comparable ratio** —
-it beats `-3` on both size (0.30%) and time, and reaches `-5`-class output in
-under half the time. It sits on this engine's Pareto frontier between `-3` and
+The old strict domination is gone: `-5` is now **0.79% smaller than lpaq1**
+where the pre-rebuild `-5` was 2.4% larger. But **lpaq1 is still ahead at
+comparable ratio** — it is 1.23% smaller than `-3` *and* faster (87.0s against
+144.5s), reaching output between `-3` and `-5` in half of `-5`'s time. It
+dominates `-3` outright and sits on this engine's size-time frontier just below
 `-5`, which is a fair summary of where text modelling here still falls short.
 
-Against `zpaq -m5` on enwik8, only `-7` and `-9` win on size: `-5` is 0.34%
-*larger* (though 1.5× faster), `-7` is 2.35% smaller and still 10% faster, `-9`
-is 3.65% smaller at 1.4× the time. This is a much thinner margin than the −9.03%
+Against `zpaq -m5` on enwik8, only `-7` and `-9` win on size: `-5` is 1.50%
+*larger* (though 1.7× faster), `-7` is 1.03% smaller and still 1.2× faster, `-9`
+is 2.39% smaller at 1.2× the time. This is a much thinner margin than the −9.03%
 on Silesia, and that contrast is the point: **the Silesia advantage comes from
 structured and binary content, not from text.**
 
-(The enwik8 figures in this section are from the previous build and have not
-been re-measured against the current one. Sizes will have moved by roughly the
-same fractions of a percent seen on Silesia; the times will have moved more.)
-
-`-7` is the one row where the match bypass costs more than it returns: on this
-file it is 0.24% *larger* than the pre-bypass engine (19,162,984 against
-19,118,015) for 13% less time. enwik8 is a single 100 MB stream of prose whose
-matches are mostly medium-length, which is precisely the distribution the gate
-sweep showed to be expensive — and `-7`'s gate of 128 sits closest to that cliff.
-On Silesia, where `-7` sees archives and binaries, the same gate is a ratio win.
-A gate that is correct on a mixed corpus is not automatically correct on a
-homogeneous one.
+`-7` is the preset where the match bypass earns least on this file. enwik8 is a
+single 100 MB stream of prose whose matches are mostly medium-length, which is
+precisely the distribution the gate sweep showed to be expensive, and `-7`'s
+gate of 128 sits closest to that cliff. On Silesia, where `-7` sees archives and
+binaries, the same gate is a ratio win. A gate that is correct on a mixed corpus
+is not automatically correct on a homogeneous one.
 
 **Stride detection was wrong on every file that depended on it.** It picked
 harmonics (56 where the record is 28), missed 1024-byte rows entirely, and on a
@@ -1385,8 +1488,8 @@ looked worthless in ablations when they were merely starved. Now guarded by a
 ### Open
 
 **Text is the weakest content type relative to the field.** On enwik8 this
-engine is +19.5% against `paq8px -12L` and +29.5% against `cmix v21`. More
-telling, `durilca'kingsize` reaches 16,209,219 — 14% *below* this engine — while
+engine is +20.9% against `paq8px -12L` and +31.0% against `cmix v21`. More
+telling, `durilca'kingsize` reaches 16,209,219 — 15% *below* this engine — while
 running about 4× faster, on a slower CPU. It does that with dictionary
 preprocessing, not with better modelling. **A text preprocessor is the single
 largest opportunity left, and it is a transform, not a model.** Not attempted
@@ -1523,6 +1626,50 @@ and the old detector picked 56. Two fixes, both necessary: walk *down* to the
 smallest candidate within a few percent of the best, and gate on beating stride 1
 so a file with no period reports none instead of thrashing between spurious
 values. Before this, on ooffice the stride changed 18,944 times.
+
+---
+
+## Repository layout
+
+`nyx.c` is the whole compressor and archiver. Everything else is the tooling
+that produced the numbers in this file, kept under `scripts/` so every claim has
+a script behind it rather than a screenshot. Each runs from the repo root
+(`python scripts/<name>`). Grouped by what it does:
+
+**Correctness gates**
+- `scripts/fuzz.py` — round-trip over the edge cases that break container formats
+- `scripts/tfuzz.py` — round-trip across thread counts, where chunking changes the layout
+- `scripts/gfuzz.py` — randomised corruption fuzzer for the archive format
+- `scripts/ident_check.py` — byte-identity check between two builds, per file and preset
+
+**Benchmarks**
+- `scripts/bench_session.py` — every preset and every reference codec in one session (the Silesia table)
+- `scripts/bench_final.py`, `scripts/final_bench.py` — full-size Silesia runs, one and eight threads
+- `scripts/bench_mixed.py` — the mixed-type corpus against the reference codecs
+- `scripts/e8.py`, `scripts/e8_refs.py` — enwik8 across presets, and its zpaq/lpaq1 reference rows
+- `scripts/parse_bench_log.py` — rebuild `bench_final.json` from a run log
+
+**A/B and ablation**
+- `scripts/ab_corpus.py`, `scripts/full_ab.py`, `scripts/cmp_gen.py` — before/after between two builds at corpus, full-Silesia and slice scope
+- `scripts/ab_speedup.py`, `scripts/f_ablate.py`, `scripts/ht_test.py` — where specific speed changes and the `-f1` time actually go
+
+**Parameter sweeps**
+- `scripts/sweep.py` — rebuild across a parameter grid and report size
+- `scripts/t2_sweep.py`, `scripts/byt_sweep.py` — sweep one gate across files that disagree
+- `scripts/fshape.py` — pick the shape of the `-f` presets on the size-vs-time frontier
+
+**Corpus and graphs**
+- `scripts/make_mixed.py` — build a diverse corpus of types Silesia does not contain
+- `scripts/mkgraphs.py` — generate the benchmark graphs as dependency-free SVG
+
+**Low-level probes**
+- `scripts/readblk.py` — parse the block table straight out of a container
+- `scripts/t_period.c` — ground-truth periodicity by full mean-absolute-difference
+- `scripts/t_adiv.c`, `scripts/t_alpha.c`, `scripts/t_seg.c` — opcode-diversity, Alpha and segment-model probes
+
+Build and packaging live in `build.sh`, `Makefile`, `packaging/` and `dist/`.
+The deep design notes are in [ARCHITECTURE.md](ARCHITECTURE.md); day-to-day use
+is in [USAGE.md](USAGE.md).
 
 ---
 

@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="462" viewBox="0 0 860 462" font-family="system-ui">
+<style>
+  .bg   { fill: #ffffff; }
+  .fg   { fill: #1b1f23; }
+  .grid { stroke: #d8dee4; stroke-width: 1; }
+  .axis { stroke: #57606a; stroke-width: 1.2; }
+  .lbl  { fill: #57606a; font: 12px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .ttl  { fill: #1b1f23; font: 600 15px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .sub  { fill: #57606a; font: 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .tag  { fill: #1b1f23; font: 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .tagb { fill: #1b1f23; font: 600 11px system-ui, -apple-system, Segoe UI, sans-serif; }
+  .gen  { stroke: #0969da; fill: #0969da; }
+  .genl { stroke: #0969da; stroke-width: 2.2; fill: none; }
+  .oldl { stroke: #8c959f; stroke-width: 2; fill: none; stroke-dasharray: 5 4; }
+  .oldd { stroke: #8c959f; fill: none; stroke-width: 2; }
+  @media (prefers-color-scheme: dark) {
+    .bg   { fill: #0d1117; }
+    .fg   { fill: #e6edf3; }
+    .grid { stroke: #30363d; }
+    .axis { stroke: #8b949e; }
+    .lbl  { fill: #8b949e; }
+    .ttl  { fill: #e6edf3; }
+    .sub  { fill: #8b949e; }
+    .tag  { fill: #e6edf3; }
+    .tagb { fill: #e6edf3; }
+    .gen  { stroke: #58a6ff; fill: #58a6ff; }
+    .genl { stroke: #58a6ff; }
+    .oldl { stroke: #6e7681; }
+    .oldd { stroke: #6e7681; }
+  }
+</style>
+<rect class="bg" width="860" height="462"/>
+<text class="ttl" x="20" y="22">enwik8 — 100 MB of Wikipedia text</text>
+<text class="sub" x="20" y="39">nyx measured here on the released binary, round-trip verified. The rest are LTCB published sizes (Mahoney's hardware); bits per byte is size-only,</text>
+<text class="sub" x="20" y="54">so it is machine-independent and comparable.</text>
+<text class="lbl" x="419.0" y="452" text-anchor="middle">bits per byte — lower is better</text>
+<text class="lbl" x="14" y="241.0" text-anchor="middle" transform="rotate(-90 14 241.0)"></text>
+<line class="grid" x1="128.0" y1="76" x2="128.0" y2="406"/>
+<text class="lbl" x="128.0" y="424" text-anchor="middle">0</text>
+<line class="grid" x1="215.6" y1="76" x2="215.6" y2="406"/>
+<text class="lbl" x="215.6" y="424" text-anchor="middle">0.5</text>
+<line class="grid" x1="303.1" y1="76" x2="303.1" y2="406"/>
+<text class="lbl" x="303.1" y="424" text-anchor="middle">1</text>
+<line class="grid" x1="390.7" y1="76" x2="390.7" y2="406"/>
+<text class="lbl" x="390.7" y="424" text-anchor="middle">1.5</text>
+<line class="grid" x1="478.2" y1="76" x2="478.2" y2="406"/>
+<text class="lbl" x="478.2" y="424" text-anchor="middle">2</text>
+<line class="grid" x1="565.8" y1="76" x2="565.8" y2="406"/>
+<text class="lbl" x="565.8" y="424" text-anchor="middle">2.5</text>
+<line class="grid" x1="653.3" y1="76" x2="653.3" y2="406"/>
+<text class="lbl" x="653.3" y="424" text-anchor="middle">3</text>
+<line class="axis" x1="128" y1="76" x2="128" y2="406"/>
+<line class="axis" x1="128" y1="406" x2="710" y2="406"/>
+<rect x="128.0" y="81.1" width="204.8" height="19.8" fill="#1f6feb" opacity="0.7" rx="1.5"/>
+<text class="tag" x="118.0" y="95.0" text-anchor="end">cmix v21</text>
+<text class="tagb" x="339.8" y="95.0" text-anchor="start" fill="#1f6feb">1.170</text>
+<text class="sub" x="380.8" y="95.0" text-anchor="start">LTCB</text>
+<rect x="128.0" y="111.1" width="208.9" height="19.8" fill="#3fb950" opacity="0.7" rx="1.5"/>
+<text class="tag" x="118.0" y="125.0" text-anchor="end">nncp v3.2</text>
+<text class="tagb" x="343.9" y="125.0" text-anchor="start" fill="#3fb950">1.193</text>
+<text class="sub" x="384.9" y="125.0" text-anchor="start">LTCB</text>
+<rect x="128.0" y="141.1" width="222.0" height="19.8" fill="#bf3989" opacity="0.7" rx="1.5"/>
+<text class="tag" x="118.0" y="155.0" text-anchor="end">paq8px -12L</text>
+<text class="tagb" x="357.0" y="155.0" text-anchor="start" fill="#bf3989">1.268</text>
+<text class="sub" x="398.0" y="155.0" text-anchor="start">LTCB</text>
+<rect x="128.0" y="171.1" width="250.1" height="19.8" fill="#d29922" opacity="0.7" rx="1.5"/>
+<text class="tag" x="118.0" y="185.0" text-anchor="end">zpaq -max</text>
+<text class="tagb" x="385.1" y="185.0" text-anchor="start" fill="#d29922">1.428</text>
+<text class="sub" x="426.1" y="185.0" text-anchor="start">LTCB</text>
+<rect x="128.0" y="201.1" width="268.3" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
+<text class="tagb" x="118.0" y="215.0" text-anchor="end" fill="#0969da">nyx -9</text>
+<text class="tagb" x="403.3" y="215.0" text-anchor="start" fill="#0969da">1.532</text>
+<rect x="128.0" y="231.1" width="276.7" height="19.8" fill="#8250df" opacity="0.7" rx="1.5"/>
+<text class="tag" x="118.0" y="245.0" text-anchor="end">lpaq1 -9</text>
+<text class="tagb" x="411.7" y="245.0" text-anchor="start" fill="#8250df">1.580</text>
+<text class="sub" x="452.7" y="245.0" text-anchor="start">LTCB</text>
+<rect x="128.0" y="261.1" width="279.0" height="19.8" fill="#0969da" opacity="1.0" rx="1.5"/>
+<text class="tagb" x="118.0" y="275.0" text-anchor="end" fill="#0969da">nyx -5</text>
+<text class="tagb" x="414.0" y="275.0" text-anchor="start" fill="#0969da">1.594</text>
+<rect x="128.0" y="291.1" width="346.1" height="19.8" fill="#1a7f37" opacity="0.7" rx="1.5"/>
+<text class="tag" x="118.0" y="305.0" text-anchor="end">xz -9e</text>
+<text class="tagb" x="481.1" y="305.0" text-anchor="start" fill="#1a7f37">1.976</text>
+<text class="sub" x="522.1" y="305.0" text-anchor="start">LTCB</text>
+<rect x="128.0" y="321.1" width="360.9" height="19.8" fill="#cf222e" opacity="0.7" rx="1.5"/>
+<text class="tag" x="118.0" y="335.0" text-anchor="end">brotli -q11</text>
+<text class="tagb" x="495.9" y="335.0" text-anchor="start" fill="#cf222e">2.061</text>
+<text class="sub" x="536.9" y="335.0" text-anchor="start">LTCB</text>
+<rect x="128.0" y="351.1" width="406.4" height="19.8" fill="#6e7781" opacity="0.7" rx="1.5"/>
+<text class="tag" x="118.0" y="365.0" text-anchor="end">bzip2 -9</text>
+<text class="tagb" x="541.4" y="365.0" text-anchor="start" fill="#6e7781">2.321</text>
+<text class="sub" x="582.4" y="365.0" text-anchor="start">LTCB</text>
+<rect x="128.0" y="381.1" width="510.5" height="19.8" fill="#953800" opacity="0.7" rx="1.5"/>
+<text class="tag" x="118.0" y="395.0" text-anchor="end">gzip -9</text>
+<text class="tagb" x="645.5" y="395.0" text-anchor="start" fill="#953800">2.916</text>
+<text class="sub" x="686.5" y="395.0" text-anchor="start">LTCB</text>
+<text class="sub" x="702.0" y="91.0" text-anchor="end">nyx in blue; bars are bits per byte</text>
+</svg>

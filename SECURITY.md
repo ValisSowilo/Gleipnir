@@ -31,7 +31,7 @@ breaks that assumption is in scope:
   bounds-checked, and a damaged archive is required to produce a diagnostic
   and exit 2, never a crash, a hang, or plausible-looking wrong bytes.
 
-`gfuzz.py` exercises exactly this threat model — bit flips, decayed sectors,
+`scripts/gfuzz.py` exercises exactly this threat model — bit flips, decayed sectors,
 truncation, splices, zero holes, trailing junk and pure noise — and asserts
 that every outcome is either byte-exact output or a non-zero exit. A case that
 defeats it is a good report.

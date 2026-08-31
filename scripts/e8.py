@@ -1,7 +1,7 @@
 """enwik8 across presets on the current engine, both directions, round-trip
 verified.  One uninterrupted run so the rows are comparable to each other."""
 import os, sys, time, hashlib, subprocess
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 SRC = os.path.join(HERE, "tools", "corpora", "enwik8")
 TMP = os.path.join(os.environ["TEMP"], "e8"); os.makedirs(TMP, exist_ok=True)
 EXE = os.path.join(HERE, os.environ.get("BENCHEXE", "genf1.exe"))

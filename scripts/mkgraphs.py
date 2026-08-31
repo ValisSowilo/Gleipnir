@@ -18,7 +18,7 @@ never silently mixed with the single-session sweep.
 """
 import os, json, math
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 DATA = os.environ.get("GRAPHDATA", HERE)          # where the json lives
 OUT = os.environ.get("GRAPHOUT", os.path.join(HERE, "graphs"))
 os.makedirs(OUT, exist_ok=True)

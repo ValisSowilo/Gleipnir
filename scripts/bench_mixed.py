@@ -6,7 +6,7 @@ to gen -9 is a file whose structure gen is failing to model.
 """
 import os, sys, time, subprocess, hashlib
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 MIX = os.path.join(HERE, "tools", "corpora", "mixed")
 TMP = os.path.join(os.environ["TEMP"], "mixbench")
 os.makedirs(TMP, exist_ok=True)

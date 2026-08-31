@@ -34,7 +34,7 @@ readings for each says so directly instead of leaving it to be assumed.
 """
 import os, re, sys, json, time, shutil, hashlib, subprocess
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
 SIL  = os.path.join(HERE, "tools", "corpora", "silesia")
 TMP  = os.path.join(os.environ.get("TEMP", "/tmp"), "bsession")
 GEN  = os.path.join(HERE, "genv2.exe")
