@@ -2198,6 +2198,7 @@ typedef struct {
 static void do_compress_chunk(Job *j) {
     Ctx *TH = j->cx;
     j->blk = malloc(sizeof(Blk) * MAXBLK);
+    if (!j->blk) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     j->nb  = segment(j->in, j->n, j->blk, MAXBLK, j->file_is_exe);
     size_t off = 0;
     for (int i = 0; i < j->nb; i++) {
@@ -2208,8 +2209,13 @@ static void do_compress_chunk(Job *j) {
         off += j->blk[i].len;
     }
     model_alloc(TH, j->n);
+    /* The read side checked every allocation and the write side checked none.
+     * Unchecked, enc_bit would write the first coded byte through a null
+     * obuf -- a segfault reported as a crash in the compressor rather than as
+     * the out-of-memory condition it is. */
     j->aout = malloc(j->n + j->n / 4 + 65536);
     j->sout = malloc(j->n + 16);
+    if (!j->aout || !j->sout) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     j->slen = 0;
     TH->obuf = j->aout; TH->opos = 0; enc_init(TH);
     off = 0;
@@ -2275,23 +2281,41 @@ static void *thr_entry(void *p) {
 
 static void run_jobs(Job *jobs, int n) {
     if (n == 1) { thr_entry(&jobs[0]); return; }
-    thr_t *h = malloc(sizeof(thr_t) * n);
-    for (int i = 0; i < n; i++) {
-#ifdef _WIN32
-        h[i] = CreateThread(NULL, 0, thr_entry, &jobs[i], 0, NULL);
-        if (!h[i]) { thr_entry(&jobs[i]); }
-#else
-        if (pthread_create(&h[i], NULL, thr_entry, &jobs[i]) != 0) thr_entry(&jobs[i]);
-#endif
+    thr_t  *h       = malloc(sizeof(thr_t) * n);
+    uint8_t *started = calloc((size_t)n, 1);
+    if (!h || !started) {
+        /* Threads are a throughput choice, not a correctness one, so a failure
+         * to even track them is not a reason to fail the run. */
+        free(h); free(started);
+        for (int i = 0; i < n; i++) thr_entry(&jobs[i]);
+        return;
     }
     for (int i = 0; i < n; i++) {
 #ifdef _WIN32
-        if (h[i]) { WaitForSingleObject(h[i], INFINITE); CloseHandle(h[i]); }
+        h[i] = CreateThread(NULL, 0, thr_entry, &jobs[i], 0, NULL);
+        started[i] = h[i] != NULL;
+#else
+        started[i] = pthread_create(&h[i], NULL, thr_entry, &jobs[i]) == 0;
+#endif
+    }
+    /* Anything that could not be launched runs here -- but only after every
+     * thread that *can* start has started.  Running the fallback inside the
+     * loop above meant one failure at i=1 stalled the launch of 2..n-1 until
+     * that whole segment had been modelled on this thread. */
+    for (int i = 0; i < n; i++) if (!started[i]) thr_entry(&jobs[i]);
+    for (int i = 0; i < n; i++) {
+        /* Only join what was actually created.  On POSIX a failed
+         * pthread_create leaves h[i] indeterminate, and the old loop passed
+         * that straight to pthread_join -- undefined behaviour, and the one
+         * place the Windows branch was guarded and this one was not. */
+        if (!started[i]) continue;
+#ifdef _WIN32
+        WaitForSingleObject(h[i], INFINITE); CloseHandle(h[i]);
 #else
         pthread_join(h[i], NULL);
 #endif
     }
-    free(h);
+    free(h); free(started);
 }
 
 
@@ -3067,13 +3091,38 @@ static const char *blocking_component(const char *path) {
     return NULL;
 }
 
-static void mkparents(const char *path) {
+/* True if `path` exists and is a symbolic link, or on Windows any reparse
+ * point -- a junction, a directory symlink, a mount point.
+ *
+ * name_is_safe proves things about the *name*: that it is relative, carries no
+ * drive letter and climbs no "..".  It can prove nothing about what is already
+ * on the disk.  If some component of the destination is a link that was placed
+ * there earlier -- by a previous extraction, by another archive, by anything --
+ * then a name that is entirely well-formed still resolves outside the
+ * destination directory, because the kernel follows the link and fopen never
+ * asks.  String validation cannot close this; only looking can. */
+static int is_link(const char *path) {
+#ifdef _WIN32
+    DWORD a = GetFileAttributesA(path);
+    return a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+#else
+    STAT_T st;
+    return lstat(path, &st) == 0 && S_ISLNK(st.st_mode);
+#endif
+}
+
+/* Returns 0, or -1 if a component of the path is a link.  mkdir failure is
+ * still ignored: the component usually exists already, and when it genuinely
+ * cannot be created the fopen that follows reports it with the real reason. */
+static int mkparents(const char *path) {
     char *t = strdup(path);
-    if (!t) return;
+    if (!t) return -1;
+    int rc = 0;
     for (char *p = t; *p; p++) {
         if (*p == '/' || *p == '\\') {
             char c = *p; *p = 0;
             if (*t) {
+                if (is_link(t)) { *p = c; rc = -1; break; }
 #ifdef _WIN32
                 _mkdir(t);
 #else
@@ -3084,6 +3133,7 @@ static void mkparents(const char *path) {
         }
     }
     free(t);
+    return rc;
 }
 
 /* -------------------------------------------------------------- input walk */
@@ -3694,6 +3744,11 @@ static int arc_open(const char *path, Archive *a) {
         uint16_t nl = rd16(&r);
         const uint8_t *nb = rdbuf(&r, nl);
         if (r.bad) break;
+        /* An interior NUL makes the name one string on disk and a shorter one
+         * everywhere in this program, so two members that differ on disk can
+         * collapse to a single path here -- and `l` would show a name that is
+         * not the one being written.  Refuse rather than silently truncate. */
+        if (memchr(nb, 0, nl)) { free(ib); goto bad; }
         m.name = malloc((size_t)nl + 1);
         if (!m.name) { free(ib); goto bad; }
         memcpy(m.name, nb, nl); m.name[nl] = 0;
@@ -3887,11 +3942,34 @@ static int run_members(Archive *a, const char *destdir, int test_only,
         char path[NAME_MAX_B];
         path[0] = 0;
         if (!test_only) {
+            /* Member names run to 65535 bytes and this buffer is 4096, so
+             * truncation is reachable from any archive.  A truncated path is a
+             * different path: two members collapse onto one, and the name
+             * written is not the name checked. */
+            int pn;
             if (destdir && *destdir)
-                snprintf(path, sizeof path, "%s/%s", destdir, m->name);
+                pn = snprintf(path, sizeof path, "%s/%s", destdir, m->name);
             else
-                snprintf(path, sizeof path, "%s", m->name);
-            mkparents(path);
+                pn = snprintf(path, sizeof path, "%s", m->name);
+            if (pn < 0 || (size_t)pn >= sizeof path) {
+                fprintf(stderr, "gleipnir: destination path too long for member: ");
+                fput_name(m->name, stderr);
+                fputc('\n', stderr);
+                rc = 2; nbad++; continue;
+            }
+            if (mkparents(path) != 0) {
+                fprintf(stderr, "gleipnir: refusing to extract through a link: %s\n",
+                        path);
+                rc = 2; nbad++; continue;
+            }
+            /* And the member itself: writing "wb" onto an existing symlink
+             * follows it, so an attacker who can drop one link into the
+             * destination chooses the file every later extraction overwrites. */
+            if (is_link(path)) {
+                fprintf(stderr, "gleipnir: refusing to write through the existing "
+                                "link %s\n", path);
+                rc = 2; nbad++; continue;
+            }
             fo = fopen(path, "wb");
             if (!fo) {
                 /* When a path component exists but is a file rather than a
@@ -4431,7 +4509,11 @@ int main(int argc, char **argv) {
     }
 
     Archive ar;
-    if (arc_open(arc, &ar) != 0) return 2;
+    /* arc_open returns through a dozen error paths and closes nothing on any of
+     * them.  arc_close is exactly the cleanup those paths skip, and it is safe
+     * on a partly-built Archive: arc_open memsets it first, so the FILE is
+     * either null or real and the index holds only members it finished. */
+    if (arc_open(arc, &ar) != 0) { arc_close(&ar); return 2; }
     int rc;
     if (mode == 'l')      rc = do_list(&ar, longform, manifest);
     else if (mode == 'r') {

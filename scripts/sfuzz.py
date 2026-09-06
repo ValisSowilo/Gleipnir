@@ -317,6 +317,62 @@ def tree(root):
     return out
 
 
+def link_cases(GEN):
+    """Extraction must not follow a link that is already sitting in the
+    destination.  name_is_safe proves things about the *name* -- relative, no
+    drive letter, no ".." -- and can prove nothing about what is already on the
+    disk.  A well-formed name still lands outside the destination if some
+    component of it, or the member file itself, is a link that was put there
+    earlier.
+
+    Returns a list of failures, or None where links cannot be created at all
+    (Windows without Developer Mode or an elevated shell), in which case this
+    machine simply cannot run the check."""
+    root = os.path.join(TMP, "link")
+    outside = os.path.join(root, "outside")
+    os.makedirs(outside, exist_ok=True)
+    secret = os.path.join(outside, "secret.txt")
+    with open(secret, "w") as f:
+        f.write("UNTOUCHED")
+    try:
+        os.symlink(outside, os.path.join(root, "probe"), target_is_directory=True)
+    except (OSError, NotImplementedError, AttributeError):
+        return None
+
+    body = b"escaped\n"
+    sha = hashlib.sha256(body).digest()
+    fails = []
+
+    # A path component of the destination is a link pointing out of it.
+    d1 = os.path.join(root, "d1")
+    os.makedirs(d1, exist_ok=True)
+    os.symlink(outside, os.path.join(d1, "sub"), target_is_directory=True)
+    p1 = os.path.join(TMP, "link_component.gl")
+    build(p1, "sub/evil.txt", seg_stored(body), len(body),
+          seghash=xxh64(body), sha=sha)
+    rc, _ = run([GEN, "x", "-q", p1, d1])
+    if rc not in OK_EXITS:
+        fails.append("link_component: exit %r" % rc)
+    if os.path.exists(os.path.join(outside, "evil.txt")):
+        fails.append("link_component: wrote through a directory link, "
+                     "creating %s" % os.path.join(outside, "evil.txt"))
+
+    # The member file itself already exists and is a link to something else.
+    d2 = os.path.join(root, "d2")
+    os.makedirs(d2, exist_ok=True)
+    os.symlink(secret, os.path.join(d2, "plain.txt"))
+    p2 = os.path.join(TMP, "link_member.gl")
+    build(p2, "plain.txt", seg_stored(body), len(body),
+          seghash=xxh64(body), sha=sha)
+    rc, _ = run([GEN, "x", "-q", p2, d2])
+    if rc not in OK_EXITS:
+        fails.append("link_member: exit %r" % rc)
+    with open(secret) as f:
+        if f.read() != "UNTOUCHED":
+            fails.append("link_member: followed the link and overwrote %s" % secret)
+    return fails
+
+
 def controls(GEN):
     payload = bytes(range(256)) * 8
     ctrl = os.path.join(TMP, "control.gl")
@@ -412,8 +468,16 @@ def main():
         if verbose:
             print("  %-30s member=%r rc=%s" % (nm, member, rc))
 
-    print("%d segment-field cases x 2 modes + %d member-name cases = %d runs"
-          % (len(C), len(NAME_CASES), len(C) * 2 + len(NAME_CASES)))
+    lf = link_cases(GEN)
+    if lf is None:
+        print("note: symlink cases skipped -- this host cannot create links "
+              "(Windows needs Developer Mode or an elevated shell)")
+    else:
+        fails.extend(lf)
+
+    print("%d segment-field cases x 2 modes + %d member-name cases%s = %d runs"
+          % (len(C), len(NAME_CASES), "" if lf is None else " + 2 link cases",
+             len(C) * 2 + len(NAME_CASES) + (0 if lf is None else 2)))
     if fails:
         print("\n%d FAILURES:" % len(fails))
         for f in fails:
