@@ -1301,6 +1301,12 @@ static void afree(void *p) {
 }
 
 static int MEMSHIFT = 0;       /* added to every GBITS; stored in the header */
+/* The header carries this as a single byte biased by 16, so only this range
+ * survives a round trip.  Both ends already saturate the [10,24] clamp below,
+ * so nothing expressible is lost by refusing the rest -- whereas accepting it
+ * produced an archive that could not be read back. */
+#define MEMSHIFT_MIN (-16)
+#define MEMSHIFT_MAX 16
 
 /* Weight sets the mixer actually indexes.  The speed presets use a narrower
  * selector, so their weight table is 128 KB instead of 1 MB. */
@@ -1981,6 +1987,13 @@ static uint8_t *dfl_collapse(const uint8_t *w, size_t wn, const Dfl *fl, int nd,
     if (!out) return NULL;
     size_t olen = 0, pos = 0;
     for (int i = 0; i < nd; i++) {
+        /* segr_parse rejects a descending or overlapping list before we get
+         * here.  Repeated because the whole loop below is unsigned arithmetic
+         * over lengths that came out of a file, and one missing guard upstream
+         * turns fl[i].pos - pos into a ~2^64 memcpy. */
+        if (fl[i].pos < pos || fl[i].pos > wn || fl[i].plen > wn - fl[i].pos) {
+            free(out); return NULL;
+        }
         memcpy(out + olen, w + pos, fl[i].pos - pos);
         olen += fl[i].pos - pos;
         if (!dfl_deflate(w + fl[i].pos, fl[i].plen, &fl[i], out + olen, cap - olen)) {
@@ -2753,7 +2766,14 @@ static int segr_parse(SegR *s, Job *j) {
     if (s->kind != SEG_MODEL) return -1;
 
     s->bps = rd8(&r); s->nsym = rd8(&r);
-    if (s->bps < 0 || s->bps > 8 || s->nsym > 16) return -1;
+    /* scan_alphabet emits 1, 2 or 4 bits per symbol and nothing else, over an
+     * alphabet of at most 1 << bps symbols.  The wider check this replaces let
+     * bps 5..8 through, and unpack_syms indexes sym[] with a (1 << bps) - 1
+     * mask -- so bps 8 read 240 bytes past the sixteen-byte array and wrote
+     * whatever it found there into the extracted file. */
+    if (s->bps != 0 && s->bps != 1 && s->bps != 2 && s->bps != 4) return -1;
+    if (s->bps == 0) { if (s->nsym != 0) return -1; }
+    else if (s->nsym < 1 || s->nsym > (1 << s->bps)) return -1;
     if (s->nsym) {
         const uint8_t *sy = rdbuf(&r, (uint64_t)s->nsym);
         if (r.bad) return -1;
@@ -2765,6 +2785,7 @@ static int segr_parse(SegR *s, Job *j) {
 
     s->fl = malloc(sizeof(Dfl) * (s->nd ? s->nd : 1));
     if (!s->fl) return -1;
+    uint64_t dcur = 0;
     for (uint32_t i = 0; i < s->nd; i++) {
         s->fl[i].pos  = rd64(&r);
         s->fl[i].clen = rd32(&r);
@@ -2773,9 +2794,15 @@ static int segr_parse(SegR *s, Job *j) {
         uint8_t ls = rd8(&r);
         s->fl[i].level = ls & 15; s->fl[i].strat = ls >> 4;
         s->fl[i].mem   = rd8(&r);
-        if (s->fl[i].pos > s->wn || s->fl[i].plen > s->wn - s->fl[i].pos) {
+        /* Ascending and non-overlapping, which is the only shape dfl_expand
+         * produces.  dfl_collapse walks the list with an unsigned cursor and
+         * computes fl[i].pos - cursor: a record starting behind the cursor
+         * wrapped that to nearly 2^64 and handed it straight to memcpy. */
+        if (s->fl[i].pos < dcur || s->fl[i].pos > s->wn ||
+            s->fl[i].plen > s->wn - s->fl[i].pos) {
             r.bad = 1; break;
         }
+        dcur = s->fl[i].pos + s->fl[i].plen;
     }
     s->stride = rd16(&r);
     s->width  = rd8(&r);
@@ -2784,16 +2811,21 @@ static int segr_parse(SegR *s, Job *j) {
 
     s->blk = malloc(sizeof(Blk) * (s->nb ? s->nb : 1));
     if (!s->blk) return -1;
-    uint64_t tot = 0;
+    uint64_t tot = 0, stot = 0;
     for (uint32_t b = 0; b < s->nb; b++) {
         s->blk[b].type = rd8(&r);
         s->blk[b].len  = rd32(&r);
         tot += s->blk[b].len;
+        if (BKIND(s->blk[b].type) == B_STORE) stot += s->blk[b].len;
     }
     s->alen = rd64(&r); s->slen = rd64(&r);
     /* Block lengths must sum to the working length exactly, or the decode loop
-     * and the filter loop disagree about where blocks end. */
-    if (r.bad || tot != s->wn) return -1;
+     * and the filter loop disagree about where blocks end.  The stored blocks
+     * must likewise account for every byte of the stored section and no more:
+     * do_decompress_chunk walks that section with a running offset and never
+     * re-checks it, so a segment claiming more stored bytes than it carried
+     * read the difference off the end of the blob. */
+    if (r.bad || tot != s->wn || stot != s->slen) return -1;
     s->ain = rdbuf(&r, s->alen);
     s->sin = rdbuf(&r, s->slen);
     if (r.bad) return -1;
@@ -2813,15 +2845,26 @@ static int segr_finish(SegR *s) {
 
     int rc = 0;
     uint8_t *fin = w, *collapsed = NULL;
+    size_t finlen = (size_t)s->wn;
     if (s->nd) {
         size_t cl = 0;
         collapsed = dfl_collapse(w, s->wn, s->fl, (int)s->nd, &cl);
-        if (!collapsed) rc = -1; else fin = collapsed;
+        if (!collapsed) rc = -1; else { fin = collapsed; finlen = cl; }
     }
+    /* rawlen comes from the index and the working buffer's length comes from
+     * the blob; nothing in the format ties the two together, so each path out
+     * of here has to prove the source is long enough before it reads.  The
+     * unpacked path proved nothing at all, and a collapsed buffer short-
+     * circuited the check the plain path did have. */
     if (!rc) {
-        if (s->bps) unpack_syms(fin, s->out, (size_t)s->rawlen, s->sym, s->bps);
-        else if (s->wn >= s->rawlen || collapsed) memcpy(s->out, fin, (size_t)s->rawlen);
-        else rc = -1;
+        if (s->bps) {
+            size_t per  = (size_t)(8 / s->bps);
+            size_t need = ((size_t)s->rawlen + per - 1) / per;
+            if (finlen < need) rc = -1;
+            else unpack_syms(fin, s->out, (size_t)s->rawlen, s->sym, s->bps);
+        } else if (finlen >= (size_t)s->rawlen) {
+            memcpy(s->out, fin, (size_t)s->rawlen);
+        } else rc = -1;
     }
     free(collapsed); free(w);
     return rc;
@@ -2926,22 +2969,49 @@ static void par_flush(FILE *fo, Index *idx, Buf *par, const char *outp) {
 }
 
 /* ------------------------------------------------------------- path safety
- * An archive is untrusted input.  Names that are absolute, that carry a drive
+ *
+ * Member names are the one part of an archive that gets printed before anyone
+ * has decided whether to trust the file -- `l` is what you run to make that
+ * decision, and it prints names that no check has passed yet.  A name carrying
+ * terminal escapes could repaint the listing it appears in, so unprintable
+ * bytes are shown rather than sent. */
+static void fput_name(const char *s, FILE *f) {
+    for (; *s; s++) {
+        unsigned char c = (unsigned char)*s;
+        fputc((c < 0x20 || c == 0x7F) ? '?' : (int)c, f);
+    }
+}
+
+/* An archive is untrusted input.  Names that are absolute, that carry a drive
  * letter, or that contain a ".." component can otherwise make extraction write
  * outside the destination directory entirely. */
 static int name_is_safe(const char *s) {
     if (!s || !*s) return 0;
     if (s[0] == '/' || s[0] == '\\') return 0;
     if (s[0] && s[1] == ':') return 0;
+    /* Split on both separators, on both platforms.  store_name guarantees the
+     * names this program writes are relative and slash-separated, so a
+     * backslash in one did not come from here -- and splitting on '/' alone
+     * let "..\..\x" through as a single eleven-character component, which
+     * Windows then resolved as three and wrote outside the destination
+     * directory.  Splitting on both means a hostile name is refused on the
+     * host where it is harmless as well as the one where it is not, so the
+     * same archive gets the same verdict everywhere. */
     for (const char *p = s; *p; ) {
         const char *q = p;
-        while (*q && *q != '/') q++;
+        while (*q && *q != '/' && *q != '\\') q++;
         size_t k = (size_t)(q - p);
         if (k == 2 && p[0] == '.' && p[1] == '.') return 0;
         if (!*q) break;
         p = q + 1;
     }
     for (const char *p = s; *p; p++) if ((unsigned char)*p < 0x20) return 0;
+#ifdef _WIN32
+    /* ':' is a path operator on Windows wherever it appears, not just at
+     * position 1: "dir/x:y" opens an alternate data stream on x, and "a/c:t"
+     * is drive-relative.  Such a name cannot be created on Windows anyway. */
+    if (strchr(s, ':')) return 0;
+#endif
     return 1;
 }
 
@@ -3133,6 +3203,20 @@ static int parse_header(const uint8_t *h, Head *o) {
         return -1;
     }
     o->lvl = h[8]; o->memshift = (int)h[9] - 16;
+    /* The writer only ever stores 1..9 and the two speed presets, and only a
+     * -m the option would have accepted.  Anything else names a model this
+     * build would have to invent, so say so here rather than build one and
+     * report a checksum failure several minutes later. */
+    if (!((o->lvl >= 1 && o->lvl <= 9) || o->lvl == 101 || o->lvl == 102)) {
+        fprintf(stderr, "gleipnir: archive names preset %d, which does not exist\n",
+                o->lvl);
+        return -1;
+    }
+    if (o->memshift < MEMSHIFT_MIN || o->memshift > MEMSHIFT_MAX) {
+        fprintf(stderr, "gleipnir: archive names an out-of-range context-table "
+                        "size (-m%d)\n", o->memshift);
+        return -1;
+    }
     memcpy(&o->segmax, h + 12, 4);
     memcpy(&o->nmemb, h + 16, 8);
     memcpy(&o->idxoff, h + 24, 8);
@@ -3760,7 +3844,9 @@ static int run_members(Archive *a, const char *destdir, int test_only,
             if (!hit) continue;
         }
         if (!name_is_safe(m->name)) {
-            fprintf(stderr, "gleipnir: refusing unsafe member name: %s\n", m->name);
+            fprintf(stderr, "gleipnir: refusing unsafe member name: ");
+            fput_name(m->name, stderr);
+            fputc('\n', stderr);
             rc = 2; nbad++; continue;
         }
         FILE *fo = NULL;
@@ -3971,14 +4057,18 @@ static int do_scrub(Archive *a, const char *path) {
         if (st == 0) intact++;
         else if (st == 1) {
             repaired++;
-            if (VERBOSE)
-                fprintf(stderr, "gleipnir: %s: segment %llu is damaged but "
-                                "recoverable from its recovery record\n",
-                        member_of(a, i), (unsigned long long)i);
+            if (VERBOSE) {
+                fprintf(stderr, "gleipnir: ");
+                fput_name(member_of(a, i), stderr);
+                fprintf(stderr, ": segment %llu is damaged but recoverable from "
+                                "its recovery record\n", (unsigned long long)i);
+            }
         } else {
             lost++;
-            fprintf(stderr, "gleipnir: %s: segment %llu is damaged and cannot be "
-                            "recovered\n", member_of(a, i), (unsigned long long)i);
+            fprintf(stderr, "gleipnir: ");
+            fput_name(member_of(a, i), stderr);
+            fprintf(stderr, ": segment %llu is damaged and cannot be recovered\n",
+                    (unsigned long long)i);
         }
     }
     double sec = (double)(time(NULL) - w0);
@@ -3989,9 +4079,12 @@ static int do_scrub(Archive *a, const char *path) {
         if (lost)     fprintf(stderr, ", %llu LOST", (unsigned long long)lost);
         fprintf(stderr, "  (%llu MB read, %.0f MB/s)\n",
                 (unsigned long long)(bytes >> 20), bytes / 1e6 / sec);
+        /* This printed the word "archive" rather than the archive: the format
+         * took `path`, the argument was the string literal, and the advice
+         * named a file nobody has. */
         if (repaired && !lost)
-            fprintf(stderr, "gleipnir: run 'gleipnir r %s fixed.gl' to write a clean copy\n",
-                    "archive");
+            fprintf(stderr, "gleipnir: run 'gleipnir r %s fixed.gl' to write a "
+                            "clean copy\n", path);
         if (!a->x.np && VERBOSE)
             fprintf(stderr, "gleipnir: note: this archive has no recovery records; "
                             "damage would be unrepairable\n");
@@ -4019,9 +4112,10 @@ static int do_repair(Archive *a, const char *outp) {
         if (st == 1) repaired++;
         if (st < 0) {
             lost++;
-            fprintf(stderr, "gleipnir: %s: segment %llu could not be recovered; "
-                            "copying it as-is\n", member_of(a, i),
-                    (unsigned long long)i);
+            fprintf(stderr, "gleipnir: ");
+            fput_name(member_of(a, i), stderr);
+            fprintf(stderr, ": segment %llu could not be recovered; copying it "
+                            "as-is\n", (unsigned long long)i);
         }
         Seg s = a->x.s[i];
         s.off = (uint64_t)F_TELL(fo);
@@ -4087,7 +4181,9 @@ static int do_list(Archive *a, int longform, int manifest) {
     if (manifest) {
         for (uint64_t i = 0; i < a->x.nm; i++) {
             char hx[65]; hexout(hx, a->x.m[i].sha, 32);
-            printf("%s  %s\n", hx, a->x.m[i].name);
+            printf("%s  ", hx);
+            fput_name(a->x.m[i].name, stdout);
+            putchar('\n');
         }
         return 0;
     }
@@ -4106,9 +4202,11 @@ static int do_list(Archive *a, int longform, int manifest) {
         time_t t = (time_t)m->mtime;
         struct tm *g = localtime(&t);
         if (g) strftime(tb, sizeof tb, "%Y-%m-%d %H:%M", g);
-        printf("%14llu %14llu %6.3f  %s  %s\n",
+        printf("%14llu %14llu %6.3f  %s  ",
                (unsigned long long)m->size, (unsigned long long)c,
-               m->size ? c * 8.0 / m->size : 0.0, tb, m->name);
+               m->size ? c * 8.0 / m->size : 0.0, tb);
+        fput_name(m->name, stdout);
+        putchar('\n');
         if (longform) {
             char hx[65]; hexout(hx, m->sha, 32);
             printf("               sha256 %s\n", hx);
@@ -4166,10 +4264,11 @@ static void usage(void) {
       "            -3  8 ctx  2 SSE       -5 12 ctx  3 SSE\n"
       "            -7 19 ctx  4 SSE       -9 27 ctx  6 SSE (30 on rasters)\n"
       "  -f1/-f2   throughput presets below -1\n"
-      "  -mN       resize every context table by 2^N (-m-1 halves them)\n"
+      "  -mN       resize every context table by 2^N (-m-1 halves them),\n"
+      "            -16 to 16\n"
       "  -tN       worker threads, -t0 = all cores (default 1)\n"
-      "  -sN       segment size in MB (default 64); smaller bounds memory and\n"
-      "            damage, larger compresses better\n"
+      "  -sN       segment size in MB, 1 to 2047 (default 64); smaller bounds\n"
+      "            memory and damage, larger compresses better\n"
       "  -pN       recovery records: one parity block per N segments, letting\n"
       "            any one damaged segment per group be rebuilt.  -p alone\n"
       "            means 32, about 3%% overhead.  Default off.\n"
@@ -4236,7 +4335,18 @@ int main(int argc, char **argv) {
     int lvl = 5, longform = 0, deep = 0, manifest = 0;
     while (a < argc && argv[a][0] == '-' && argv[a][1]) {
         char c = argv[a][1];
-        if      (c == 'm') MEMSHIFT = atoi(argv[a] + 2);
+        if (c == 'm') {
+            MEMSHIFT = atoi(argv[a] + 2);
+            /* Out of range used to compress happily and produce an archive
+             * that could not be read back: the header carries -m as one byte,
+             * so -m-100 was stored as +156 and the decoder built entirely
+             * different tables.  The compressor reported success. */
+            if (MEMSHIFT < MEMSHIFT_MIN || MEMSHIFT > MEMSHIFT_MAX) {
+                fprintf(stderr, "gleipnir: -m must be between %d and %d\n",
+                        MEMSHIFT_MIN, MEMSHIFT_MAX);
+                return 1;
+            }
+        }
         else if (c == 'q') VERBOSE = 0;
         else if (c == 'L') longform = 1;
         else if (c == 'D') deep = 1;
@@ -4253,7 +4363,13 @@ int main(int argc, char **argv) {
         }
         else if (c == 's') {
             int mb = atoi(argv[a] + 2);
-            if (mb < 1) { fprintf(stderr, "gleipnir: -s needs at least 1 MB\n"); return 1; }
+            /* Upper bound so the shift stays inside int: -s2048 overflowed to
+             * a negative SEGMAX, which then compared greater than every
+             * segment length and produced one segment the size of the file. */
+            if (mb < 1 || mb > 2047) {
+                fprintf(stderr, "gleipnir: -s must be between 1 and 2047 MB\n");
+                return 1;
+            }
             SEGMAX = mb << 20;
         }
         else if (c == 't') {
