@@ -359,7 +359,13 @@ static void sm_update(uint32_t *e, int bit, int limit) {
     int n = (int)(v & 1023), p = (int)(v >> 10);
     if (n < limit) v++;
     int d = (int)((((int64_t)((bit ? 4194303 : 0) - p)) * DT[n]) >> 16);
-    *e = (uint32_t)((int64_t)v + ((int64_t)d << 10));
+    /* d is the signed prediction error and is negative on roughly half of all
+     * updates, so `d << 10` was a left shift of a negative value -- undefined
+     * behaviour, and the compiler is entitled to assume it cannot happen.
+     * Multiplying is defined for both signs, produces the identical value (no
+     * overflow: |d| < 2^21, so |d * 1024| < 2^31), and lowers to the same shift
+     * instruction.  This is the hottest line in the codec; it costs nothing. */
+    *e = (uint32_t)((int64_t)v + (int64_t)d * 1024);
 }
 
 /* ---------------------------------------------------------------- model */

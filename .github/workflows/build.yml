@@ -60,6 +60,33 @@ jobs:
       - name: Semantic fuzz
         run: python3 scripts/sfuzz.py --exe gleipnir
 
+      # UBSan defaults to print-and-continue: it does not abort, and it does not
+      # change the exit status.  A finding is therefore invisible to anything
+      # that only checks exit codes -- which is exactly how a left shift of a
+      # negative value in sm_update(), the single hottest line in the codec,
+      # survived a full ASan+UBSan run and had to be reported by a user.
+      # -fno-sanitize-recover is the whole point of this step: it turns those
+      # diagnostics into failures.
+      - name: Undefined behaviour (aborts on any finding)
+        run: |
+          gcc -O1 -g -fsanitize=undefined -fno-sanitize-recover=all \
+              -ffp-contract=off -o gleipnir-ubsan gleipnir.c -lz -lm -lpthread
+          mkdir -p /tmp/ub/out
+          head -c 400000 /dev/urandom > /tmp/ub/rand.bin
+          cp gleipnir.c /tmp/ub/code.c
+          printf 'ACGTACGT%.0s' $(seq 1 20000) > /tmp/ub/alpha.txt
+          for lvl in 1 5 9 f1 f2; do
+            ./gleipnir-ubsan c -$lvl -t2 -q /tmp/ub/a-$lvl.gl \
+              /tmp/ub/rand.bin /tmp/ub/code.c /tmp/ub/alpha.txt
+            ./gleipnir-ubsan x -q /tmp/ub/a-$lvl.gl /tmp/ub/out
+            cmp /tmp/ub/code.c  /tmp/ub/out/code.c
+            cmp /tmp/ub/rand.bin /tmp/ub/out/rand.bin
+          done
+          echo "round-trip path is free of undefined behaviour"
+          # And the same for the parser: sfuzz drives every rejection path, and
+          # a UBSan abort there surfaces as an exit status it refuses to accept.
+          python3 scripts/sfuzz.py --exe gleipnir-ubsan
+
       - name: Archive built on Linux must read on Linux
         run: |
           mkdir -p /tmp/xplat/src
