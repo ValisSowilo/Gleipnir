@@ -48,6 +48,13 @@ jobs:
       - name: Corruption fuzz
         run: python3 scripts/gfuzz.py 40 --exe gleipnir
 
+      # Archives that pass every structural check but whose segment fields
+      # contradict each other.  gfuzz damages valid archives at random, so its
+      # mutants nearly always fail a checksum before the decoder reads a field;
+      # this builds the ones that do not.
+      - name: Semantic fuzz
+        run: python3 scripts/sfuzz.py --exe gleipnir
+
       - name: Archive built on Linux must read on Linux
         run: |
           mkdir -p /tmp/xplat/src
@@ -112,6 +119,14 @@ jobs:
             exit 1
           fi
 
+      # This one matters more here than anywhere else.  A member name like
+      # "..\..\x" is an ordinary filename on POSIX and three path components on
+      # Windows, so the containment check in sfuzz.py can only fail on this
+      # runner -- and it did, before the name check learned to split on both
+      # separators.  sfuzz needs no corpus, so it runs cheaply here.
+      - name: Semantic fuzz (path containment is Windows-specific)
+        run: python scripts/sfuzz.py --exe gleipnir.exe
+
       - name: Upload the Windows binary
         uses: actions/upload-artifact@v7
         with:
@@ -167,6 +182,77 @@ jobs:
         with:
           name: gleipnir-windows-zip
           path: gleipnir-windows-x86_64.zip
+
+  # macOS, on Apple Silicon -- macos-latest runners are arm64.  This is the only
+  # job in the file that is not x86, and it is here because three separate
+  # defects were only reachable from it:
+  #
+  #   * -march=x86-64-v2 was the unconditional default.  clang on arm64 rejects
+  #     that flag rather than ignoring it, so `make` failed on its first command
+  #     while the README said building was supported everywhere.
+  #   * ram_total() asked sysconf(_SC_PHYS_PAGES), which is a Linux extension
+  #     that Darwin does not implement.  When that yields nothing, threads_for()
+  #     reads the zero as "cannot tell" and skips the memory clamp entirely --
+  #     so -t0 at -9 asks for one full model per core with nothing stopping it.
+  #   * ru_maxrss is kilobytes on Linux and bytes on Darwin, so every peak-memory
+  #     figure printed on a Mac was 1024x too large.
+  #
+  # It also gives the archive format its first non-x86 reader, which is the real
+  # test of the "written on one platform, read on another" claim -- Windows and
+  # Linux share an architecture, so agreeing proves less than it looks.
+  #
+  # Deliberately NOT in the release job's `needs`: macOS is supported but not
+  # yet proven, and a red run here should be visible without blocking binaries
+  # for the two platforms that are. Promote it once it has been green a while.
+  macos:
+    needs: linux
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Show what we are actually on
+        run: |
+          uname -m
+          cc --version
+          make --version | head -1
+
+      - name: Build (no -march; the flag does not exist on arm64)
+        run: make
+
+      - name: Version and round trip
+        run: make test
+
+      - name: Semantic fuzz
+        run: python3 scripts/sfuzz.py --exe gleipnir
+
+      - name: Round-trip fuzz across thread counts
+        run: python3 scripts/tfuzz.py --v2 gleipnir
+
+      # -t0 is the path that loses its guard rail when ram_total() cannot
+      # answer, so exercise it rather than only the single-threaded default.
+      - name: All cores, largest preset the runner can hold
+        run: |
+          mkdir -p /tmp/mt/src
+          head -c 2000000 /dev/urandom > /tmp/mt/src/rand.bin
+          cp gleipnir.c /tmp/mt/src/code.c
+          ./gleipnir c -5 -t0 -q /tmp/mt/a.gl /tmp/mt/src
+          ./gleipnir t -D /tmp/mt/a.gl
+          ./gleipnir x -q /tmp/mt/a.gl /tmp/mt/out
+          cmp /tmp/mt/src/rand.bin /tmp/mt/out/rand.bin
+          cmp /tmp/mt/src/code.c   /tmp/mt/out/code.c
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: archive-from-linux
+          path: .
+
+      - name: Read the Linux-written archive on Apple Silicon
+        run: |
+          ./gleipnir t a.gl
+          ./gleipnir l a.gl
+          ./gleipnir x -q a.gl out
+          test -f out/code.c && test -f out/rand.bin
+          echo "x86-64 -> arm64 read OK"
 
   # The format claim in the README is that an archive written on one platform
   # reads on the other.  That is worth testing rather than asserting: it is

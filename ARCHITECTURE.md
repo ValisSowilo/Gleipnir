@@ -2266,13 +2266,30 @@ six-file set — only the `-8` ablation above, on one file.
 | mtime and POSIX permission restore | done |
 | 8 presets benchmarked on full Silesia, one interleaved session | done, `scripts/bench_session.py` |
 
-**Verification gates.** Three suites must pass before a build is used:
-`scripts/fuzz.py` and `scripts/tfuzz.py` (round-trip, `--v2` for the new CLI) and `scripts/gfuzz.py`
-(corruption). `scripts/gfuzz.py` asserts the property that matters for a backup tool:
+**Verification gates.** Four suites must pass before a build is used:
+`scripts/fuzz.py` and `scripts/tfuzz.py` (round-trip, `--v2` for the new CLI),
+`scripts/gfuzz.py` (corruption), and `scripts/sfuzz.py` (semantic).
+`scripts/gfuzz.py` asserts the property that matters for a backup tool:
 for *any* input, `gen` either exits 0 with byte-exact output, or exits 1/2 with
 a diagnostic. 250 randomized trials across seven damage models — bitflip,
 burst, truncate, zero, splice, extend, noise — produced no crash, no hang, and
 **no case of exit 0 with wrong bytes**.
+
+`scripts/sfuzz.py` exists because the other three share a blind spot, and every
+memory-safety bug found in the September 2026 decoder audit sat in it. The
+round-trip suites only ever feed the decoder *valid* archives. `gfuzz.py`
+damages valid archives at random, so its mutants nearly always fail the header
+or index checksum and are rejected before the decoder reads a single segment
+field. None of them build an archive that is structurally perfect — right
+magic, right version, right header and index hashes — but whose segment fields
+contradict *each other*: a stored section shorter than the blocks reading from
+it, a `rawlen` unrelated to `wn`, deflate records out of order, a
+bits-per-symbol the encoder cannot emit. All three suites passed clean both
+before and after those bugs existed. `sfuzz.py` constructs those archives
+directly, and runs two positive controls first — its own builder must produce
+an archive that round-trips, and its XXH64 must reproduce a real archive's
+hashes — because a crafting script that is subtly wrong rejects everything and
+passes silently.
 
 ### Deliberately not done
 

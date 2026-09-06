@@ -2138,6 +2138,9 @@ static double probe_entropy(const uint8_t *d, size_t n) {
 #else
   #include <pthread.h>
   #include <sys/resource.h>
+  #ifdef __APPLE__
+    #include <sys/sysctl.h>   /* hw.memsize; Darwin has no _SC_PHYS_PAGES */
+  #endif
   typedef pthread_t thr_t;
 #endif
 
@@ -2157,8 +2160,17 @@ static size_t peak_rss(void) {
         return (size_t)pmc.PeakWorkingSetSize;
     return 0;
 #else
+    /* ru_maxrss is kilobytes on Linux and *bytes* on Darwin.  Getting that
+     * wrong does not crash anything, it just reports a peak 1024 times too
+     * large, which is the kind of number that gets believed. */
     struct rusage ru;
-    if (getrusage(RUSAGE_SELF, &ru) == 0) return (size_t)ru.ru_maxrss * 1024;
+    if (getrusage(RUSAGE_SELF, &ru) == 0) {
+  #ifdef __APPLE__
+        return (size_t)ru.ru_maxrss;
+  #else
+        return (size_t)ru.ru_maxrss * 1024;
+  #endif
+    }
     return 0;
 #endif
 }
@@ -2625,10 +2637,22 @@ static uint64_t model_bytes(void) {
     return b;
 }
 
+/* Installed physical memory, or 0 if it cannot be determined.  Zero is not a
+ * neutral answer: threads_for() takes it as "no idea" and skips the clamp
+ * entirely, so -t0 at -9 then asks for a model per core with nothing stopping
+ * it.  Every platform that can answer must therefore answer here.
+ *
+ * Darwin does not implement _SC_PHYS_PAGES at all -- it is a Linux extension to
+ * sysconf, not a POSIX requirement -- so the branch below is not a preference
+ * between two ways of asking, it is the only way to ask on that platform. */
 static uint64_t ram_total(void) {
 #ifdef _WIN32
     MEMORYSTATUSEX ms; ms.dwLength = sizeof ms;
     if (GlobalMemoryStatusEx(&ms)) return (uint64_t)ms.ullTotalPhys;
+#elif defined(__APPLE__)
+    uint64_t v = 0; size_t k = sizeof v;
+    if (sysctlbyname("hw.memsize", &v, &k, NULL, 0) == 0 && k == sizeof v)
+        return v;
 #else
     long p = sysconf(_SC_PHYS_PAGES), z = sysconf(_SC_PAGESIZE);
     if (p > 0 && z > 0) return (uint64_t)p * (uint64_t)z;
@@ -3025,7 +3049,11 @@ static const char *blocking_component(const char *path) {
             char c = *p; *p = 0;
             if (*t) {
                 STAT_T st;
-                if (STAT_F(t, &st) == 0 && !(st.st_mode & S_IFDIR)) return t;
+                /* S_IFDIR is a value in the S_IFMT field, not a flag bit:
+                 * plain `& S_IFDIR` also matches block devices (0060000) and
+                 * sockets (0140000), which is how is_dir() already does it. */
+                if (STAT_F(t, &st) == 0 && (st.st_mode & S_IFMT) != S_IFDIR)
+                    return t;
             }
             *p = c;
         }

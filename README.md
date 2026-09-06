@@ -192,13 +192,24 @@ cold-storage recipes and every option, see **[USAGE.md](USAGE.md)**.
 
 ## Build from source
 
-Building is fully supported on every platform; the prebuilt binaries above are
-just there to save you the step.
+The prebuilt binaries above are just there to save you the step. Linux, Windows
+and macOS are built and round-tripped in CI on every push, the last of those on
+an Apple Silicon runner — which is also the only place the format gets read on
+something that is not x86-64. There is no prebuilt macOS binary, so on a Mac
+build from source; that coverage is recent and is not yet a release gate, so
+please report anything that does not work.
 
 Linux, against the system zlib:
 
 ```bash
 apt install build-essential zlib1g-dev   # or the dnf/pacman equivalent
+make
+make test
+```
+
+macOS, against the zlib the SDK already ships (Xcode command line tools):
+
+```bash
 make
 make test
 ```
@@ -214,10 +225,12 @@ cd tools/zlib-1.3.1 && ./configure && make && cd ../..
 sh build.sh
 ```
 
-Both use `-march=x86-64-v2`, not `-march=native`: a native build dies with an
-illegal instruction on any older CPU, which is a miserable way to find out.
-Pass `make ARCH=-march=native` if you only care about the machine you are on,
-but never hand that binary to anyone.
+On x86-64 both use `-march=x86-64-v2`, not `-march=native`: a native build dies
+with an illegal instruction on any older CPU, which is a miserable way to find
+out. Pass `make ARCH=-march=native` if you only care about the machine you are
+on, but never hand that binary to anyone. On Apple Silicon and other non-x86
+targets the Makefile passes no `-march` at all — the flag does not exist there,
+and clang rejects it rather than ignoring it.
 
 zlib is linked only for DEFLATE recompression — it must re-deflate byte-exactly,
 so it has to be the same implementation. On Windows `-lpsapi` is picked up for
