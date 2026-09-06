@@ -1,4 +1,4 @@
-# Build and test Gleipnir on Linux and Windows.
+# Build and test Gleipnir on Linux, Windows and macOS.
 #
 # This exists because Linux support was written on a Windows machine and could
 # not be verified there: MinGW's headers refuse to compile with _WIN32
@@ -8,6 +8,11 @@
 #
 # If the Linux job fails on the first push, the README's platform line is wrong
 # and should be corrected before the failure is.
+#
+# The macOS job is the same argument one step further: the Darwin branches were
+# also written on a Windows machine, against Apple's documented behaviour rather
+# than against a Mac.  It is the only job here that is not x86-64, so it is also
+# the only place the archive format gets read on a different architecture.
 
 name: build
 
