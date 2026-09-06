@@ -385,11 +385,18 @@ def link_cases(GEN):
     build(p3, "sub/ok.txt", seg_stored(body), len(body),
           seghash=xxh64(body), sha=sha)
     rc, err = run([GEN, "x", "-q", p3, via])
+    # Assert through the destination the caller was given, not through the
+    # link's target.  Whether the same file is also visible under real_dest is
+    # the platform's business, and asserting on that made this case fail on
+    # Windows for a reason that had nothing to do with the program.
+    got = os.path.join(via, "sub", "ok.txt")
     if rc != 0:
         fails.append("link_destination: refused a legitimate destination reached "
                      "through a symlink (exit %r) -- %s" % (rc, err.strip()))
-    elif not os.path.exists(os.path.join(real, "sub", "ok.txt")):
-        fails.append("link_destination: exit 0 but wrote nothing")
+    elif not os.path.exists(got):
+        fails.append("link_destination: exit 0 but %s is missing; tree under "
+                     "%s = %s" % (got, root,
+                                  sorted(os.path.relpath(f, root) for f in tree(root))))
     return fails
 
 
