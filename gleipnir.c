@@ -3111,10 +3111,18 @@ static int is_link(const char *path) {
 #endif
 }
 
-/* Returns 0, or -1 if a component of the path is a link.  mkdir failure is
- * still ignored: the component usually exists already, and when it genuinely
- * cannot be created the fopen that follows reports it with the real reason. */
-static int mkparents(const char *path) {
+/* Returns 0, or -1 if a component of the path *that the archive named* is a
+ * link.  mkdir failure is still ignored: the component usually exists already,
+ * and when it genuinely cannot be created the fopen that follows reports it
+ * with the real reason.
+ *
+ * `guard` is the length of the leading destination prefix, which is exempt.
+ * Only the tail of the path comes from the member name, and only that tail is
+ * attacker-controlled; the directory the user typed is theirs, and the route to
+ * it is very often a symlink through no fault of anyone's -- /tmp and /var are
+ * links to /private/* on macOS, so checking the whole path refused every
+ * extraction into a temporary directory there. */
+static int mkparents(const char *path, size_t guard) {
     char *t = strdup(path);
     if (!t) return -1;
     int rc = 0;
@@ -3122,7 +3130,7 @@ static int mkparents(const char *path) {
         if (*p == '/' || *p == '\\') {
             char c = *p; *p = 0;
             if (*t) {
-                if (is_link(t)) { *p = c; rc = -1; break; }
+                if ((size_t)(p - t) >= guard && is_link(t)) { *p = c; rc = -1; break; }
 #ifdef _WIN32
                 _mkdir(t);
 #else
@@ -3946,18 +3954,20 @@ static int run_members(Archive *a, const char *destdir, int test_only,
              * truncation is reachable from any archive.  A truncated path is a
              * different path: two members collapse onto one, and the name
              * written is not the name checked. */
-            int pn;
-            if (destdir && *destdir)
+            int pn; size_t guard = 0;
+            if (destdir && *destdir) {
                 pn = snprintf(path, sizeof path, "%s/%s", destdir, m->name);
-            else
+                guard = strlen(destdir) + 1;   /* the prefix, and its separator */
+            } else {
                 pn = snprintf(path, sizeof path, "%s", m->name);
+            }
             if (pn < 0 || (size_t)pn >= sizeof path) {
                 fprintf(stderr, "gleipnir: destination path too long for member: ");
                 fput_name(m->name, stderr);
                 fputc('\n', stderr);
                 rc = 2; nbad++; continue;
             }
-            if (mkparents(path) != 0) {
+            if (mkparents(path, guard) != 0) {
                 fprintf(stderr, "gleipnir: refusing to extract through a link: %s\n",
                         path);
                 rc = 2; nbad++; continue;

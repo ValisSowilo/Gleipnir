@@ -370,6 +370,26 @@ def link_cases(GEN):
     with open(secret) as f:
         if f.read() != "UNTOUCHED":
             fails.append("link_member: followed the link and overwrote %s" % secret)
+
+    # The opposite requirement, and the one this file originally missed: a
+    # destination the user chose is theirs, and the route to it is very often a
+    # link through nobody's fault -- /tmp and /var are symlinks to /private/* on
+    # macOS.  Refusing those refused every extraction into a temporary directory
+    # on that platform, which CI caught and this suite did not.  Only the tail
+    # of the path, the part the archive named, is attacker-controlled.
+    real = os.path.join(root, "real_dest")
+    os.makedirs(real, exist_ok=True)
+    via = os.path.join(root, "via_link")
+    os.symlink(real, via, target_is_directory=True)
+    p3 = os.path.join(TMP, "link_ok.gl")
+    build(p3, "sub/ok.txt", seg_stored(body), len(body),
+          seghash=xxh64(body), sha=sha)
+    rc, err = run([GEN, "x", "-q", p3, via])
+    if rc != 0:
+        fails.append("link_destination: refused a legitimate destination reached "
+                     "through a symlink (exit %r) -- %s" % (rc, err.strip()))
+    elif not os.path.exists(os.path.join(real, "sub", "ok.txt")):
+        fails.append("link_destination: exit 0 but wrote nothing")
     return fails
 
 
@@ -476,8 +496,8 @@ def main():
         fails.extend(lf)
 
     print("%d segment-field cases x 2 modes + %d member-name cases%s = %d runs"
-          % (len(C), len(NAME_CASES), "" if lf is None else " + 2 link cases",
-             len(C) * 2 + len(NAME_CASES) + (0 if lf is None else 2)))
+          % (len(C), len(NAME_CASES), "" if lf is None else " + 3 link cases",
+             len(C) * 2 + len(NAME_CASES) + (0 if lf is None else 3)))
     if fails:
         print("\n%d FAILURES:" % len(fails))
         for f in fails:
