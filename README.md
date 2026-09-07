@@ -10,11 +10,13 @@ with zlib as its only dependency. It predicts each bit with 27 statistical
 models — 30 on raster data — blends their predictions with a learned mixer, and
 codes the result with an arithmetic coder.
 
-**It beats `zpaq -m5` on all twelve Silesia files**, and its `-9` total ranks
-**50th of 211** on the [Silesia Open Source Compression
-Benchmark](http://mattmahoney.net/dc/silesia.html) — ahead of every zpaq entry
-on the board. At `-5` it wins on all three axes at once: 2.2% smaller than
-`zpaq -m5`, 1.6× faster, and 43% less memory.
+**It beats `zpaq -m5` on all twelve Silesia files**, and its `-9` total would
+place **just inside the top 50 of 320 entries** on the [Silesia Open Source
+Compression Benchmark](http://mattmahoney.net/dc/silesia.html) — ahead of every
+zpaq entry on the board. Gleipnir is not itself listed there; that is a
+comparison against the published table, not a placement. At `-5` it wins on all
+three axes at once: 2.2% smaller than `zpaq -m5`, 1.6× faster, and 43% less
+memory.
 
 > **Using it as an archiver?** See **[USAGE.md](USAGE.md)**. `gleipnir.c` wraps the
 > engine documented here in a real archive format — directories, per-segment and
@@ -76,11 +78,23 @@ Two honest summaries, because there is no single one:
   cross-session artefact: measured inside one session `-9` is **1.07× slower**
   (597.1 s against zpaq's 559.4 s). See [Benchmarks](#benchmarks).
 
-That `-9` total ranks **50th of 211 entries** on the [Silesia Open Source
-Compression Benchmark](http://mattmahoney.net/dc/silesia.html), ahead of every
-zpaq entry on the board. It is **not** state of the art: `paq8px -12L` reaches
-27,825,511 — this is +28.6% larger — using 29 GB. See [Where this
-stands](#where-this-stands).
+That `-9` total would place **just inside the top 50 of 320 entries** on the
+[Silesia Open Source Compression
+Benchmark](http://mattmahoney.net/dc/silesia.html), ahead of every zpaq entry on
+the board — the best zpaq-involving entry there is 36,603,712. Gleipnir is not
+itself listed on that page: this is a comparison against the published table,
+not a placement, and the figure has not been verified by anyone else.
+
+> **Caveat on that comparison.** The board compresses the twelve files
+> *individually*, while the 35,582,296 above is a single archive over the whole
+> directory, which lets deduplication work across files. The per-file sum in
+> [Where this stands](#where-this-stands) is 35,773,957 — a 191,661-byte
+> difference, and that larger figure is the one directly comparable to the
+> board. Both land in the same place, 49th and 50th of 320 respectively, so the
+> "top 50" statement holds either way.
+
+It is **not** state of the art: `paq8px -12L` reaches 27,825,511 — this is
++28.6% larger — using 29 GB. See [Where this stands](#where-this-stands).
 
 All eight presets against all six reference codecs, on one machine and one
 corpus. `graphs/speed_vs_size.svg` below is the previous build; these three are
