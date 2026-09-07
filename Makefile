@@ -37,7 +37,16 @@ endif
 # double precision and the stride it picks changes what the model does.
 # Letting the compiler fuse multiply-add makes that arithmetic depend on the
 # target CPU, which would let two builds disagree about a file.
-CFLAGS  ?= -O3 -funroll-loops $(ARCH) -ffp-contract=off
+#
+# This is a correctness flag, so it deliberately sits outside CFLAGS.  `?=`
+# does not assign when the variable already exists in the environment, and
+# packaging tools export CFLAGS -- makepkg does -- so a distro build would
+# have silently dropped this and shipped a binary whose archives may not
+# reproduce elsewhere.  Held in its own variable and appended after CFLAGS,
+# neither an exported CFLAGS nor `make CFLAGS=...` can lose it.
+REQUIRED_CFLAGS = -ffp-contract=off
+
+CFLAGS  ?= -O3 -funroll-loops $(ARCH)
 LDFLAGS ?=
 LIBS    ?= -lz -lm -lpthread
 
@@ -49,7 +58,7 @@ BIN = gleipnir
 all: $(BIN)
 
 $(BIN): $(SRC)
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDFLAGS) $(LIBS)
+	$(CC) $(CFLAGS) $(REQUIRED_CFLAGS) -o $@ $(SRC) $(LDFLAGS) $(LIBS)
 
 # Not a substitute for fuzz.py / tfuzz.py / gfuzz.py / sfuzz.py, which are the
 # real gates.  This is the "did it come out of the compiler able to do its job"
