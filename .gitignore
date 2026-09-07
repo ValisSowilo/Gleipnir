@@ -36,12 +36,15 @@
 # each script is admitted by name -- inclusion stays the deliberate act.
 !scripts/
 
-# the three verification gates: fuzz.py (container/deflate edge cases),
-# tfuzz.py (round trips across thread counts), gfuzz.py (corruption).  CI runs
-# the latter two on every push, from scripts/.
+# the four verification gates: fuzz.py (container/deflate edge cases),
+# tfuzz.py (round trips across thread counts), gfuzz.py (corruption), and
+# sfuzz.py (archives that pass every structural check but whose segment fields
+# contradict each other -- the one shape the other three never build).  CI runs
+# tfuzz, gfuzz and sfuzz on every push, from scripts/.
 !scripts/fuzz.py
 !scripts/tfuzz.py
 !scripts/gfuzz.py
+!scripts/sfuzz.py
 
 # standalone probes the docs cite as ground truth
 !scripts/t_alpha.c

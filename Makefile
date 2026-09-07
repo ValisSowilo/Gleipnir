@@ -20,7 +20,18 @@ PREFIX  ?= $(HOME)/.local
 # -march=x86-64-v2, not -march=native: a native build dies with an illegal
 # instruction on any older CPU, which is a miserable way to find out.  Override
 # with `make ARCH=-march=native` for a machine-specific build.
-ARCH    ?= -march=x86-64-v2
+#
+# That flag only exists on x86.  clang on Apple Silicon rejects it outright, so
+# `make` failed on its first command on any arm64 host -- while the README said
+# building was supported on every platform.  Non-x86 targets get no -march and
+# build for their own default, which is what a portable build wants there
+# anyway: unlike x86-64, arm64 has one baseline everyone already meets.
+UNAME_M := $(shell uname -m 2>/dev/null || echo unknown)
+ifneq (,$(filter x86_64 amd64,$(UNAME_M)))
+  ARCH  ?= -march=x86-64-v2
+else
+  ARCH  ?=
+endif
 
 # -ffp-contract=off: detect_period() measures mean absolute difference in
 # double precision and the stride it picks changes what the model does.
@@ -40,8 +51,9 @@ all: $(BIN)
 $(BIN): $(SRC)
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDFLAGS) $(LIBS)
 
-# Not a substitute for fuzz.py / tfuzz.py / gfuzz.py, which are the real gates.
-# This is the "did it come out of the compiler able to do its job" check.
+# Not a substitute for fuzz.py / tfuzz.py / gfuzz.py / sfuzz.py, which are the
+# real gates.  This is the "did it come out of the compiler able to do its job"
+# check.
 test: $(BIN)
 	@./$(BIN) --version
 	@tmp=$$(mktemp -d) && \

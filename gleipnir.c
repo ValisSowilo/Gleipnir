@@ -359,7 +359,13 @@ static void sm_update(uint32_t *e, int bit, int limit) {
     int n = (int)(v & 1023), p = (int)(v >> 10);
     if (n < limit) v++;
     int d = (int)((((int64_t)((bit ? 4194303 : 0) - p)) * DT[n]) >> 16);
-    *e = (uint32_t)((int64_t)v + ((int64_t)d << 10));
+    /* d is the signed prediction error and is negative on roughly half of all
+     * updates, so `d << 10` was a left shift of a negative value -- undefined
+     * behaviour, and the compiler is entitled to assume it cannot happen.
+     * Multiplying is defined for both signs, produces the identical value (no
+     * overflow: |d| < 2^21, so |d * 1024| < 2^31), and lowers to the same shift
+     * instruction.  This is the hottest line in the codec; it costs nothing. */
+    *e = (uint32_t)((int64_t)v + (int64_t)d * 1024);
 }
 
 /* ---------------------------------------------------------------- model */
@@ -1301,6 +1307,12 @@ static void afree(void *p) {
 }
 
 static int MEMSHIFT = 0;       /* added to every GBITS; stored in the header */
+/* The header carries this as a single byte biased by 16, so only this range
+ * survives a round trip.  Both ends already saturate the [10,24] clamp below,
+ * so nothing expressible is lost by refusing the rest -- whereas accepting it
+ * produced an archive that could not be read back. */
+#define MEMSHIFT_MIN (-16)
+#define MEMSHIFT_MAX 16
 
 /* Weight sets the mixer actually indexes.  The speed presets use a narrower
  * selector, so their weight table is 128 KB instead of 1 MB. */
@@ -1981,6 +1993,13 @@ static uint8_t *dfl_collapse(const uint8_t *w, size_t wn, const Dfl *fl, int nd,
     if (!out) return NULL;
     size_t olen = 0, pos = 0;
     for (int i = 0; i < nd; i++) {
+        /* segr_parse rejects a descending or overlapping list before we get
+         * here.  Repeated because the whole loop below is unsigned arithmetic
+         * over lengths that came out of a file, and one missing guard upstream
+         * turns fl[i].pos - pos into a ~2^64 memcpy. */
+        if (fl[i].pos < pos || fl[i].pos > wn || fl[i].plen > wn - fl[i].pos) {
+            free(out); return NULL;
+        }
         memcpy(out + olen, w + pos, fl[i].pos - pos);
         olen += fl[i].pos - pos;
         if (!dfl_deflate(w + fl[i].pos, fl[i].plen, &fl[i], out + olen, cap - olen)) {
@@ -2125,6 +2144,9 @@ static double probe_entropy(const uint8_t *d, size_t n) {
 #else
   #include <pthread.h>
   #include <sys/resource.h>
+  #ifdef __APPLE__
+    #include <sys/sysctl.h>   /* hw.memsize; Darwin has no _SC_PHYS_PAGES */
+  #endif
   typedef pthread_t thr_t;
 #endif
 
@@ -2144,8 +2166,17 @@ static size_t peak_rss(void) {
         return (size_t)pmc.PeakWorkingSetSize;
     return 0;
 #else
+    /* ru_maxrss is kilobytes on Linux and *bytes* on Darwin.  Getting that
+     * wrong does not crash anything, it just reports a peak 1024 times too
+     * large, which is the kind of number that gets believed. */
     struct rusage ru;
-    if (getrusage(RUSAGE_SELF, &ru) == 0) return (size_t)ru.ru_maxrss * 1024;
+    if (getrusage(RUSAGE_SELF, &ru) == 0) {
+  #ifdef __APPLE__
+        return (size_t)ru.ru_maxrss;
+  #else
+        return (size_t)ru.ru_maxrss * 1024;
+  #endif
+    }
     return 0;
 #endif
 }
@@ -2167,6 +2198,7 @@ typedef struct {
 static void do_compress_chunk(Job *j) {
     Ctx *TH = j->cx;
     j->blk = malloc(sizeof(Blk) * MAXBLK);
+    if (!j->blk) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     j->nb  = segment(j->in, j->n, j->blk, MAXBLK, j->file_is_exe);
     size_t off = 0;
     for (int i = 0; i < j->nb; i++) {
@@ -2177,8 +2209,13 @@ static void do_compress_chunk(Job *j) {
         off += j->blk[i].len;
     }
     model_alloc(TH, j->n);
+    /* The read side checked every allocation and the write side checked none.
+     * Unchecked, enc_bit would write the first coded byte through a null
+     * obuf -- a segfault reported as a crash in the compressor rather than as
+     * the out-of-memory condition it is. */
     j->aout = malloc(j->n + j->n / 4 + 65536);
     j->sout = malloc(j->n + 16);
+    if (!j->aout || !j->sout) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
     j->slen = 0;
     TH->obuf = j->aout; TH->opos = 0; enc_init(TH);
     off = 0;
@@ -2244,23 +2281,41 @@ static void *thr_entry(void *p) {
 
 static void run_jobs(Job *jobs, int n) {
     if (n == 1) { thr_entry(&jobs[0]); return; }
-    thr_t *h = malloc(sizeof(thr_t) * n);
-    for (int i = 0; i < n; i++) {
-#ifdef _WIN32
-        h[i] = CreateThread(NULL, 0, thr_entry, &jobs[i], 0, NULL);
-        if (!h[i]) { thr_entry(&jobs[i]); }
-#else
-        if (pthread_create(&h[i], NULL, thr_entry, &jobs[i]) != 0) thr_entry(&jobs[i]);
-#endif
+    thr_t  *h       = malloc(sizeof(thr_t) * n);
+    uint8_t *started = calloc((size_t)n, 1);
+    if (!h || !started) {
+        /* Threads are a throughput choice, not a correctness one, so a failure
+         * to even track them is not a reason to fail the run. */
+        free(h); free(started);
+        for (int i = 0; i < n; i++) thr_entry(&jobs[i]);
+        return;
     }
     for (int i = 0; i < n; i++) {
 #ifdef _WIN32
-        if (h[i]) { WaitForSingleObject(h[i], INFINITE); CloseHandle(h[i]); }
+        h[i] = CreateThread(NULL, 0, thr_entry, &jobs[i], 0, NULL);
+        started[i] = h[i] != NULL;
+#else
+        started[i] = pthread_create(&h[i], NULL, thr_entry, &jobs[i]) == 0;
+#endif
+    }
+    /* Anything that could not be launched runs here -- but only after every
+     * thread that *can* start has started.  Running the fallback inside the
+     * loop above meant one failure at i=1 stalled the launch of 2..n-1 until
+     * that whole segment had been modelled on this thread. */
+    for (int i = 0; i < n; i++) if (!started[i]) thr_entry(&jobs[i]);
+    for (int i = 0; i < n; i++) {
+        /* Only join what was actually created.  On POSIX a failed
+         * pthread_create leaves h[i] indeterminate, and the old loop passed
+         * that straight to pthread_join -- undefined behaviour, and the one
+         * place the Windows branch was guarded and this one was not. */
+        if (!started[i]) continue;
+#ifdef _WIN32
+        WaitForSingleObject(h[i], INFINITE); CloseHandle(h[i]);
 #else
         pthread_join(h[i], NULL);
 #endif
     }
-    free(h);
+    free(h); free(started);
 }
 
 
@@ -2612,10 +2667,22 @@ static uint64_t model_bytes(void) {
     return b;
 }
 
+/* Installed physical memory, or 0 if it cannot be determined.  Zero is not a
+ * neutral answer: threads_for() takes it as "no idea" and skips the clamp
+ * entirely, so -t0 at -9 then asks for a model per core with nothing stopping
+ * it.  Every platform that can answer must therefore answer here.
+ *
+ * Darwin does not implement _SC_PHYS_PAGES at all -- it is a Linux extension to
+ * sysconf, not a POSIX requirement -- so the branch below is not a preference
+ * between two ways of asking, it is the only way to ask on that platform. */
 static uint64_t ram_total(void) {
 #ifdef _WIN32
     MEMORYSTATUSEX ms; ms.dwLength = sizeof ms;
     if (GlobalMemoryStatusEx(&ms)) return (uint64_t)ms.ullTotalPhys;
+#elif defined(__APPLE__)
+    uint64_t v = 0; size_t k = sizeof v;
+    if (sysctlbyname("hw.memsize", &v, &k, NULL, 0) == 0 && k == sizeof v)
+        return v;
 #else
     long p = sysconf(_SC_PHYS_PAGES), z = sysconf(_SC_PAGESIZE);
     if (p > 0 && z > 0) return (uint64_t)p * (uint64_t)z;
@@ -2753,7 +2820,14 @@ static int segr_parse(SegR *s, Job *j) {
     if (s->kind != SEG_MODEL) return -1;
 
     s->bps = rd8(&r); s->nsym = rd8(&r);
-    if (s->bps < 0 || s->bps > 8 || s->nsym > 16) return -1;
+    /* scan_alphabet emits 1, 2 or 4 bits per symbol and nothing else, over an
+     * alphabet of at most 1 << bps symbols.  The wider check this replaces let
+     * bps 5..8 through, and unpack_syms indexes sym[] with a (1 << bps) - 1
+     * mask -- so bps 8 read 240 bytes past the sixteen-byte array and wrote
+     * whatever it found there into the extracted file. */
+    if (s->bps != 0 && s->bps != 1 && s->bps != 2 && s->bps != 4) return -1;
+    if (s->bps == 0) { if (s->nsym != 0) return -1; }
+    else if (s->nsym < 1 || s->nsym > (1 << s->bps)) return -1;
     if (s->nsym) {
         const uint8_t *sy = rdbuf(&r, (uint64_t)s->nsym);
         if (r.bad) return -1;
@@ -2765,6 +2839,7 @@ static int segr_parse(SegR *s, Job *j) {
 
     s->fl = malloc(sizeof(Dfl) * (s->nd ? s->nd : 1));
     if (!s->fl) return -1;
+    uint64_t dcur = 0;
     for (uint32_t i = 0; i < s->nd; i++) {
         s->fl[i].pos  = rd64(&r);
         s->fl[i].clen = rd32(&r);
@@ -2773,9 +2848,15 @@ static int segr_parse(SegR *s, Job *j) {
         uint8_t ls = rd8(&r);
         s->fl[i].level = ls & 15; s->fl[i].strat = ls >> 4;
         s->fl[i].mem   = rd8(&r);
-        if (s->fl[i].pos > s->wn || s->fl[i].plen > s->wn - s->fl[i].pos) {
+        /* Ascending and non-overlapping, which is the only shape dfl_expand
+         * produces.  dfl_collapse walks the list with an unsigned cursor and
+         * computes fl[i].pos - cursor: a record starting behind the cursor
+         * wrapped that to nearly 2^64 and handed it straight to memcpy. */
+        if (s->fl[i].pos < dcur || s->fl[i].pos > s->wn ||
+            s->fl[i].plen > s->wn - s->fl[i].pos) {
             r.bad = 1; break;
         }
+        dcur = s->fl[i].pos + s->fl[i].plen;
     }
     s->stride = rd16(&r);
     s->width  = rd8(&r);
@@ -2784,16 +2865,21 @@ static int segr_parse(SegR *s, Job *j) {
 
     s->blk = malloc(sizeof(Blk) * (s->nb ? s->nb : 1));
     if (!s->blk) return -1;
-    uint64_t tot = 0;
+    uint64_t tot = 0, stot = 0;
     for (uint32_t b = 0; b < s->nb; b++) {
         s->blk[b].type = rd8(&r);
         s->blk[b].len  = rd32(&r);
         tot += s->blk[b].len;
+        if (BKIND(s->blk[b].type) == B_STORE) stot += s->blk[b].len;
     }
     s->alen = rd64(&r); s->slen = rd64(&r);
     /* Block lengths must sum to the working length exactly, or the decode loop
-     * and the filter loop disagree about where blocks end. */
-    if (r.bad || tot != s->wn) return -1;
+     * and the filter loop disagree about where blocks end.  The stored blocks
+     * must likewise account for every byte of the stored section and no more:
+     * do_decompress_chunk walks that section with a running offset and never
+     * re-checks it, so a segment claiming more stored bytes than it carried
+     * read the difference off the end of the blob. */
+    if (r.bad || tot != s->wn || stot != s->slen) return -1;
     s->ain = rdbuf(&r, s->alen);
     s->sin = rdbuf(&r, s->slen);
     if (r.bad) return -1;
@@ -2813,15 +2899,26 @@ static int segr_finish(SegR *s) {
 
     int rc = 0;
     uint8_t *fin = w, *collapsed = NULL;
+    size_t finlen = (size_t)s->wn;
     if (s->nd) {
         size_t cl = 0;
         collapsed = dfl_collapse(w, s->wn, s->fl, (int)s->nd, &cl);
-        if (!collapsed) rc = -1; else fin = collapsed;
+        if (!collapsed) rc = -1; else { fin = collapsed; finlen = cl; }
     }
+    /* rawlen comes from the index and the working buffer's length comes from
+     * the blob; nothing in the format ties the two together, so each path out
+     * of here has to prove the source is long enough before it reads.  The
+     * unpacked path proved nothing at all, and a collapsed buffer short-
+     * circuited the check the plain path did have. */
     if (!rc) {
-        if (s->bps) unpack_syms(fin, s->out, (size_t)s->rawlen, s->sym, s->bps);
-        else if (s->wn >= s->rawlen || collapsed) memcpy(s->out, fin, (size_t)s->rawlen);
-        else rc = -1;
+        if (s->bps) {
+            size_t per  = (size_t)(8 / s->bps);
+            size_t need = ((size_t)s->rawlen + per - 1) / per;
+            if (finlen < need) rc = -1;
+            else unpack_syms(fin, s->out, (size_t)s->rawlen, s->sym, s->bps);
+        } else if (finlen >= (size_t)s->rawlen) {
+            memcpy(s->out, fin, (size_t)s->rawlen);
+        } else rc = -1;
     }
     free(collapsed); free(w);
     return rc;
@@ -2926,22 +3023,49 @@ static void par_flush(FILE *fo, Index *idx, Buf *par, const char *outp) {
 }
 
 /* ------------------------------------------------------------- path safety
- * An archive is untrusted input.  Names that are absolute, that carry a drive
+ *
+ * Member names are the one part of an archive that gets printed before anyone
+ * has decided whether to trust the file -- `l` is what you run to make that
+ * decision, and it prints names that no check has passed yet.  A name carrying
+ * terminal escapes could repaint the listing it appears in, so unprintable
+ * bytes are shown rather than sent. */
+static void fput_name(const char *s, FILE *f) {
+    for (; *s; s++) {
+        unsigned char c = (unsigned char)*s;
+        fputc((c < 0x20 || c == 0x7F) ? '?' : (int)c, f);
+    }
+}
+
+/* An archive is untrusted input.  Names that are absolute, that carry a drive
  * letter, or that contain a ".." component can otherwise make extraction write
  * outside the destination directory entirely. */
 static int name_is_safe(const char *s) {
     if (!s || !*s) return 0;
     if (s[0] == '/' || s[0] == '\\') return 0;
     if (s[0] && s[1] == ':') return 0;
+    /* Split on both separators, on both platforms.  store_name guarantees the
+     * names this program writes are relative and slash-separated, so a
+     * backslash in one did not come from here -- and splitting on '/' alone
+     * let "..\..\x" through as a single eleven-character component, which
+     * Windows then resolved as three and wrote outside the destination
+     * directory.  Splitting on both means a hostile name is refused on the
+     * host where it is harmless as well as the one where it is not, so the
+     * same archive gets the same verdict everywhere. */
     for (const char *p = s; *p; ) {
         const char *q = p;
-        while (*q && *q != '/') q++;
+        while (*q && *q != '/' && *q != '\\') q++;
         size_t k = (size_t)(q - p);
         if (k == 2 && p[0] == '.' && p[1] == '.') return 0;
         if (!*q) break;
         p = q + 1;
     }
     for (const char *p = s; *p; p++) if ((unsigned char)*p < 0x20) return 0;
+#ifdef _WIN32
+    /* ':' is a path operator on Windows wherever it appears, not just at
+     * position 1: "dir/x:y" opens an alternate data stream on x, and "a/c:t"
+     * is drive-relative.  Such a name cannot be created on Windows anyway. */
+    if (strchr(s, ':')) return 0;
+#endif
     return 1;
 }
 
@@ -2955,7 +3079,11 @@ static const char *blocking_component(const char *path) {
             char c = *p; *p = 0;
             if (*t) {
                 STAT_T st;
-                if (STAT_F(t, &st) == 0 && !(st.st_mode & S_IFDIR)) return t;
+                /* S_IFDIR is a value in the S_IFMT field, not a flag bit:
+                 * plain `& S_IFDIR` also matches block devices (0060000) and
+                 * sockets (0140000), which is how is_dir() already does it. */
+                if (STAT_F(t, &st) == 0 && (st.st_mode & S_IFMT) != S_IFDIR)
+                    return t;
             }
             *p = c;
         }
@@ -2963,13 +3091,46 @@ static const char *blocking_component(const char *path) {
     return NULL;
 }
 
-static void mkparents(const char *path) {
+/* True if `path` exists and is a symbolic link, or on Windows any reparse
+ * point -- a junction, a directory symlink, a mount point.
+ *
+ * name_is_safe proves things about the *name*: that it is relative, carries no
+ * drive letter and climbs no "..".  It can prove nothing about what is already
+ * on the disk.  If some component of the destination is a link that was placed
+ * there earlier -- by a previous extraction, by another archive, by anything --
+ * then a name that is entirely well-formed still resolves outside the
+ * destination directory, because the kernel follows the link and fopen never
+ * asks.  String validation cannot close this; only looking can. */
+static int is_link(const char *path) {
+#ifdef _WIN32
+    DWORD a = GetFileAttributesA(path);
+    return a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+#else
+    STAT_T st;
+    return lstat(path, &st) == 0 && S_ISLNK(st.st_mode);
+#endif
+}
+
+/* Returns 0, or -1 if a component of the path *that the archive named* is a
+ * link.  mkdir failure is still ignored: the component usually exists already,
+ * and when it genuinely cannot be created the fopen that follows reports it
+ * with the real reason.
+ *
+ * `guard` is the length of the leading destination prefix, which is exempt.
+ * Only the tail of the path comes from the member name, and only that tail is
+ * attacker-controlled; the directory the user typed is theirs, and the route to
+ * it is very often a symlink through no fault of anyone's -- /tmp and /var are
+ * links to /private/* on macOS, so checking the whole path refused every
+ * extraction into a temporary directory there. */
+static int mkparents(const char *path, size_t guard) {
     char *t = strdup(path);
-    if (!t) return;
+    if (!t) return -1;
+    int rc = 0;
     for (char *p = t; *p; p++) {
         if (*p == '/' || *p == '\\') {
             char c = *p; *p = 0;
             if (*t) {
+                if ((size_t)(p - t) >= guard && is_link(t)) { *p = c; rc = -1; break; }
 #ifdef _WIN32
                 _mkdir(t);
 #else
@@ -2980,6 +3141,7 @@ static void mkparents(const char *path) {
         }
     }
     free(t);
+    return rc;
 }
 
 /* -------------------------------------------------------------- input walk */
@@ -3133,6 +3295,20 @@ static int parse_header(const uint8_t *h, Head *o) {
         return -1;
     }
     o->lvl = h[8]; o->memshift = (int)h[9] - 16;
+    /* The writer only ever stores 1..9 and the two speed presets, and only a
+     * -m the option would have accepted.  Anything else names a model this
+     * build would have to invent, so say so here rather than build one and
+     * report a checksum failure several minutes later. */
+    if (!((o->lvl >= 1 && o->lvl <= 9) || o->lvl == 101 || o->lvl == 102)) {
+        fprintf(stderr, "gleipnir: archive names preset %d, which does not exist\n",
+                o->lvl);
+        return -1;
+    }
+    if (o->memshift < MEMSHIFT_MIN || o->memshift > MEMSHIFT_MAX) {
+        fprintf(stderr, "gleipnir: archive names an out-of-range context-table "
+                        "size (-m%d)\n", o->memshift);
+        return -1;
+    }
     memcpy(&o->segmax, h + 12, 4);
     memcpy(&o->nmemb, h + 16, 8);
     memcpy(&o->idxoff, h + 24, 8);
@@ -3576,6 +3752,11 @@ static int arc_open(const char *path, Archive *a) {
         uint16_t nl = rd16(&r);
         const uint8_t *nb = rdbuf(&r, nl);
         if (r.bad) break;
+        /* An interior NUL makes the name one string on disk and a shorter one
+         * everywhere in this program, so two members that differ on disk can
+         * collapse to a single path here -- and `l` would show a name that is
+         * not the one being written.  Refuse rather than silently truncate. */
+        if (memchr(nb, 0, nl)) { free(ib); goto bad; }
         m.name = malloc((size_t)nl + 1);
         if (!m.name) { free(ib); goto bad; }
         memcpy(m.name, nb, nl); m.name[nl] = 0;
@@ -3760,18 +3941,45 @@ static int run_members(Archive *a, const char *destdir, int test_only,
             if (!hit) continue;
         }
         if (!name_is_safe(m->name)) {
-            fprintf(stderr, "gleipnir: refusing unsafe member name: %s\n", m->name);
+            fprintf(stderr, "gleipnir: refusing unsafe member name: ");
+            fput_name(m->name, stderr);
+            fputc('\n', stderr);
             rc = 2; nbad++; continue;
         }
         FILE *fo = NULL;
         char path[NAME_MAX_B];
         path[0] = 0;
         if (!test_only) {
-            if (destdir && *destdir)
-                snprintf(path, sizeof path, "%s/%s", destdir, m->name);
-            else
-                snprintf(path, sizeof path, "%s", m->name);
-            mkparents(path);
+            /* Member names run to 65535 bytes and this buffer is 4096, so
+             * truncation is reachable from any archive.  A truncated path is a
+             * different path: two members collapse onto one, and the name
+             * written is not the name checked. */
+            int pn; size_t guard = 0;
+            if (destdir && *destdir) {
+                pn = snprintf(path, sizeof path, "%s/%s", destdir, m->name);
+                guard = strlen(destdir) + 1;   /* the prefix, and its separator */
+            } else {
+                pn = snprintf(path, sizeof path, "%s", m->name);
+            }
+            if (pn < 0 || (size_t)pn >= sizeof path) {
+                fprintf(stderr, "gleipnir: destination path too long for member: ");
+                fput_name(m->name, stderr);
+                fputc('\n', stderr);
+                rc = 2; nbad++; continue;
+            }
+            if (mkparents(path, guard) != 0) {
+                fprintf(stderr, "gleipnir: refusing to extract through a link: %s\n",
+                        path);
+                rc = 2; nbad++; continue;
+            }
+            /* And the member itself: writing "wb" onto an existing symlink
+             * follows it, so an attacker who can drop one link into the
+             * destination chooses the file every later extraction overwrites. */
+            if (is_link(path)) {
+                fprintf(stderr, "gleipnir: refusing to write through the existing "
+                                "link %s\n", path);
+                rc = 2; nbad++; continue;
+            }
             fo = fopen(path, "wb");
             if (!fo) {
                 /* When a path component exists but is a file rather than a
@@ -3971,14 +4179,18 @@ static int do_scrub(Archive *a, const char *path) {
         if (st == 0) intact++;
         else if (st == 1) {
             repaired++;
-            if (VERBOSE)
-                fprintf(stderr, "gleipnir: %s: segment %llu is damaged but "
-                                "recoverable from its recovery record\n",
-                        member_of(a, i), (unsigned long long)i);
+            if (VERBOSE) {
+                fprintf(stderr, "gleipnir: ");
+                fput_name(member_of(a, i), stderr);
+                fprintf(stderr, ": segment %llu is damaged but recoverable from "
+                                "its recovery record\n", (unsigned long long)i);
+            }
         } else {
             lost++;
-            fprintf(stderr, "gleipnir: %s: segment %llu is damaged and cannot be "
-                            "recovered\n", member_of(a, i), (unsigned long long)i);
+            fprintf(stderr, "gleipnir: ");
+            fput_name(member_of(a, i), stderr);
+            fprintf(stderr, ": segment %llu is damaged and cannot be recovered\n",
+                    (unsigned long long)i);
         }
     }
     double sec = (double)(time(NULL) - w0);
@@ -3989,9 +4201,12 @@ static int do_scrub(Archive *a, const char *path) {
         if (lost)     fprintf(stderr, ", %llu LOST", (unsigned long long)lost);
         fprintf(stderr, "  (%llu MB read, %.0f MB/s)\n",
                 (unsigned long long)(bytes >> 20), bytes / 1e6 / sec);
+        /* This printed the word "archive" rather than the archive: the format
+         * took `path`, the argument was the string literal, and the advice
+         * named a file nobody has. */
         if (repaired && !lost)
-            fprintf(stderr, "gleipnir: run 'gleipnir r %s fixed.gl' to write a clean copy\n",
-                    "archive");
+            fprintf(stderr, "gleipnir: run 'gleipnir r %s fixed.gl' to write a "
+                            "clean copy\n", path);
         if (!a->x.np && VERBOSE)
             fprintf(stderr, "gleipnir: note: this archive has no recovery records; "
                             "damage would be unrepairable\n");
@@ -4019,9 +4234,10 @@ static int do_repair(Archive *a, const char *outp) {
         if (st == 1) repaired++;
         if (st < 0) {
             lost++;
-            fprintf(stderr, "gleipnir: %s: segment %llu could not be recovered; "
-                            "copying it as-is\n", member_of(a, i),
-                    (unsigned long long)i);
+            fprintf(stderr, "gleipnir: ");
+            fput_name(member_of(a, i), stderr);
+            fprintf(stderr, ": segment %llu could not be recovered; copying it "
+                            "as-is\n", (unsigned long long)i);
         }
         Seg s = a->x.s[i];
         s.off = (uint64_t)F_TELL(fo);
@@ -4087,7 +4303,9 @@ static int do_list(Archive *a, int longform, int manifest) {
     if (manifest) {
         for (uint64_t i = 0; i < a->x.nm; i++) {
             char hx[65]; hexout(hx, a->x.m[i].sha, 32);
-            printf("%s  %s\n", hx, a->x.m[i].name);
+            printf("%s  ", hx);
+            fput_name(a->x.m[i].name, stdout);
+            putchar('\n');
         }
         return 0;
     }
@@ -4106,9 +4324,11 @@ static int do_list(Archive *a, int longform, int manifest) {
         time_t t = (time_t)m->mtime;
         struct tm *g = localtime(&t);
         if (g) strftime(tb, sizeof tb, "%Y-%m-%d %H:%M", g);
-        printf("%14llu %14llu %6.3f  %s  %s\n",
+        printf("%14llu %14llu %6.3f  %s  ",
                (unsigned long long)m->size, (unsigned long long)c,
-               m->size ? c * 8.0 / m->size : 0.0, tb, m->name);
+               m->size ? c * 8.0 / m->size : 0.0, tb);
+        fput_name(m->name, stdout);
+        putchar('\n');
         if (longform) {
             char hx[65]; hexout(hx, m->sha, 32);
             printf("               sha256 %s\n", hx);
@@ -4166,10 +4386,11 @@ static void usage(void) {
       "            -3  8 ctx  2 SSE       -5 12 ctx  3 SSE\n"
       "            -7 19 ctx  4 SSE       -9 27 ctx  6 SSE (30 on rasters)\n"
       "  -f1/-f2   throughput presets below -1\n"
-      "  -mN       resize every context table by 2^N (-m-1 halves them)\n"
+      "  -mN       resize every context table by 2^N (-m-1 halves them),\n"
+      "            -16 to 16\n"
       "  -tN       worker threads, -t0 = all cores (default 1)\n"
-      "  -sN       segment size in MB (default 64); smaller bounds memory and\n"
-      "            damage, larger compresses better\n"
+      "  -sN       segment size in MB, 1 to 2047 (default 64); smaller bounds\n"
+      "            memory and damage, larger compresses better\n"
       "  -pN       recovery records: one parity block per N segments, letting\n"
       "            any one damaged segment per group be rebuilt.  -p alone\n"
       "            means 32, about 3%% overhead.  Default off.\n"
@@ -4236,7 +4457,18 @@ int main(int argc, char **argv) {
     int lvl = 5, longform = 0, deep = 0, manifest = 0;
     while (a < argc && argv[a][0] == '-' && argv[a][1]) {
         char c = argv[a][1];
-        if      (c == 'm') MEMSHIFT = atoi(argv[a] + 2);
+        if (c == 'm') {
+            MEMSHIFT = atoi(argv[a] + 2);
+            /* Out of range used to compress happily and produce an archive
+             * that could not be read back: the header carries -m as one byte,
+             * so -m-100 was stored as +156 and the decoder built entirely
+             * different tables.  The compressor reported success. */
+            if (MEMSHIFT < MEMSHIFT_MIN || MEMSHIFT > MEMSHIFT_MAX) {
+                fprintf(stderr, "gleipnir: -m must be between %d and %d\n",
+                        MEMSHIFT_MIN, MEMSHIFT_MAX);
+                return 1;
+            }
+        }
         else if (c == 'q') VERBOSE = 0;
         else if (c == 'L') longform = 1;
         else if (c == 'D') deep = 1;
@@ -4253,7 +4485,13 @@ int main(int argc, char **argv) {
         }
         else if (c == 's') {
             int mb = atoi(argv[a] + 2);
-            if (mb < 1) { fprintf(stderr, "gleipnir: -s needs at least 1 MB\n"); return 1; }
+            /* Upper bound so the shift stays inside int: -s2048 overflowed to
+             * a negative SEGMAX, which then compared greater than every
+             * segment length and produced one segment the size of the file. */
+            if (mb < 1 || mb > 2047) {
+                fprintf(stderr, "gleipnir: -s must be between 1 and 2047 MB\n");
+                return 1;
+            }
             SEGMAX = mb << 20;
         }
         else if (c == 't') {
@@ -4281,7 +4519,11 @@ int main(int argc, char **argv) {
     }
 
     Archive ar;
-    if (arc_open(arc, &ar) != 0) return 2;
+    /* arc_open returns through a dozen error paths and closes nothing on any of
+     * them.  arc_close is exactly the cleanup those paths skip, and it is safe
+     * on a partly-built Archive: arc_open memsets it first, so the FILE is
+     * either null or real and the index holds only members it finished. */
+    if (arc_open(arc, &ar) != 0) { arc_close(&ar); return 2; }
     int rc;
     if (mode == 'l')      rc = do_list(&ar, longform, manifest);
     else if (mode == 'r') {

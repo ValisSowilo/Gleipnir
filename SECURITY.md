@@ -31,10 +31,20 @@ breaks that assumption is in scope:
   bounds-checked, and a damaged archive is required to produce a diagnostic
   and exit 2, never a crash, a hang, or plausible-looking wrong bytes.
 
-`scripts/gfuzz.py` exercises exactly this threat model — bit flips, decayed sectors,
-truncation, splices, zero holes, trailing junk and pure noise — and asserts
-that every outcome is either byte-exact output or a non-zero exit. A case that
-defeats it is a good report.
+`scripts/gfuzz.py` exercises the storage-decay half of this threat model — bit
+flips, decayed sectors, truncation, splices, zero holes, trailing junk and pure
+noise — and asserts that every outcome is either byte-exact output or a
+non-zero exit.
+
+`scripts/sfuzz.py` exercises the deliberate half, which random damage does not
+reach: archives whose magic, version, header hash and index hash are all
+correct, so they pass every structural check, but whose segment fields
+contradict each other. That is where a crafted archive attacks, and it is
+where the bugs fixed in the September 2026 audit lived — undetected by the
+three suites that existed at the time, all of which passed clean both before
+and after.
+
+A case that defeats either is a good report.
 
 ## What is out of scope
 
