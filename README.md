@@ -1,8 +1,20 @@
 # Gleipnir — a context-mixing compressor
 
-A from-scratch lossless compressor in one C file. It predicts each bit with 27
-statistical models — 30 on raster data — blends their predictions with a learned
-mixer, and codes the result with an arithmetic coder.
+[![build](https://github.com/ValisSowilo/Gleipnir/actions/workflows/build.yml/badge.svg)](https://github.com/ValisSowilo/Gleipnir/actions/workflows/build.yml)
+[![release](https://img.shields.io/github/v/release/ValisSowilo/Gleipnir?label=release)](https://github.com/ValisSowilo/Gleipnir/releases/latest)
+[![licence](https://img.shields.io/badge/licence-GPL--3.0--or--later-blue)](LICENSE.md)
+[![platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows%20%7C%20macOS%20arm64-lightgrey)](#download-and-install)
+
+A from-scratch lossless compressor and archiver in **one 4,543-line C file**,
+with zlib as its only dependency. It predicts each bit with 27 statistical
+models — 30 on raster data — blends their predictions with a learned mixer, and
+codes the result with an arithmetic coder.
+
+**It beats `zpaq -m5` on all twelve Silesia files**, and its `-9` total ranks
+**50th of 211** on the [Silesia Open Source Compression
+Benchmark](http://mattmahoney.net/dc/silesia.html) — ahead of every zpaq entry
+on the board. At `-5` it wins on all three axes at once: 2.2% smaller than
+`zpaq -m5`, 1.6× faster, and 43% less memory.
 
 > **Using it as an archiver?** See **[USAGE.md](USAGE.md)**. `gleipnir.c` wraps the
 > engine documented here in a real archive format — directories, per-segment and
