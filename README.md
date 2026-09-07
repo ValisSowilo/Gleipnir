@@ -93,6 +93,12 @@ not a placement, and the figure has not been verified by anyone else.
 > board. Both land in the same place, 49th and 50th of 320 respectively, so the
 > "top 50" statement holds either way.
 
+**[LEADERBOARDS.md](LEADERBOARDS.md)** carries the full working for both this
+board and the enwik9 one: the entry counts and the date they were read, the
+neighbouring entries, how each board actually ranks — the enwik9 table scores
+compressed size *plus a zip of the decompressor*, which most summaries omit —
+and what the comparisons do not mean.
+
 It is **not** state of the art: `paq8px -12L` reaches 27,825,511 — this is
 +28.6% larger — using 29 GB. See [Where this stands](#where-this-stands).
 
@@ -1280,9 +1286,17 @@ in order — so every codec sees identical bytes with no per-file container
 overhead. For the two large single files this means the whole file in one
 segment (`-s` set above the file size), which is how the reference codecs
 compress them too; at the default 64 MB segment size `gleipnir` splits enwik8 into two
-segments and enwik9 into sixteen, each restarting from a cold model, which costs
-about 1.8% on enwik8 and 4.3% on enwik9. Every `gleipnir` row was measured here on the
-released binary and round-trip verified against its SHA-256.
+segments and enwik9 into fifteen, each restarting from a cold model, which costs
+about 1.8% on enwik8 and **4.46% on enwik9 — measured, not estimated**:
+1,000,000,000 bytes goes to 164,080,953 at the default `-s64` against
+157,073,377 in one segment, and `gleipnir t` reports `15 segments intact`.
+Every `gleipnir` row was measured here on the released binary and round-trip
+verified against its SHA-256.
+
+That default-segmentation run peaks at **977 MB** rather than the multiple
+gigabytes a single segment needs, and it still compares to 43rd of 223 on the
+enwik9 board against 31st for the solid run — twelve places for 4.46%. See
+[LEADERBOARDS.md](LEADERBOARDS.md) for the full working.
 
 **The competitor provenance differs by corpus, and it matters.** For enwik8 and
 enwik9 the non-`gleipnir` sizes are the published figures from Matt Mahoney's [Large
@@ -1327,6 +1341,7 @@ struggles](#where-it-struggles).
 | `paq8px_v206 -12L` | 124,696,410 | 0.998 | | | LTCB |
 | `zpaq 6.42 -max` | 142,252,605 | 1.138 | | | LTCB |
 | **`gleipnir -9`** | **157,073,377** | **1.257** | 3186.3s | 3261.6s | here |
+| **`gleipnir -9` default `-s64`** | **164,080,953** | **1.313** | 3192.0s | | here |
 | `lpaq1 -9` | 164,508,919 | 1.316 | | | LTCB |
 | **`gleipnir -5`** | **167,360,632** | **1.339** | 1620.0s | 1690.5s | here |
 | `xz` (tuned) | 197,331,816 | 1.579 | | | LTCB |
@@ -1338,9 +1353,15 @@ At the gigabyte scale `gleipnir -9` is 4.5% smaller than `lpaq1 -9` and beats ev
 codec by a wide margin, while trailing `zpaq -max` by 10.4% and the dedicated text
 engines by more, running at 0.31 MB/s where `-5` runs at 0.62. Its 157,073,377
 would sit mid-table on the LTCB leaderboard, behind the CM and neural engines and
-ahead of `lpaq1` and every LZ codec. Compressing the whole gigabyte in one
-segment peaks at 3.0 GB, decoding at 3.8 GB; the default 64 MB segmentation holds
-near 1 GB for about 4.3% more output.
+ahead of `lpaq1` and every LZ codec — 31st of 223 entries once the decompressor
+is zipped and counted, which is how that board scores. Compressing the whole
+gigabyte in one segment peaks at 3.0 GB, decoding at 3.8 GB.
+
+The default 64 MB segmentation was measured on 2026-09-07 rather than estimated:
+**164,080,953 bytes at 1.313 bpc, peaking at 977 MB across fifteen segments** —
+so segmenting costs **4.46%** and roughly two thirds of the memory. Even at the
+default it stays ahead of `lpaq1 -9`, by 0.26%, and compares to 43rd of 223.
+[LEADERBOARDS.md](LEADERBOARDS.md) has the working.
 
 ![enwik9: where gleipnir lands in the field, bits per byte](graphs/enwik9_ranking.svg)
 
@@ -1787,7 +1808,9 @@ a script behind it rather than a screenshot. Each runs from the repo root
 
 Build and packaging live in `build.sh`, `Makefile`, `packaging/` and `dist/`.
 The deep design notes are in [ARCHITECTURE.md](ARCHITECTURE.md); day-to-day use
-is in [USAGE.md](USAGE.md).
+is in [USAGE.md](USAGE.md); the working behind every leaderboard comparison in
+this file — entry counts, the date the boards were read, how each one ranks, and
+what the comparisons do not mean — is in [LEADERBOARDS.md](LEADERBOARDS.md).
 
 ---
 
