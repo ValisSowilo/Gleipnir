@@ -1355,13 +1355,20 @@ engines by more, running at 0.31 MB/s where `-5` runs at 0.62. Its 157,073,377
 would sit mid-table on the LTCB leaderboard, behind the CM and neural engines and
 ahead of `lpaq1` and every LZ codec — 31st of 223 entries once the decompressor
 is zipped and counted, which is how that board scores. Compressing the whole
-gigabyte in one segment peaks at 3.0 GB, decoding at 3.8 GB.
+gigabyte in one segment peaks at **3,032 MB measured**, against the 3.0 GB this
+file used to assert; decoding at 3.8 GB is still an assertion.
 
 The default 64 MB segmentation was measured on 2026-09-07 rather than estimated:
 **164,080,953 bytes at 1.313 bpc, peaking at 977 MB across fifteen segments** —
 so segmenting costs **4.46%** and roughly two thirds of the memory. Even at the
 default it stays ahead of `lpaq1 -9`, by 0.26%, and compares to 43rd of 223.
-[LEADERBOARDS.md](LEADERBOARDS.md) has the working.
+
+> Re-measuring the single-segment run returned 157,073,381, four bytes above the
+> 157,073,377 above. The codec output is identical; archive size includes the
+> stored member name at one byte per character, and the published figure was
+> taken from a run that stored a shorter name. An archive total here is not a
+> pure codec metric — see [LEADERBOARDS.md](LEADERBOARDS.md), which has the
+> working for this and for both leaderboards.
 
 ![enwik9: where gleipnir lands in the field, bits per byte](graphs/enwik9_ranking.svg)
 

@@ -134,14 +134,45 @@ measurement.
 
 ### Measured on 2026-09-07
 
-It is no longer an estimate. Both runs on the released 1.0.1 binary, same
-machine, same corpus (`sha256 159b8535…` on the canonical 1,000,000,000-byte
-enwik9):
+It is no longer an estimate. Both runs on one machine against the canonical
+1,000,000,000-byte enwik9 (`sha256 159b8535…`), compressed with a 1.0.1 build
+(`built Aug 31 2026 18:34:50`). That build is not byte-identical to the
+`gleipnir.exe` attached to the v1.0.1 release, but the two were checked against
+each other and produce identical output at `-9`, so the figures stand for the
+release.
 
-| run | size | bpc | peak RSS | segments |
-|---|---|---|---|---|
-| `-9 -s1000` — one segment | 157,073,377 | 1.257 | not yet measured | 1 |
-| `-9` — default `-s64` | **164,080,953** | 1.313 | **977 MB** | 15 |
+| run | archive | member data | bpc | peak RSS | segments |
+|---|---|---|---|---|---|
+| `-9 -s1000` — one segment | 157,073,381 | 157,073,165 | 1.257 | **3,032 MB** | 1 |
+| `-9` — default `-s64` | **164,080,953** | — | 1.313 | **977 MB** | 15 |
+
+The 3,032 MB confirms the "peaks at 3.0 GB" the README had asserted without a
+measurement behind it.
+
+#### A four-byte discrepancy worth explaining rather than rounding away
+
+The single-segment archive came out **157,073,381**, four bytes above the
+157,073,377 this project has published since the figure was first taken. On a
+project whose README says sizes "reproduce across every session ever run", four
+bytes is not something to wave through.
+
+They reproduce. The compressed stream is identical; the container is not.
+**Archive size includes the stored member name, one byte per character.**
+Compressing identical content under names of different lengths:
+
+```
+  stored as "e9"      (2 chars) ->  2,027,458
+  stored as "enwik9"  (6 chars) ->  2,027,462     +4 bytes for +4 characters
+```
+
+The run above stored `enwik9`; the published figure was taken from a run that
+stored a two-character name. That is the whole of the difference, and the codec
+output is byte-for-byte the same.
+
+Worth carrying into any submission: **an archive total is not a pure codec
+metric here.** Two people compressing the same bytes with the same binary will
+report different totals if they named the file differently. Quote the stored
+name alongside the number, or the number cannot be checked.
 
 **The segmentation cost is +4.46%**, against the "about 4.3%" the README had
 carried. Close, but the estimate was low, and it is now a measurement.
