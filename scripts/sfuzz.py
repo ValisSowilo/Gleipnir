@@ -135,7 +135,7 @@ def seg_stored(payload):
 
 
 def build(path, name, blob, rawlen, seghash=0, sha=b"\0" * 32, lvl=5,
-          memshift=0, segoff=None, seg0=0, nseg=1):
+          memshift=0, segoff=None, seg0=0, nseg=1, segmax=64 << 20):
     """A complete archive: one member, one segment, with a correct header hash,
     index hash and trailer.  Everything arc_open verifies is right, so the
     decoder is always the thing under test."""
@@ -157,7 +157,7 @@ def build(path, name, blob, rawlen, seghash=0, sha=b"\0" * 32, lvl=5,
     struct.pack_into("<IHH", hdr, 0, MAGIC, VERSION, 0)
     hdr[8] = lvl & 0xFF
     hdr[9] = (memshift + 16) & 0xFF
-    struct.pack_into("<I", hdr, 12, 64 << 20)           # segmax
+    struct.pack_into("<I", hdr, 12, segmax)             # segmax
     struct.pack_into("<QQQ", hdr, 16, 1, idxoff, rawlen)
     struct.pack_into("<Q", hdr, 40, xxh64(bytes(hdr[:40])))
 
@@ -205,9 +205,13 @@ def cases():
     add("rawlen_over_wn_packed",
         "packed: 64 working bytes, index claims 256 MB of symbols",
         seg_model(bps=4, sym=bytes(range(16)), wn=64, blocks=((B_STORE, 64),),
-                  sin=b"\x5a" * 64), 256 << 20)
+                  sin=b"\x5a" * 64), 256 << 20, segmax=512 << 20)
     add("rawlen_over_wn_plain", "plain: 4096 working bytes, index claims 64 MB",
         seg_model(wn=4096, blocks=store1, sin=plain), 64 << 20)
+    # and against the header: the writer never emits a segment over its -s,
+    # so a claim past segmax is refused before anything is allocated for it
+    add("rawlen_over_segmax", "index claims a 1 TB segment under a 64 MB -s",
+        seg_model(wn=4096, blocks=store1, sin=plain), 1 << 40)
     add("rawlen_zero_wn_large", "index claims an empty member, blob is not",
         seg_model(wn=4096, blocks=store1, sin=plain), 0)
 

@@ -3189,9 +3189,50 @@ static int is_dir(const char *p) {
     return (st.st_mode & S_IFMT) == S_IFDIR;
 }
 
+/* True if a and b name the same file on disk, by identity rather than by
+ * spelling: "a.gl", "./a.gl" and a hard link to it all count.  False when
+ * either does not exist or cannot be asked about. */
+static int same_file(const char *a, const char *b) {
+#ifdef _WIN32
+    BY_HANDLE_FILE_INFORMATION ia, ib;
+    DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    HANDLE ha = CreateFileA(a, 0, share, NULL, OPEN_EXISTING,
+                            FILE_FLAG_BACKUP_SEMANTICS, NULL);
+    if (ha == INVALID_HANDLE_VALUE) return 0;
+    HANDLE hb = CreateFileA(b, 0, share, NULL, OPEN_EXISTING,
+                            FILE_FLAG_BACKUP_SEMANTICS, NULL);
+    if (hb == INVALID_HANDLE_VALUE) { CloseHandle(ha); return 0; }
+    int same = GetFileInformationByHandle(ha, &ia) &&
+               GetFileInformationByHandle(hb, &ib) &&
+               ia.dwVolumeSerialNumber == ib.dwVolumeSerialNumber &&
+               ia.nFileIndexHigh == ib.nFileIndexHigh &&
+               ia.nFileIndexLow  == ib.nFileIndexLow;
+    CloseHandle(ha); CloseHandle(hb);
+    return same;
+#else
+    STAT_T sa, sb;
+    return STAT_F(a, &sa) == 0 && STAT_F(b, &sb) == 0 &&
+           sa.st_dev == sb.st_dev && sa.st_ino == sb.st_ino;
+#endif
+}
+
 static void walk(const char *path, Names *out) {
     if (excluded(path)) return;
-    if (!is_dir(path)) { nm_add(out, path); return; }
+    if (!is_dir(path)) {
+        /* Only regular files have a size that means anything.  A FIFO, a
+         * device or a /proc entry seeks to 0, so it used to be stored as an
+         * empty member with a valid SHA-256 and exit 0 -- `gleipnir c a.gl
+         * /dev/stdin` archived nothing and reported success.  A path that
+         * cannot be stat'd at all is kept, so fopen reports the real error. */
+        STAT_T st;
+        if (STAT_F(path, &st) == 0 && (st.st_mode & S_IFMT) != S_IFREG) {
+            fprintf(stderr, "gleipnir: %s: not a regular file, skipped\n", path);
+            EXITCODE = 1;
+            return;
+        }
+        nm_add(out, path);
+        return;
+    }
 #ifdef _WIN32
     char pat[NAME_MAX_B];
     snprintf(pat, sizeof pat, "%s\\*", path);
@@ -3409,6 +3450,24 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
         size_t w = 0;
         for (size_t i = 0; i < files.n; i++) {
             if (excluded(snames[i])) { free(files.v[i]); free(snames[i]); continue; }
+            files.v[w] = files.v[i]; snames[w] = snames[i]; w++;
+        }
+        files.n = w;
+    }
+
+    /* The output is truncated before any input is read, so an input that is
+     * the output -- `gleipnir c backup.gl .` run a second time, where the walk
+     * finds last run's backup.gl -- would be archived as a partial copy of
+     * the archive being written.  Drop it, and say so. */
+    {
+        size_t w = 0;
+        for (size_t i = 0; i < files.n; i++) {
+            if (same_file(files.v[i], outp)) {
+                if (VERBOSE)
+                    fprintf(stderr, "gleipnir: %s: is the output archive, skipped\n",
+                            files.v[i]);
+                free(files.v[i]); free(snames[i]); continue;
+            }
             files.v[w] = files.v[i]; snames[w] = snames[i]; w++;
         }
         files.n = w;
@@ -3771,6 +3830,11 @@ static int arc_open(const char *path, Archive *a) {
     }
     uint64_t ns = rd64(&r);
     if (r.bad || ns > (1u << 28)) { free(ib); goto bad; }
+    /* The writer never emits a segment longer than the -s it records in the
+     * header (floored at MINCHUNK).  Allowing anything up to 1 TB let a crafted
+     * index ask extraction for a terabyte per thread, which surfaced as "out
+     * of memory", exit 1, rather than as the corrupt archive it is. */
+    uint64_t seglim = a->h.segmax > MINCHUNK ? a->h.segmax : MINCHUNK;
     for (uint64_t i = 0; i < ns; i++) {
         Seg s;
         s.off = rd64(&r); s.clen = rd64(&r);
@@ -3779,7 +3843,7 @@ static int arc_open(const char *path, Archive *a) {
         /* A segment must lie entirely inside the payload region.  Without this
          * a corrupt offset would seek anywhere in the file and decode noise. */
         if (s.off < HDR_BYTES || s.clen > ixoff || s.off > ixoff - s.clen ||
-            s.rawlen > (1ull << 40)) { r.bad = 1; break; }
+            s.rawlen > seglim) { r.bad = 1; break; }
         idx_adds(&a->x, s);
     }
     /* Recovery records are optional and were added after the segment table, so
@@ -3923,7 +3987,23 @@ static int run_members(Archive *a, const char *destdir, int test_only,
 
     for (uint64_t i = 0; i < a->x.nm; i++) grand += a->x.m[i].size;
 
-    int nthr = NTHREAD > 1 ? NTHREAD : 1;
+    /* The same clamp compression applies.  Without it `x -t0` on a -9 archive
+     * asked for a full model per core -- more than compression ever did, since
+     * decoding holds more per worker -- and died in the allocator with no hint
+     * that the thread count was the cause.  Geometry is not known until the
+     * segments are parsed, so size the model for a strided one, which is the
+     * largest (30 contexts at -9 against 27), and put the globals back. */
+    int nthr = 1;
+    if (NTHREAD > 1) {
+        uint64_t segbytes = 0;
+        for (uint64_t i = 0; i < a->x.ns; i++)
+            if (a->x.s[i].rawlen > segbytes) segbytes = a->x.s[i].rawlen;
+        int ds = DET_STRIDE, dw = DET_WIDTH;
+        DET_STRIDE = 1; DET_WIDTH = 1;
+        set_level(a->h.lvl);
+        nthr = threads_for(segbytes);
+        DET_STRIDE = ds; DET_WIDTH = dw;
+    }
     SegR *sr = calloc((size_t)nthr, sizeof(SegR));
     Job  *jb = calloc((size_t)nthr, sizeof(Job));
     Job  *rj = calloc((size_t)nthr, sizeof(Job));
@@ -4529,6 +4609,14 @@ int main(int argc, char **argv) {
     else if (mode == 'r') {
         if (a >= argc) {
             fprintf(stderr, "gleipnir: r needs an output archive\n");
+            arc_close(&ar); return 1;
+        }
+        /* do_repair opens its output "wb" before reading a single segment, so
+         * `gleipnir r bad.gl bad.gl` truncated the damaged archive to nothing
+         * and then tried to rebuild it from the empty file. */
+        if (same_file(arc, argv[a])) {
+            fprintf(stderr, "gleipnir: r would overwrite the archive it is "
+                            "repairing; write to a different file\n");
             arc_close(&ar); return 1;
         }
         rc = do_repair(&ar, argv[a]);
