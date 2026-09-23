@@ -1654,11 +1654,19 @@ whole file as one segment — `-s` set above the file size — removes the resta
 worth about 1.8% on enwik8 and 4.3% on enwik9, at the cost of buffering the entire
 input (below).
 
-**The whole input is buffered in RAM.** `readfile` reads the entire file and the
-match model indexes absolute positions into it. For a 1 GB input that is ~1 GB
-plus tables plus a 1.25 GB output buffer. Fine within a 10 GB budget, fatal in a
-container with a 512 MB limit regardless of `-m`. Streaming would require
-windowing the match model — not attempted.
+**Memory follows the segment size, not the input size.** Input is read one
+segment at a time, and each segment gets its own model: the match model indexes
+positions within that segment's buffer and is freed along with it. A 100 GB file
+or an endless pipe uses the same memory as a single segment. Per worker thread,
+that is the model tables, plus a few times the segment for its raw, working,
+arithmetic-output and stored buffers, plus up to 4× the segment + 64 MB when the
+segment holds embedded DEFLATE streams that get expanded for modelling. Past that
+budget, streams are left compressed instead of being recovered. At the default
+`-s64`, allow roughly 1 GB per thread on top of the tables in the worst case. So
+`-s` is the setting for a tight container, not `-m`. The one exception is `-s`
+set above the file size, as in the single-segment enwik9 run: then the whole file
+is one segment, and it is held in memory. (Earlier builds read the entire input
+into one buffer. This paragraph used to describe that.)
 
 **There is a hard memory floor `-m` cannot reach past.** The match index and the
 mixer weights do not scale with `-m`. `-1` on a 10 MB file now sits at 38 MB,
