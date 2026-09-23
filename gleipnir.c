@@ -1891,6 +1891,11 @@ static int dfl_deflate(const uint8_t *plain, size_t plen, const Dfl *f,
 }
 
 #define MAXDFL 65536
+/* Most plaintext a segment of n bytes may expand to, across all its streams:
+ * 320 MB for a default 64 MB segment.  Typical embedded DEFLATE (zip, jar,
+ * PNG, gzip'd text) inflates 2-4x and fits; only unusually compressible
+ * streams past that point are left as they are. */
+#define DFL_BUDGET(n) ((size_t)(n) * 4 + ((size_t)64 << 20))
 
 /* Scan for zlib, gzip and ZIP-member streams, verify each, and build the
  * expanded buffer.  Returns the new buffer; *nd gets the descriptor count. */
@@ -1941,6 +1946,16 @@ static uint8_t *dfl_expand(const uint8_t *d, size_t n, Dfl *fl, int *nd,
         if (wbits && !(acode && acode[i / SEGWIN])) {
             size_t plen = 0, used = 0;
             uint8_t *plain = dfl_inflate(d + at, avail, wbits, &plen, &used);
+            /* Each stream is capped at ~128 MB of plaintext, but nothing capped
+             * their sum, and the whole expansion is one buffer that the model
+             * then sizes its history, arithmetic output and stored section
+             * from.  A 64 MB segment of highly compressible zlib -- a
+             * pg_dump -Fc of a repetitive table is exactly that -- could ask
+             * for tens of gigabytes, which made per-segment memory depend on
+             * the data rather than on -s.  Past the budget a stream is simply
+             * left compressed, as an unrecoverable one already is: the
+             * decoder only replays descriptors, so nothing else changes. */
+            if (plain && olen + (at - i) + plen > DFL_BUDGET(n)) { free(plain); plain = NULL; }
             if (plain && used >= 64 && plen >= 128 && cnt < MAXDFL) {
                 Dfl f; f.clen = (uint32_t)used; f.plen = (uint32_t)plen;
                 if (dfl_match(plain, plen, d + at, used, wbits, &f)) {
