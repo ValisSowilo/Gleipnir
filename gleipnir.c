@@ -2361,6 +2361,8 @@ static void run_jobs(Job *jobs, int n) {
 #include <errno.h>
 #ifdef _WIN32
   #include <direct.h>
+  #include <io.h>          /* _setmode: stdin is text mode on Windows */
+  #include <fcntl.h>
   #include <sys/utime.h>
 #else
   #include <utime.h>
@@ -3216,7 +3218,12 @@ static int same_file(const char *a, const char *b) {
 #endif
 }
 
+/* "-" as an input means standard input, as it does for tar, gzip and xz.  A
+ * file literally named "-" can still be archived as "./-". */
+static int is_stdin(const char *p) { return p[0] == '-' && !p[1]; }
+
 static void walk(const char *path, Names *out) {
+    if (is_stdin(path)) { nm_add(out, path); return; }
     if (excluded(path)) return;
     if (!is_dir(path)) {
         /* Only regular files have a size that means anything.  A FIFO, a
@@ -3374,6 +3381,9 @@ static uint64_t fsize64(FILE *f) {
  * suspected hang is kill it. */
 static void progress(const char *what, uint64_t done, uint64_t total, double sec) {
     if (!VERBOSE || total < PROGRESS_MIN) return;
+    /* A file that grew since it was sized reads past the total, and total -
+     * done is unsigned. */
+    if (done > total) total = done;
     double rate = sec > 0 ? done / 1e6 / sec : 0.0;
     double eta  = rate > 0 ? (double)(total - done) / 1e6 / rate : 0.0;
     fprintf(stderr, "\r  %s %5.1f%%  %llu/%llu MB  %.2f MB/s  eta %.0fh%02.0fm    ",
@@ -3437,9 +3447,21 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
         if (npath == 1) snprintf(root, sizeof root, "%s", paths[0]);
         else            parent_of(paths[i], root, sizeof root);
         for (size_t j = bound[i]; j < bound[i + 1]; j++)
-            snames[j] = strdup(store_name(files.v[j], root));
+            snames[j] = strdup(is_stdin(files.v[j]) ? "stdin"
+                                                    : store_name(files.v[j], root));
     }
     free(bound);
+
+    /* Standard input can be read once.  Two "-" would archive everything as
+     * the first and nothing as the second. */
+    {
+        int nstdin = 0;
+        for (size_t i = 0; i < files.n; i++) nstdin += is_stdin(files.v[i]);
+        if (nstdin > 1) {
+            fprintf(stderr, "gleipnir: '-' (standard input) given more than once\n");
+            return 1;
+        }
+    }
 
     /* Exclusions match the name the file will carry *inside* the archive, since
      * that is the name the caller is thinking in: -x 'logs/*' means this
@@ -3462,7 +3484,7 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
     {
         size_t w = 0;
         for (size_t i = 0; i < files.n; i++) {
-            if (same_file(files.v[i], outp)) {
+            if (!is_stdin(files.v[i]) && same_file(files.v[i], outp)) {
                 if (VERBOSE)
                     fprintf(stderr, "gleipnir: %s: is the output archive, skipped\n",
                             files.v[i]);
@@ -3513,6 +3535,7 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
         uint8_t *rb = malloc(1 << 20);
         if (!rb) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
         for (size_t i = 0; i < files.n; i++) {
+            if (is_stdin(files.v[i])) continue;     /* readable once, below */
             FILE *f = fopen(files.v[i], "rb");
             if (!f) continue;
             Sha s; sha_init(&s);
@@ -3529,6 +3552,7 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
         long *tab = malloc(cap * sizeof(long));
         for (size_t i = 0; i < cap; i++) tab[i] = -1;
         for (size_t i = 0; i < files.n; i++) {
+            if (is_stdin(files.v[i])) continue;     /* never hashed */
             uint64_t k64; memcpy(&k64, fsha[i], 8);
             size_t h = (size_t)(k64 & (cap - 1));
             for (;;) {
@@ -3578,68 +3602,88 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
             continue;
         }
 
-        FILE *in = fopen(full, "rb");
-        if (!in) {
-            fprintf(stderr, "gleipnir: %s: %s\n", full, strerror(errno));
-            EXITCODE = 1; continue;
-        }
+        int from_stdin = is_stdin(full);
+        FILE *in;
         STAT_T st; memset(&st, 0, sizeof st);
-        STAT_F(full, &st);
-        uint64_t sz = fsize64(in);
+        if (from_stdin) {
+#ifdef _WIN32
+            _setmode(_fileno(stdin), _O_BINARY);   /* or CRLF is rewritten */
+#endif
+            in = stdin;
+            st.st_mtime = time(NULL);
+            st.st_mode  = 0100644;                  /* a regular file, rw-r--r-- */
+        } else {
+            in = fopen(full, "rb");
+            if (!in) {
+                fprintf(stderr, "gleipnir: %s: %s\n", full, strerror(errno));
+                EXITCODE = 1; continue;
+            }
+            STAT_F(full, &st);
+        }
+
+        /* The size is a hint for choosing the segment length and nothing more:
+         * the member is whatever reading to end of file actually returns.  Taking
+         * it as the truth stored /proc files, which report 0 and read as text,
+         * as empty -- exit 0, valid SHA-256, nothing in them.  The pre-pass
+         * has already read the file through, so when the seek says 0 its count
+         * is the better guess.  Standard input has no size at all. */
+        uint64_t sz = from_stdin ? 0 : fsize64(in);
+        if (!sz) sz = fsz[fi];
 
         /* Segments fill the requested thread count on small inputs and are
          * capped on large ones.  A single-threaded run over a file that fits
          * therefore still models it in one piece, which is what keeps ratio
-         * identical to the pre-archive builds. */
-        uint64_t seg = sz;
-        if (NTHREAD > 1) seg = (sz + (uint64_t)NTHREAD - 1) / (uint64_t)NTHREAD;
+         * identical to the pre-archive builds.  Standard input has nothing to
+         * go on, so every segment is a full -s; a file that still reads as
+         * empty after two looks almost certainly is, and gets the minimum. */
+        uint64_t seg = sz ? sz : from_stdin ? (uint64_t)SEGMAX : MINCHUNK;
+        if (sz && NTHREAD > 1) seg = (sz + (uint64_t)NTHREAD - 1) / (uint64_t)NTHREAD;
         if (seg > (uint64_t)SEGMAX) seg = SEGMAX;
         if (seg < MINCHUNK) seg = MINCHUNK;
 
         Memb m; memset(&m, 0, sizeof m);
         m.name  = strdup(snames[fi]);
-        m.size  = sz;
         m.mtime = (int64_t)st.st_mtime;
         m.mode  = (uint32_t)st.st_mode;
         m.seg0  = idx.ns;
 
         Sha sh; sha_init(&sh);
         uint64_t done = 0;
-        int nthr = 1, first = 1;
+        int nthr = 1, eof = 0;
         SegW *sw = NULL; Job *jb = NULL;
 
-        while (done < sz) {
-            /* Record geometry is a property of the file, not of where a
-             * segment boundary landed, so it is detected once from the head of
-             * the file and reused.  It also has to stay fixed across a batch,
-             * because set_level reads it out of a global. */
-            if (first) {
-                size_t probe = (size_t)(sz < seg ? sz : seg);
-                uint8_t *pb = malloc(probe + 8);
-                if (!pb) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
-                if (fread(pb, 1, probe, in) != probe) {
-                    fprintf(stderr, "gleipnir: %s: short read\n", full);
-                    free(pb); EXITCODE = 1; break;
-                }
-                F_SEEK(in, 0, SEEK_SET);
-                detect_period(pb, probe);
-                set_level(lvl);
-                free(pb);
-                nthr = threads_for(seg);
-                sw = calloc((size_t)nthr, sizeof(SegW));
-                jb = calloc((size_t)nthr, sizeof(Job));
-                if (!sw || !jb) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
-                first = 0;
-            }
+        /* The first segment is read before anything is set up, because record
+         * geometry is detected from the head of the file and there is no
+         * seeking back on a pipe.  It is exactly the bytes the old separate
+         * probe read -- min(size, segment) -- so detection, and therefore
+         * every archive, is unchanged.  Geometry then stays fixed for the file,
+         * since set_level reads it out of a global. */
+        uint8_t *head = malloc((size_t)seg + 8);
+        if (!head) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
+        size_t headn = fread(head, 1, (size_t)seg, in);
+        if (headn < seg) eof = 1;
+        if (headn) {
+            detect_period(head, headn);
+            set_level(lvl);
+            nthr = threads_for(seg);
+            sw = calloc((size_t)nthr, sizeof(SegW));
+            jb = calloc((size_t)nthr, sizeof(Job));
+            if (!sw || !jb) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
+        } else { free(head); head = NULL; }
 
+        while (head || !eof) {
             int nb = 0;
-            for (; nb < nthr && done < sz; nb++) {
-                size_t k = (size_t)(sz - done < seg ? sz - done : seg);
-                sw[nb].raw = malloc(k + 8);
-                if (!sw[nb].raw) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
-                if (fread(sw[nb].raw, 1, k, in) != k) {
-                    fprintf(stderr, "gleipnir: %s: short read\n", full);
-                    free(sw[nb].raw); EXITCODE = 1; break;
+            for (; nb < nthr; nb++) {
+                size_t k;
+                if (head) {
+                    sw[nb].raw = head; k = headn; head = NULL;
+                } else {
+                    if (eof) break;
+                    sw[nb].raw = malloc((size_t)seg + 8);
+                    if (!sw[nb].raw) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
+                    k = fread(sw[nb].raw, 1, (size_t)seg, in);
+                    if (k < seg) eof = 1;
+                    if (!k) { free(sw[nb].raw); sw[nb].raw = NULL; break; }
                 }
                 sw[nb].rawlen = k;
                 sw[nb].hash = xxh64(sw[nb].raw, k, 0);
@@ -3671,12 +3715,21 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
                      (double)(time(NULL) - w0));
         }
         free(sw); free(jb);
+        /* A read error ends the member early.  What was read is still stored
+         * consistently -- size, segments and SHA-256 all describe the same
+         * bytes -- but it is not the whole file, so say so. */
+        if (ferror(in)) {
+            fprintf(stderr, "gleipnir: %s: read error after %llu bytes; "
+                            "stored truncated\n", full, (unsigned long long)done);
+            EXITCODE = 1;
+        }
         sha_final(&sh, m.sha);
+        m.size = done;
         m.nseg = idx.ns - m.seg0;
         memb_of[fi] = (long)idx.nm;
         idx_addm(&idx, m);
         rawtotal += done;
-        fclose(in);
+        if (!from_stdin) fclose(in);
     }
     /* A trailing partial group still gets a recovery block; otherwise the last
      * few segments of every archive would be the unprotected ones. */
@@ -4454,6 +4507,8 @@ static void usage(void) {
       "Gleipnir -- a context-mixing archiver\n"
       "\n"
       "usage: gleipnir c [opts] archive path...   compress files or directories\n"
+      "                                      a path of - reads standard input,\n"
+      "                                      stored as 'stdin'\n"
       "       gleipnir x [opts] archive [dir] [member...]\n"
       "                                      extract (into dir, default .)\n"
       "                                      d and e do the same thing\n"

@@ -344,6 +344,26 @@ gleipnir: warning: /x/data/f and /y/data/f both store as 'data/f';
 Names are always relative and slash-separated, so an archive written on
 Windows extracts correctly on Linux and back.
 
+**Standard input** is given as `-` and stored as `stdin`, so a pipeline can be
+archived without a temporary file:
+
+```
+pg_dump mydb | gleipnir c -5 db.gl -
+tar cf - /data | gleipnir c -9 -t4 data.gl -
+```
+
+It can appear once per command, alongside ordinary paths. It is read to end of
+file and never hashed in advance, so it takes no part in deduplication, and its
+stored mtime is the time of the run. The archive itself must still be a real
+file: segment offsets are recorded as it is written, so `gleipnir` cannot write
+an archive to a pipe. A file literally named `-` is archived as `./-`.
+
+Every input is read to end of file, not to the size the filesystem reports.
+Files whose reported size is wrong, such as those under `/proc`, are stored
+with their real contents. Pipes, devices and sockets given as paths, or found
+while walking a directory, are skipped with a message and exit 1; use `-`
+with a redirect instead.
+
 ## Excluding files
 
 `-x GLOB` skips paths matching a pattern, and is repeatable:
