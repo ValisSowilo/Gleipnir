@@ -9,7 +9,7 @@ do *not* mean.
 > comparison of Gleipnir's own measured totals against figures published on
 > those pages. Read them as "would place around", never as "is ranked".
 
-Both pages were fetched and parsed on **2026-09-07**. Entry counts move as
+Both pages were last fetched and parsed on **2026-09-23**. Entry counts move as
 Mahoney adds results, so the denominators here are a snapshot with a date on
 it, not a constant. The previous revision of the README carried "50th of 211",
 a count that had been stale for some time; that is the failure this file exists
@@ -20,59 +20,75 @@ to prevent.
 ## Silesia Open Source Compression Benchmark
 
 <http://mattmahoney.net/dc/silesia.html> — ranks by total compressed size over
-the twelve-file Silesia corpus (211,938,580 bytes). **319 entries** on
-2026-09-07.
+the twelve-file Silesia corpus (211,938,580 bytes). **320 entries** on
+2026-09-23 (the page reads "as of Sept. 21, 2026").
 
-### Two totals, and why they differ
+### The figure that is comparable to the board
 
-Gleipnir has two defensible Silesia figures, and they are not interchangeable:
+The board compresses each file individually. Measured that way on the
+**released v1.0.2 binary** (`gleipnir.exe`, SHA-256 `013522ab…6dc7`) on
+2026-09-23, `-9 -t1`, one file per archive, every archive decompressed and its
+SHA-256 checked against the original:
 
-| figure | bytes | what it is |
-|---|---|---|
-| 35,582,296 | whole-directory archive | one archive over all twelve files, so deduplication and a shared model work *across* file boundaries |
-| 35,773,957 | per-file sum | each file compressed on its own, then the twelve results added |
+| file | bytes | KB (page format) |
+|---|---:|---:|
+| dickens | 2,048,642 | 2048 |
+| mozilla | 9,632,216 | 9632 |
+| mr | 2,025,644 | 2025 |
+| nci | 1,136,166 | 1136 |
+| ooffice | 1,745,601 | 1745 |
+| osdb | 2,196,117 | 2196 |
+| reymont | 882,432 | 882 |
+| samba | 2,645,273 | 2645 |
+| sao | 3,854,835 | 3854 |
+| webster | 5,499,051 | 5499 |
+| x-ray | 3,608,251 | 3608 |
+| xml | 309,168 | 309 |
+| **total** | **35,583,396** | |
 
-The gap is **191,661 bytes**, 0.539%.
+719.3 s to compress and 709.4 s to decompress in total, single thread, on an
+AMD Ryzen 5 4500 with 16 GB of DDR4 under Windows 11. Peak working set 1056 MB
+compressing and 1095 MB decompressing, both on `mozilla`.
 
-**The board compresses the twelve files individually**, so 35,773,957 is the
-like-for-like figure and 35,582,296 is not. The larger number is the honest one
-to compare here, even though it is the worse one.
+### The other totals, and why they are not the one to compare
 
-### Where each would place
-
-| figure | placement |
+| figure | what it is |
 |---|---|
-| 35,582,296 | 49th of 320 |
-| 35,773,957 | **50th of 320** — the protocol-correct comparison |
+| **35,583,396** | per-file, v1.0.2 release — the like-for-like figure above |
+| 35,582,296 | whole-directory archive from the pre-release build used in the README's timing session; one archive over all twelve files, so deduplication and a shared model work *across* file boundaries |
+| 35,773,957 | per-file, from a development build (`genf1.exe`, `bench_final.json`); superseded |
 
-Neighbourhood for the per-file figure:
+The release is 190,561 bytes smaller per-file than the development build that
+produced `bench_final.json`, which is why that file's total should no longer be
+quoted.
+
+### Where it would place
 
 ```
+  46.  35,336,837   paq8l -8
   47.  35,457,761   fp8_v4 -8
   48.  35,511,180   paq8l -7
-  49.  35,586,302   paq8pxd_v4 -5
-  50.  35,773,957   gleipnir -9   <-- would place here
+  49.  35,583,396   gleipnir -9   <-- would place here (v1.0.2, per-file)
+  50.  35,586,302   paq8pxd_v4 -5
   51.  35,909,528   paq8px_v69 -5
   52.  35,983,639   paq8pxd_v4 -4
-  53.  36,603,712   precomp v0.4.4 -cn | zpaq 7.05 -method 7
 ```
 
-The margin is thin in both directions: 3rd place on this stretch is decided by
-under 0.6% of the total, and at the whole-directory figure Gleipnir clears
-`paq8pxd_v4 -5` by 4,006 bytes.
+**49th of 320.** The margin is thin in both directions: Gleipnir clears
+`paq8pxd_v4 -5` by 2,906 bytes and trails `paq8l -7` by 72,216.
 
 ### "Ahead of every zpaq entry"
 
 True, and it survives the stricter figure. The board carries **71 entries
 involving zpaq**; the smallest is 36,603,712 (`precomp v0.4.4 -cn | zpaq 7.05
 -method 7`), and the best plain zpaq is 38,995,519 (`zpaq 6.21 -method 7`).
-Both Gleipnir figures are below all of them.
+Every Gleipnir figure above is below all of them.
 
 ---
 
 ## Large Text Compression Benchmark (enwik9)
 
-<http://mattmahoney.net/dc/text.html> — **222 entries** on 2026-09-07.
+<http://mattmahoney.net/dc/text.html> — **226 entries** on 2026-09-23.
 
 ### How it ranks, which is not how you would guess
 
@@ -83,13 +99,13 @@ Both Gleipnir figures are below all of them.
 
 Two consequences that matter:
 
-**The decompressor counts.** Gleipnir's raw 157,073,377 is not the number that
-would be listed. Zipped at deflate level 9:
+**The decompressor counts.** Gleipnir's raw 157,073,381 (v1.0.2 release, stored
+name `enwik9`) is not the number that would be listed. Zipped at deflate level 9:
 
 | decompressor | zip | total | placement |
 |---|---|---|---|
-| `gleipnir.c` (201,173 raw) | 63,850 | 157,137,227 | 31st of 223 |
-| `gleipnir.exe` (281,090 raw) | 134,220 | 157,207,597 | 31st of 223 |
+| `gleipnir.c` v1.0.2 (209,435 raw) | 66,527 | 157,139,908 | 35th of 227 |
+| `gleipnir.exe` v1.0.2 (255,857 raw) | 124,882 | 157,198,263 | 35th of 227 |
 
 It lands in the same slot either way — the decompressor is 0.04–0.09% of the
 total, against a 4.5% margin over the next entry down. zlib was the risk here
@@ -97,14 +113,24 @@ and it does not bite: the released executable statically links it, so the exe
 zip is self-contained rather than needing zlib source alongside it.
 
 ```
-  28.  153,238,244   fp8 v3            -8
-  29.  156,391,589   WinRK 3.03        pwcm +td 800MB SFX
-  30.  157,049,402   ppmonstr J        -m1700 -o16
-  31.  157,137,227   gleipnir -9       <-- would place here
-  32.  157,388,188   stc
-  33.  159,363,208   zcm 0.93          -m8 -t1
-  34.  159,842,292   slim 23d          -m1700 -o12
+  32.  153,238,244   fp8 v3            -8
+  33.  156,391,589   WinRK 3.03        pwcm +td 800MB SFX
+  34.  157,049,402   ppmonstr J        -m1700 -o16
+  35.  157,139,908   gleipnir -9       <-- would place here
+  36.  157,388,188   stc
+  37.  159,363,208   zcm 0.93          -m8 -t1
+  38.  159,842,292   slim 23d          -m1700 -o12
 ```
+
+The board gained four entries above this point between 2026-09-07 and
+2026-09-23, which is why this reads 35th where the previous revision read 31st.
+Nothing about Gleipnir changed.
+
+The v1.0.2 release was measured on enwik9 on 2026-09-23: **157,073,381** in one
+segment (`-9 -s1000 -t1`, stored name `enwik9`), 3169.7 s to compress and
+3150.1 s to decompress, peak working set **3,033 MB compressing and 3,836 MB
+decompressing**, round trip verified by SHA-256. The size is byte-identical to
+the 1.0.1 run below.
 
 **Memory does not affect ranking.** This is worth stating plainly because it is
 easy to get wrong. The page says elsewhere:
@@ -114,7 +140,7 @@ easy to get wrong. The page says elsewhere:
 
 That is Mahoney describing how *he* picks options when testing a program on
 *his* hardware. It is not a submission limit, and it does not gate placement.
-**34 of the 222 entries exceed 1800 MB**, the largest by a wide margin —
+**34 of the 222 entries on 2026-09-07 exceeded 1800 MB**, the largest by a wide margin —
 `nakamichi 2019-Jul-01` at 302,000 MB, `ghost` at 88,000 MB, `nanozip 0.09a`
 at 32,000 MB. Gleipnir's single-segment enwik9 footprint is unremarkable in
 that company.
@@ -191,8 +217,8 @@ The placement cost of running that way:
 
 | run | total with `gleipnir.c` zip | placement |
 |---|---|---|
-| one segment | 157,137,227 | 31st of 223 |
-| default `-s64` | 164,144,803 | 43rd of 223 |
+| one segment | 157,139,908 | 35th of 227 |
+| default `-s64` | 164,147,480 | 47th of 227 |
 
 Twelve places for 4.46%, which is what a board this dense at the top costs.
 
