@@ -5,7 +5,7 @@
 [![licence](https://img.shields.io/badge/licence-GPL--3.0--or--later-blue)](LICENSE.md)
 [![platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows%20%7C%20macOS%20arm64-lightgrey)](#download-and-install)
 
-A from-scratch lossless compressor and archiver in **one 4,543-line C file**,
+A from-scratch lossless compressor and archiver in **one 4,701-line C file**,
 with zlib as its only dependency. It predicts each bit with 27 statistical
 models — 30 on raster data — blends their predictions with a learned mixer, and
 codes the result with an arithmetic coder.
@@ -87,11 +87,12 @@ not a placement, and the figure has not been verified by anyone else.
 
 > **Caveat on that comparison.** The board compresses the twelve files
 > *individually*, while the 35,582,296 above is a single archive over the whole
-> directory, which lets deduplication work across files. The per-file sum in
-> [Where this stands](#where-this-stands) is 35,773,957 — a 191,661-byte
-> difference, and that larger figure is the one directly comparable to the
-> board. Both land in the same place, 49th and 50th of 320 respectively, so the
-> "top 50" statement holds either way.
+> directory, which lets deduplication work across files, and it comes from the
+> pre-release build used for the timing session. The figure directly comparable
+> to the board is the **released v1.0.2 binary compressing each file on its
+> own: 35,583,396**, measured 2026-09-23 and round-trip verified. That would be
+> 49th of 320, ahead of `paq8pxd_v4 -5` by 2,906 bytes. Per-file sizes are in
+> [LEADERBOARDS.md](LEADERBOARDS.md).
 
 **[LEADERBOARDS.md](LEADERBOARDS.md)** carries the full working for both this
 board and the enwik9 one: the entry counts and the date they were read, the
@@ -1294,8 +1295,8 @@ Every `gleipnir` row was measured here on the released binary and round-trip
 verified against its SHA-256.
 
 That default-segmentation run peaks at **977 MB** rather than the multiple
-gigabytes a single segment needs, and it still compares to 43rd of 223 on the
-enwik9 board against 31st for the solid run — twelve places for 4.46%. See
+gigabytes a single segment needs, and it still compares to 47th of 227 on the
+enwik9 board against 35th for the solid run — twelve places for 4.46%. See
 [LEADERBOARDS.md](LEADERBOARDS.md) for the full working.
 
 **The competitor provenance differs by corpus, and it matters.** For enwik8 and
@@ -1353,15 +1354,16 @@ At the gigabyte scale `gleipnir -9` is 4.5% smaller than `lpaq1 -9` and beats ev
 codec by a wide margin, while trailing `zpaq -max` by 10.4% and the dedicated text
 engines by more, running at 0.31 MB/s where `-5` runs at 0.62. Its 157,073,377
 would sit mid-table on the LTCB leaderboard, behind the CM and neural engines and
-ahead of `lpaq1` and every LZ codec — 31st of 223 entries once the decompressor
+ahead of `lpaq1` and every LZ codec — 35th of 227 entries once the decompressor
 is zipped and counted, which is how that board scores. Compressing the whole
 gigabyte in one segment peaks at **3,032 MB measured**, against the 3.0 GB this
-file used to assert; decoding at 3.8 GB is still an assertion.
+file used to assert; decoding peaks at **3,836 MB**, measured on
+the v1.0.2 release on 2026-09-24.
 
 The default 64 MB segmentation was measured on 2026-09-07 rather than estimated:
 **164,080,953 bytes at 1.313 bpc, peaking at 977 MB across fifteen segments** —
 so segmenting costs **4.46%** and roughly two thirds of the memory. Even at the
-default it stays ahead of `lpaq1 -9`, by 0.26%, and compares to 43rd of 223.
+default it stays ahead of `lpaq1 -9`, by 0.26%, and compares to 47th of 227.
 
 > Re-measuring the single-segment run returned 157,073,381, four bytes above the
 > 157,073,377 above. The codec output is identical; archive size includes the
@@ -1369,6 +1371,9 @@ default it stays ahead of `lpaq1 -9`, by 0.26%, and compares to 43rd of 223.
 > taken from a run that stored a shorter name. An archive total here is not a
 > pure codec metric — see [LEADERBOARDS.md](LEADERBOARDS.md), which has the
 > working for this and for both leaderboards.
+>
+> The v1.0.2 release reproduces 157,073,381 (stored as `enwik9`) byte for byte:
+> 3169.7 s to compress, 3150.1 s to decompress, round-trip verified.
 
 ![enwik9: where gleipnir lands in the field, bits per byte](graphs/enwik9_ranking.svg)
 
@@ -1690,30 +1695,36 @@ Per file against `zpaq -m5` and against the published Silesia record
 
 | file | gleipnir -9 | zpaq -m5 | vs zpaq | record | vs record |
 |---|---|---|---|---|---|
-| xml | 311,357 | 326,987 | −4.8% | 245,000 | +27.1% |
-| ooffice | 1,749,356 | 1,766,594 | −1.0% | 1,212,000 | +44.3% |
-| reymont | 883,678 | 956,543 | −7.6% | 699,000 | +26.4% |
-| sao | 3,856,927 | 3,899,298 | −1.1% | 3,723,000 | +3.6% |
-| x-ray | 3,612,587 | 3,669,743 | −1.6% | 3,503,000 | +3.1% |
-| mr | 2,028,749 | 2,181,349 | −7.0% | 1,750,000 | +15.9% |
-| osdb | 2,203,445 | 2,204,782 | −0.1% | 1,969,000 | +11.9% |
-| dickens | 2,051,952 | 2,094,787 | −2.0% | 1,860,000 | +10.3% |
-| samba | 2,662,288 | 3,053,862 | −12.8% | 1,587,000 | +67.8% |
-| nci | 1,144,439 | 1,251,149 | −8.5% | 776,000 | +47.5% |
-| webster | 5,523,469 | 5,666,876 | −2.5% | 4,401,000 | +25.5% |
-| mozilla | 9,745,710 | 12,041,099 | −19.1% | 6,094,000 | +59.9% |
+| xml | 309,168 | 326,987 | −5.4% | 245,000 | +26.2% |
+| ooffice | 1,745,601 | 1,766,594 | −1.2% | 1,212,000 | +44.0% |
+| reymont | 882,432 | 956,543 | −7.7% | 699,000 | +26.2% |
+| sao | 3,854,835 | 3,899,298 | −1.1% | 3,723,000 | +3.5% |
+| x-ray | 3,608,251 | 3,669,743 | −1.7% | 3,503,000 | +3.0% |
+| mr | 2,025,644 | 2,181,349 | −7.1% | 1,750,000 | +15.8% |
+| osdb | 2,196,117 | 2,204,782 | −0.4% | 1,969,000 | +11.5% |
+| dickens | 2,048,642 | 2,094,787 | −2.2% | 1,860,000 | +10.1% |
+| samba | 2,645,273 | 3,053,862 | −13.4% | 1,587,000 | +66.7% |
+| nci | 1,136,166 | 1,251,149 | −9.2% | 776,000 | +46.4% |
+| webster | 5,499,051 | 5,666,876 | −3.0% | 4,401,000 | +25.0% |
+| mozilla | 9,632,216 | 12,041,099 | −20.0% | 6,094,000 | +58.1% |
+
+The `gleipnir -9` column is the v1.0.2 release compressing each file on its own
+(`-9 -t1`), measured 2026-09-23 and round-trip verified; it totals 35,583,396.
 
 x-ray is no longer the one file behind zpaq; the raster models moved it from
-+0.4% to −1.6%, and mr from −0.1% to −7.0%. Every file is now ahead of
++0.4% to −1.6% (−1.7% in the release), and mr from −0.1% to −7.0% (−7.1%). Every file is now ahead of
 `zpaq -m5`.
 
 Measured directly against paq8px at comparable memory (`-6`, ~830 MB):
 
 | | paq8px -6 | gleipnir -9 | gap | paq8px time |
 |---|---|---|---|---|
-| dickens | 1,927,665 | 2,051,952 | +6.4% | 1,639s vs 37s |
-| samba | 1,661,309 | 2,662,288 | +60.2% | 3,392s vs 74s |
-| mozilla | 6,602,264 | 9,745,710 | +47.6% | 13,266s vs 221s |
+| dickens | 1,927,665 | 2,048,642 | +6.3% | 1,639s vs 37s |
+| samba | 1,661,309 | 2,645,273 | +59.2% | 3,392s vs 74s |
+| mozilla | 6,602,264 | 9,632,216 | +45.9% | 13,266s vs 221s |
+
+Gleipnir sizes here are the v1.0.2 release; the times in the last column are
+from the earlier session in which paq8px was run.
 
 paq8px is decisively smaller and **44–60× slower** on the same machine, at 2.7×
 the memory on mozilla. The paq8px column was measured in an earlier session and
