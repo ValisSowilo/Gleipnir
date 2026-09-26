@@ -49,6 +49,9 @@ OPTIONS
   -sN         segment size in MB (default 64).  Smaller bounds memory and
               limits how much one damaged region costs you, and larger
               compresses slightly better.
+  -w0         do not word-transform text.  By default a segment that is
+              mostly words is dictionary-coded before modelling, which is
+              smaller and faster on prose and markup.
   -pN         recovery records: one parity block per N segments.  `-p` alone
               means 32, costing about 3%.  Default off.
   -D          with `t`, decode everything and verify SHA-256 as well
@@ -202,7 +205,7 @@ KNOWN LIMITS
     are readable through ciphertext.
   * No append. Adding to an archive means rewriting it.
   * No random access: a member is decoded from the start of its segments.
-  * Archives are format v2 and cannot be read by earlier builds.
+  * Archives are format v3; 1.1 reads v2 and v3, earlier builds read v2 only.
   * Verified to 2.2 GB per file. Nothing larger has been tried.
   * Recovery covers one lost segment per group and not two.
   * Tested on Windows and on Ubuntu 26.04. Other Linux distributions build

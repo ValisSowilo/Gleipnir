@@ -97,8 +97,8 @@ def xxh64(data, seed=0):
 
 # --------------------------------------------------------- format constants
 HDR_BYTES, TRL_BYTES = 48, 20
-MAGIC, VERSION = 0x414E4547, 2                 # "GENA"
-SEG_STORED, SEG_MODEL = 0, 1
+MAGIC, VERSION = 0x414E4547, 3                 # "GENA"
+SEG_STORED, SEG_MODEL, SEG_WTXT = 0, 1, 2
 B_MODEL, B_X86, B_STORE, B_ALPHA = 0, 1, 2, 3
 
 
@@ -128,6 +128,30 @@ def seg_model(bps=0, sym=b"", wn=0, dfl=(), stride=0, width=1, blocks=(),
         slen = sum(ln for ty, ln in blocks if (ty & 3) == B_STORE)
     b += struct.pack("<QQ", alen, slen)
     return bytes(b) + ain + sin
+
+
+def seg_wtxt(t, esc=1, cap=2, upp=3, n1=64, n2l=48, cnt=None, dlen=None,
+             **kw):
+    """One SEG_WTXT blob whose working buffer is t, carried in a single stored
+    block so the transformed bytes are exactly what the case says.  cnt and
+    dlen default to what t's dictionary honestly holds."""
+    if cnt is None or dlen is None:
+        words, p = [], 0
+        while p < len(t) and t[p:p + 1] != b"\n" and b"\n" in t[p:]:
+            q = t.index(b"\n", p)
+            if not t[p:q].isalpha():
+                break
+            words.append(t[p:q]); p = q + 1
+        if cnt is None:
+            cnt = (min(len(words), n1), max(0, len(words) - n1), 0)
+        if dlen is None:
+            dlen = p
+    kw.setdefault("wn", len(t))
+    kw.setdefault("blocks", ((B_STORE, len(t)),))
+    kw.setdefault("sin", t)
+    head = struct.pack("<BBBBBBIIII", SEG_WTXT, esc, cap, upp, n1, n2l,
+                       cnt[0], cnt[1], cnt[2], dlen)
+    return head + seg_model(**kw)[1:]
 
 
 def seg_stored(payload):
@@ -260,6 +284,66 @@ def cases():
         bytes([7]) + full[1:], 4096)
     add("stored_kind_short", "stored segment shorter than its recorded rawlen",
         seg_stored(b"only a few bytes"), 4096)
+
+    # the word transform.  Its dictionary and codes come out of the model, so
+    # every index into them is attacker-controlled once the segment parses.
+    dic = b"the\ncat\nsat\n"
+    body = b"\x80 \x81 \x82"                     # "the cat sat"
+    good = dic + body
+    add("wtxt_flags_equal", "escape and capital flag are the same byte",
+        seg_wtxt(good, esc=2, cap=2), 11)
+    add("wtxt_flag_high", "escape flag inside the code range",
+        seg_wtxt(good, esc=0x90), 11)
+    add("wtxt_flag_letter", "capital flag is a letter",
+        seg_wtxt(good, cap=ord("a")), 11)
+    add("wtxt_flag_zero", "flag byte zero, which the encoder never picks",
+        seg_wtxt(good, upp=0), 11)
+    add("wtxt_codespace_over", "one- and two-byte leads exceed 128",
+        seg_wtxt(good, n1=100, n2l=100), 11)
+    add("wtxt_cnt0_over_n1", "more one-byte words than one-byte codes",
+        seg_wtxt(good, n1=2, cnt=(3, 0, 0)), 11)
+    add("wtxt_cnt1_over_cap", "two-byte class larger than its code space",
+        seg_wtxt(good, cnt=(3, 48 * 128 + 1, 0)), 11)
+    add("wtxt_cnt2_huge", "three-byte class of four billion words",
+        seg_wtxt(good, cnt=(3, 0, 0xFFFFFFFF)), 11)
+    add("wtxt_dlen_over_wn", "dictionary longer than the working buffer",
+        seg_wtxt(good, dlen=1 << 30), 11)
+    add("wtxt_dlen_short", "dictionary length ends inside a word",
+        seg_wtxt(good, dlen=5), 11)
+    add("wtxt_count_over_dict", "header claims more words than the text holds",
+        seg_wtxt(good, cnt=(9, 0, 0)), 11)
+    add("wtxt_dict_upper", "dictionary word with a capital letter",
+        seg_wtxt(b"The\ncat\n" + body[:5]), 7)
+    add("wtxt_dict_empty_word", "empty dictionary entry",
+        seg_wtxt(b"\ncat\n\x80", cnt=(2, 0, 0), dlen=5), 3)
+    add("wtxt_dict_long_word", "dictionary word past the 32-letter limit",
+        seg_wtxt(b"a" * 40 + b"\n\x80"), 40)
+    add("wtxt_code_past_dict", "one-byte code past the dictionary",
+        seg_wtxt(dic + b"\x85"), 3)
+    add("wtxt_code2_past_dict", "two-byte code past the two-byte class",
+        seg_wtxt(dic + b"\xc0\x80"), 3)
+    add("wtxt_code2_truncated", "two-byte lead as the last byte",
+        seg_wtxt(dic + b"\x80 \xc0"), 4)
+    add("wtxt_code2_bad_cont", "two-byte lead followed by a plain byte",
+        seg_wtxt(dic + b"\xc0a"), 4)
+    add("wtxt_code3_truncated", "three-byte lead with one continuation",
+        seg_wtxt(dic + b"\xf8\x80"), 4)
+    add("wtxt_flag_at_end", "capital flag as the last byte",
+        seg_wtxt(dic + b"\x80\x02"), 3)
+    add("wtxt_flag_then_literal", "capital flag followed by a literal",
+        seg_wtxt(dic + b"\x02x"), 1)
+    add("wtxt_esc_at_end", "escape as the last byte",
+        seg_wtxt(dic + b"\x80\x01"), 3)
+    add("wtxt_output_short", "decodes to fewer bytes than rawlen",
+        seg_wtxt(good), 64)
+    add("wtxt_output_long", "decodes to more bytes than rawlen",
+        seg_wtxt(good), 4)
+    add("wtxt_with_bps", "word transform claiming alphabet packing too",
+        seg_wtxt(good, bps=4, sym=bytes(range(16))), 11)
+    add("wtxt_with_dfl", "word transform claiming a DEFLATE record",
+        seg_wtxt(good, dfl=((0, 2, 0, -15, 6, 0, 8),)), 11)
+    add("wtxt_truncated_header", "blob cut inside the transform header",
+        seg_wtxt(good)[:9], 11)
 
     # header fields the writer could never have produced
     add("header_preset_absurd", "header names a preset that does not exist",
@@ -435,6 +519,22 @@ def controls(GEN):
         sys.exit("sfuzz: CONTROL 2 FAILED -- the XXH64 in this file does not match\n"
                  "  the one in gleipnir.c, so every crafted archive would be rejected\n"
                  "  at the header or index and nothing below would be reached.")
+    # A word-transformed segment built here must decode, or the wtxt cases
+    # would all be rejected for a reason other than the one they test.
+    want = b"The cat SAT, the cat \xc3\xa9."
+    t = (b"the\ncat\nsat\n" + b"\x02\x80 \x81 \x03\x82, \x80 \x81 "
+         + b"\x01\xc3\x01\xa9.")
+    wt = os.path.join(TMP, "control_wtxt.gl")
+    build(wt, "w.txt", seg_wtxt(t), len(want), seghash=xxh64(want),
+          sha=hashlib.sha256(want).digest())
+    dest = os.path.join(TMP, "control_wtxt_out")
+    os.makedirs(dest, exist_ok=True)
+    rc, err = run([GEN, "x", "-q", wt, dest])
+    got = os.path.join(dest, "w.txt")
+    if rc != 0 or not os.path.exists(got) or open(got, "rb").read() != want:
+        sys.exit("sfuzz: CONTROL 3 FAILED -- a valid word-transformed segment did\n"
+                 "  not decode (rc=%r).  Fix seg_wtxt before trusting the wtxt cases.\n%s"
+                 % (rc, err))
     print("controls passed: builder round trips, XXH64 matches the archive")
 
 

@@ -179,13 +179,15 @@ static int squash(int d) {
  * after a letter, in whitespace, inside markup, in binary.  Handing the mixer
  * that as part of its weight-set selector lets it keep a separate blend per
  * situation instead of averaging over all of them. */
-static uint8_t CCLS[256];
+static uint8_t CCLS[256], CCLS_W[256];
 static void build_ccls(void) {
     for (int i = 0; i < 256; i++)
         CCLS[i] = (uint8_t)(
             (i >= 'a' && i <= 'z') ? 0 : (i >= 'A' && i <= 'Z') ? 1 :
             (i >= '0' && i <= '9') ? 2 : (i == ' ' || i == '\t') ? 3 :
             (i == '\n' || i == '\r') ? 4 : (i < 32) ? 5 : (i < 128) ? 6 : 7);
+    /* A word-transformed segment: a code byte is a word, and reads as one. */
+    for (int i = 0; i < 256; i++) CCLS_W[i] = i >= 128 ? 0 : CCLS[i];
 }
 
 static void build_tables(void) {
@@ -254,6 +256,17 @@ typedef struct {
     int      ip_in[16], ip_out[16], is_[16];
     uint64_t hist, word, word2, word3;
     int      wlen, wcap, pcap, col, intag, plen;
+    /* Word-transform state; all zero on a segment that was not transformed.
+     * wf_* are the escape and case-flag bytes the encoder chose, wn1/wn2l the
+     * code-space split, wrem the continuation bytes still owed by the code
+     * being read, wpend the case a flag announced for the next word. */
+    int      wrt, wf_esc, wf_cap, wf_upp, wn1, wn2l, wrem, wpend, wlit;
+    const uint8_t *ccls;
+    /* First byte of the current word and of the two before it, and the last
+     * byte that was neither a word character nor a space.  On a transformed
+     * segment a word's first byte is its code's lead, which names the cluster
+     * of similar words the dictionary put it in. */
+    int      wl0, wl2, wl3, lastp;
     uint32_t *ind1, *ind2;              /* what followed this context last time */
     int32_t  *dlast;                    /* last position of each byte value */
     int       dlog;                     /* log2 distance since the last one */
@@ -476,7 +489,8 @@ static int ICHAIN[16], NISSE;
 
 #define MAXSTRIDE 8192
 
-static int DET_STRIDE = 0;      /* row / record length, 0 = no period found */
+static int DET_STRIDE = 0;
+static int DET_WRT = 0;         /* the segments being modelled are word-transformed */      /* row / record length, 0 = no period found */
 static int DET_WIDTH  = 1;      /* element width in bytes: 1, 2 or 4 */
 
 /* Mean |d[i] - d[i-s]| over [lo,hi). */
@@ -594,9 +608,33 @@ static void apm_up(APM *a, int bit, int rate) {
 static void push_word(Ctx *TH, int byte) {
     int up = (byte >= 'A' && byte <= 'Z');
     int c  = up ? byte + 32 : byte;
-    if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+    int wch = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
+    /* In a word-transformed segment a dictionary word arrives as one to three
+     * bytes of 0x80..0xFF.  Those are the word, so they hash as word
+     * characters -- left as punctuation, every word context would go dark on
+     * exactly the text the transform exists for.  The case flags are
+     * transparent: "The" and "the" are the same word here, as they are in the
+     * untransformed hash, and the flag's case lands in wcap where the shape
+     * context reads it.  An escaped byte is literal and never a code. */
+    if (TH->wrt) {
+        if (TH->wlit) { TH->wlit = 0; wch = 0; }
+        else if (byte == TH->wf_esc) { TH->wlit = 1; wch = 0; }
+        else if (byte == TH->wf_cap || byte == TH->wf_upp) {
+            TH->wpend = byte == TH->wf_cap ? 1 : 3;
+            goto side;
+        } else if (byte >= 0x80) {
+            wch = 1; up = 0;
+            if (TH->wrem) TH->wrem--;
+            else {
+                int k = byte - 0x80;
+                TH->wrem = k < TH->wn1 ? 0 : k < TH->wn1 + TH->wn2l ? 1 : 2;
+            }
+        }
+    }
+    if (wch) {
+        if (TH->wlen == 0) TH->wl0 = c;
         TH->word = TH->word * 0x9E3779B1ULL + (uint64_t)c + 1;
-        if (TH->wlen == 0) TH->wcap = up;       /* 1 = first letter capital */
+        if (TH->wlen == 0) TH->wcap = TH->wpend ? TH->wpend : up;  /* 1 = first letter capital */
         else if (up)       TH->wcap |= 2;       /* 2 = a later letter too */
         if (TH->wlen < 63) TH->wlen++;
     } else {
@@ -604,9 +642,13 @@ static void push_word(Ctx *TH, int byte) {
             TH->word3 = TH->word2;
             TH->word2 = TH->word;
             TH->pcap  = TH->wcap;
+            TH->wl3 = TH->wl2; TH->wl2 = TH->wl0;
         }
+        if (byte != ' ') TH->lastp = byte;
         TH->word = 0; TH->wlen = 0; TH->wcap = 0;
     }
+    TH->wpend = 0;
+side:
     /* Line and tag position.  Hard-wrapped prose breaks at a column the byte
      * orders cannot see -- by the time a line is 70 characters long, nothing
      * in the last 16 bytes says so -- and markup makes "inside a tag" a
@@ -760,6 +802,28 @@ static void rehash(Ctx *TH) {
                            | ((uint64_t)(h & 0xFF) << 13);
                 v = (s + 0x6A1ULL) * 0x165667B19E3779F9ULL;
             }
+        } else if (o == -22) {                 /* skip bigram: this word and
+                                                * the one two back, which
+                                                * survives a varying word
+                                                * between them */
+            v = (((TH->word + 1) * 0xC2B2AE3D27D4EB4FULL) ^
+                 ((TH->word3 + 7) * 0x165667B19E3779F9ULL)) * 0x9E3779B97F4A7C15ULL;
+        } else if (o == -23) {                 /* this word after two word
+                                                * classes -- the lead bytes of
+                                                * the two codes before it */
+            v = (((TH->word + 1) * 0xC2B2AE3D27D4EB4FULL) ^
+                 ((uint64_t)(TH->wl2 | (TH->wl3 << 8)) + 0x7777ULL) * 0x27D4EB2F165667C5ULL)
+              * 0x9E3779B97F4A7C15ULL;
+        } else if (o == -24) {                 /* this word after punctuation
+                                                * and a word class */
+            v = (((TH->word + 1) * 0xC2B2AE3D27D4EB4FULL) ^
+                 ((uint64_t)(TH->lastp | (TH->wl2 << 8)) + 0x3131ULL) * 0x165667B19E3779F9ULL)
+              * 0x27D4EB2F165667C5ULL;
+        } else if (o == -25) {                 /* previous word and the last
+                                                * three bytes */
+            v = (((TH->word2 + 1) * 0x9E3779B97F4A7C15ULL) ^
+                 ((uint64_t)(h & 0xFFFFFF) + 0x5151ULL) * 0xC2B2AE3D27D4EB4FULL)
+              * 0x165667B19E3779F9ULL;
         } else if (o == -6) {                  /* word bigram */
             v = (((TH->word + 1) * 0xC2B2AE3D27D4EB4FULL) ^
                  ((TH->word2 + 1) * 0x9E3779B97F4A7C15ULL)) * 0x27D4EB2F165667C5ULL;
@@ -946,7 +1010,10 @@ static int predict(Ctx *TH) {
     /* Class of the previous byte, plus whether the one before it was
      * alphanumeric -- together these separate "start of a word" from "inside
      * a word", which want quite different blends. */
-    int wc = CCLS[TH->hist & 255] | (CCLS[(TH->hist >> 8) & 255] <= 2 ? 8 : 0);
+    int wc = TH->ccls[TH->hist & 255] | (TH->ccls[(TH->hist >> 8) & 255] <= 2 ? 8 : 0);
+    /* Between the bytes of a multi-byte code the next byte is certain to be
+     * another code byte, which wants a blend of its own. */
+    if (TH->wrem) wc = 7 | 8;
     /* Inside fixed-length instruction code, which models to trust depends on
      * where in the instruction we are -- an opcode byte and a displacement byte
      * want completely different blends.  Outside such blocks this is always 0,
@@ -1318,6 +1385,16 @@ static int MEMSHIFT = 0;       /* added to every GBITS; stored in the header */
  * selector, so their weight table is 128 KB instead of 1 MB. */
 static int WSETS_ACT = WSETS;
 
+/* The contexts a word-transformed segment adds at -5 and above.  Each is a
+ * word joined to something the plain word contexts do not carry: the word two
+ * back, the word classes (code lead bytes) of the last two words, the last
+ * punctuation, and the previous word with the last three bytes.  Measured on
+ * 16 MB of enwik8, transformed: -0.77% at -5, -0.58% at -7, -0.48% at -9. */
+static void add_wrt_ctx(int bits) {
+    static const int wo[] = {-22, -23, -24, -25};
+    for (int i = 0; i < 4; i++) { ORD[NCTX] = wo[i]; GBITS[NCTX] = bits; NCTX++; }
+}
+
 static void set_level(int lvl) {
     LEVEL = lvl;
     FASTP = 0;
@@ -1393,6 +1470,11 @@ static void set_level(int lvl) {
          * at the tail leaves the ISSE chain untouched. */
         NCTX = DET_STRIDE ? 30 : 27; NISSE = CHAINN;
         memcpy(ORD, o, sizeof o); memcpy(GBITS, g, sizeof g);
+        /* Word-transformed text never has a stride, so its extra contexts take
+         * the raster slots.  They pay on any prose (-0.4% on untransformed
+         * enwik8) but cost a fifth more time, so they run only where the
+         * transform has already said the segment is text. */
+        if (DET_WRT) add_wrt_ctx(22);
         memcpy(ICHAIN, c, sizeof c);
         MMASK = (1u << MMASKB) - 1; USE_SSE2 = 1;
         NAPM = 6; A46B = 10;
@@ -1408,6 +1490,7 @@ static void set_level(int lvl) {
         int c[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
         NCTX = 19; NISSE = 9;
         memcpy(ORD, o, sizeof o); memcpy(GBITS, g, sizeof g);
+        if (DET_WRT) add_wrt_ctx(21);
         memcpy(ICHAIN, c, sizeof c);
         MMASK = (1u << 21) - 1; USE_SSE2 = 1; NAPM = 4; A46B = 6;
     } else if (lvl >= 5) {
@@ -1422,6 +1505,7 @@ static void set_level(int lvl) {
         int c[] = {1, 2, 3, 4, 5, 6, 7};
         NCTX = 12; NISSE = 7;
         memcpy(ORD, o, sizeof o); memcpy(GBITS, g, sizeof g);
+        if (DET_WRT) add_wrt_ctx(20);
         memcpy(ICHAIN, c, sizeof c);
         MMASK = (1u << 20) - 1; USE_SSE2 = 1; NAPM = 3; A46B = 6;
     } else if (lvl >= 3) {
@@ -1599,6 +1683,8 @@ static void model_alloc(Ctx *TH, size_t cap) {
     TH->buflen = 0; TH->mptr = 0; TH->mlen = 0;
     TH->hist = 0; TH->word = 0; TH->word2 = 0; TH->word3 = 0;
     TH->wlen = 0; TH->wcap = 0; TH->pcap = 0; TH->col = 0; TH->intag = 0;
+    TH->wrem = 0; TH->wpend = 0; TH->wlit = 0;
+    TH->ccls = TH->wrt ? CCLS_W : CCLS;
     TH->lstart = 0; TH->plstart = 0; TH->plen = 0;
     TH->c0 = 1; TH->nc = 1; TH->nbits = 0; TH->pr = 2048; TH->wsel = 1;
     TH->napm = 0; TH->nisse = NISSE;
@@ -2029,6 +2115,461 @@ static uint8_t *dfl_collapse(const uint8_t *w, size_t wn, const Dfl *fl, int nd,
     return out;
 }
 
+/* ------------------------------------------------------------ word transform
+ * A context mixer predicts text a letter at a time, so a word costs it as many
+ * predictions as it has letters, and the byte orders see only the last few
+ * letters of context.  Replacing each frequent word with a one-to-three byte
+ * code fixes both: the stream the model sees is about 35% shorter, which is
+ * that much less work, and an order-4 context now spans four words instead
+ * of part of one.
+ *
+ * The dictionary is built per segment from the segment itself, so the
+ * transform needs nothing shipped with the decoder and works on any language
+ * written in Latin letters, not only English.  It travels at the head of the
+ * transformed stream as plain newline-separated words, where the model
+ * compresses it with everything else.
+ *
+ *   word forms   a letter run that is all lower case, Capitalised or ALL
+ *                CAPS is coded as an optional case flag plus the code of its
+ *                lower-case form; any other run is left as letters
+ *   codes        0x80..0xFF.  The first n1 values are whole one-byte codes,
+ *                the next n2l lead a two-byte code, the rest a three-byte one;
+ *                continuation bytes are again 0x80..0xFF
+ *   escapes      an input byte that collides with a code or flag byte is
+ *                written as esc + byte
+ *
+ * The code a word gets is not arbitrary.  Frequency picks the code length,
+ * but within the one- and two-byte classes words are ordered so that ones
+ * used in similar surroundings sit together: the lead byte of a two-byte code
+ * then names a cluster of related words, which is a context the model can
+ * learn from.  Measured on 16 MB of enwik8 at -9 that ordering is worth 0.6%
+ * over alphabetical, which is itself worth 0.3% over frequency order.  The
+ * three-byte class is alphabetical, because there the dictionary text itself
+ * dominates and sorted words compress better.
+ *
+ * Only the encoder builds the dictionary.  The decoder reads it back from the
+ * stream, so the clustering, which uses floating point, can never make two
+ * builds disagree about how to decode; at worst two builds would choose
+ * different -- equally valid -- orders.
+ */
+#define WRT_MAXW   32           /* longest word the dictionary holds */
+#define WRT_MINSEG (256u << 10) /* below this the dictionary costs more than it
+                                 * saves: gleipnir.c itself, 238 KB, is 0.4%
+                                 * larger transformed at any threshold */
+#define WRT_N1     64           /* one-byte codes */
+#define WRT_N2L    48           /* lead bytes of two-byte codes */
+#define WRT_K      512          /* neighbour vocabulary for the clustering */
+
+typedef struct {
+    uint8_t  esc, cap, upp, n1, n2l;
+    uint32_t cnt[3];            /* dictionary words in each code class */
+    uint32_t dlen;              /* bytes of dictionary text heading the stream */
+} Wrt;
+
+static int WRT_ON = 1;          /* -w0 turns the transform off */
+
+static inline int wrt_alpha(int c) { return (unsigned)((c | 32) - 'a') < 26u; }
+
+/* 0 lower case, 1 Capitalised, 2 ALL CAPS, -1 anything else. */
+static int wrt_form(const uint8_t *p, int n) {
+    int nup = 0;
+    for (int i = 1; i < n; i++) nup += p[i] < 'a';
+    if (!nup) return p[0] < 'a';
+    if (nup == n - 1 && p[0] < 'a') return 2;
+    return -1;
+}
+
+typedef struct { uint32_t off, cnt; int32_t id, fr, ci; uint8_t len; } WEnt;
+typedef struct { WEnt *e; uint32_t mask, n; uint8_t *ar; size_t an, acap; } WTab;
+
+static uint32_t wt_hash(const uint8_t *p, int n) {
+    uint32_t h = 2166136261u;
+    for (int i = 0; i < n; i++) h = (h ^ (uint32_t)(p[i] | 32)) * 16777619u;
+    return h ^ (h >> 15);
+}
+
+static void wt_init(WTab *t, uint32_t slots) {
+    t->e = calloc(slots, sizeof(WEnt)); t->mask = slots - 1; t->n = 0;
+    t->acap = 1 << 20; t->an = 0; t->ar = malloc(t->acap);
+    if (!t->e || !t->ar) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
+}
+
+static void wt_free(WTab *t) { free(t->e); free(t->ar); t->e = NULL; t->ar = NULL; }
+
+static void wt_grow(WTab *t) {
+    uint32_t nm = t->mask * 2 + 1;
+    WEnt *ne = calloc((size_t)nm + 1, sizeof(WEnt));
+    if (!ne) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
+    for (uint32_t i = 0; i <= t->mask; i++) {
+        WEnt *e = &t->e[i];
+        if (!e->len) continue;
+        uint32_t j = wt_hash(t->ar + e->off, e->len) & nm;
+        while (ne[j].len) j = (j + 1) & nm;
+        ne[j] = *e;
+    }
+    free(t->e); t->e = ne; t->mask = nm;
+}
+
+/* Find the lower-case form of p[0..n), adding it when asked to. */
+static WEnt *wt_find(WTab *t, const uint8_t *p, int n, int add) {
+    for (uint32_t i = wt_hash(p, n) & t->mask;; i = (i + 1) & t->mask) {
+        WEnt *e = &t->e[i];
+        if (!e->len) {
+            if (!add) return NULL;
+            if (t->an + (size_t)n > t->acap) {
+                t->acap *= 2;
+                t->ar = realloc(t->ar, t->acap);
+                if (!t->ar) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
+            }
+            for (int k = 0; k < n; k++) t->ar[t->an + k] = (uint8_t)(p[k] | 32);
+            e->off = (uint32_t)t->an; e->len = (uint8_t)n; e->cnt = 0;
+            e->id = -1; e->fr = -1; e->ci = -1;
+            t->an += (size_t)n;
+            if (++t->n * 2 > t->mask) { wt_grow(t); return wt_find(t, p, n, 0); }
+            return e;
+        }
+        if (e->len == n) {
+            const uint8_t *q = t->ar + e->off;
+            int k = 0;
+            while (k < n && q[k] == (p[k] | 32)) k++;
+            if (k == n) return e;
+        }
+    }
+}
+
+static const uint8_t *WS_AR;    /* qsort has no context argument */
+
+static int wcmp_alpha(const void *a, const void *b) {
+    const WEnt *x = *(WEnt *const *)a, *y = *(WEnt *const *)b;
+    int n = x->len < y->len ? x->len : y->len;
+    int c = memcmp(WS_AR + x->off, WS_AR + y->off, (size_t)n);
+    return c ? c : (int)x->len - (int)y->len;
+}
+
+static int wcmp_freq(const void *a, const void *b) {
+    const WEnt *x = *(WEnt *const *)a, *y = *(WEnt *const *)b;
+    if (x->cnt != y->cnt) return x->cnt > y->cnt ? -1 : 1;
+    return wcmp_alpha(a, b);
+}
+
+typedef struct { float p; int i; } WKey;
+static int wkey_cmp(const void *a, const void *b) {
+    const WKey *x = a, *y = b;
+    if (x->p != y->p) return x->p < y->p ? -1 : 1;
+    return x->i - y->i;
+}
+
+/* Order rows so neighbours in the result have similar neighbour statistics:
+ * split on the first principal component, recurse into each half.  Leaves are
+ * small enough that alphabetical order inside them costs nothing. */
+static void wrt_bisect(const float *F, int dim, WEnt **w, int *ids, int n,
+                       float *mu, float *v, float *nv, WKey *key) {
+    if (n <= 8) {
+        for (int i = 1; i < n; i++)             /* insertion sort, alphabetical */
+            for (int j = i; j > 0; j--) {
+                WEnt *a = w[ids[j - 1]], *b = w[ids[j]];
+                if (wcmp_alpha(&a, &b) <= 0) break;
+                int t = ids[j]; ids[j] = ids[j - 1]; ids[j - 1] = t;
+            }
+        return;
+    }
+    for (int k = 0; k < dim; k++) mu[k] = 0.0f;
+    for (int i = 0; i < n; i++) {
+        const float *r = F + (size_t)ids[i] * dim;
+        for (int k = 0; k < dim; k++) mu[k] += r[k];
+    }
+    for (int k = 0; k < dim; k++) mu[k] /= (float)n;
+    uint32_t s = 0x9E3779B9u;
+    for (int k = 0; k < dim; k++) {
+        s = s * 1664525u + 1013904223u;
+        v[k] = (float)(int32_t)s * (1.0f / 2147483648.0f);
+    }
+    for (int it = 0; it < 12; it++) {
+        for (int k = 0; k < dim; k++) nv[k] = 0.0f;
+        for (int i = 0; i < n; i++) {
+            const float *r = F + (size_t)ids[i] * dim;
+            float u = 0.0f;
+            for (int k = 0; k < dim; k++) u += (r[k] - mu[k]) * v[k];
+            for (int k = 0; k < dim; k++) nv[k] += u * (r[k] - mu[k]);
+        }
+        float nn = 0.0f;
+        for (int k = 0; k < dim; k++) nn += nv[k] * nv[k];
+        if (nn <= 0.0f) break;
+        nn = 1.0f / sqrtf(nn);
+        for (int k = 0; k < dim; k++) v[k] = nv[k] * nn;
+    }
+    for (int i = 0; i < n; i++) {
+        const float *r = F + (size_t)ids[i] * dim;
+        float u = 0.0f;
+        for (int k = 0; k < dim; k++) u += (r[k] - mu[k]) * v[k];
+        key[i].p = u; key[i].i = ids[i];
+    }
+    qsort(key, (size_t)n, sizeof *key, wkey_cmp);
+    for (int i = 0; i < n; i++) ids[i] = key[i].i;
+    int h = n / 2;
+    wrt_bisect(F, dim, w, ids, h, mu, v, nv, key);
+    wrt_bisect(F, dim, w, ids + h, n - h, mu, v, nv, key);
+}
+
+static void wrt_emit_code(uint8_t **o, uint32_t id, int n1, int n2l) {
+    uint8_t *p = *o;
+    if (id < (uint32_t)n1) *p++ = (uint8_t)(0x80 + id);
+    else if ((id -= (uint32_t)n1) < (uint32_t)n2l * 128) {
+        *p++ = (uint8_t)(0x80 + n1 + id / 128); *p++ = (uint8_t)(0x80 + id % 128);
+    } else {
+        id -= (uint32_t)n2l * 128;
+        *p++ = (uint8_t)(0x80 + n1 + n2l + id / 16384);
+        *p++ = (uint8_t)(0x80 + (id / 128) % 128); *p++ = (uint8_t)(0x80 + id % 128);
+    }
+    *o = p;
+}
+
+/* Transform d[0..n).  Returns the new buffer, or NULL when the segment is not
+ * text enough for the dictionary to pay for itself. */
+static uint8_t *wrt_encode(const uint8_t *d, size_t n, Wrt *h, size_t *outn) {
+    if (!WRT_ON || n < WRT_MINSEG || n > 0xFFFFFFF0u) return NULL;
+    size_t letters = 0, hi = 0, cnt[256] = {0};
+    for (size_t i = 0; i < n; i++) cnt[d[i]]++;
+    for (int c = 'A'; c <= 'Z'; c++) letters += cnt[c] + cnt[c + 32];
+    for (int c = 128; c < 256; c++) hi += cnt[c];
+    /* Letters must dominate and escapes must stay rare, or the stream grows
+     * where it should shrink.  Silesia's text files sit at 60-75% letters;
+     * its binaries, and nci's chemistry, well under 40%. */
+    if (letters * 10 < n * 4 || hi * 50 > n) return NULL;
+
+    /* The three rarest control bytes become escape and case flags. */
+    int fl[3], nf = 0;
+    uint8_t used[32] = {0};
+    while (nf < 3) {
+        int best = -1;
+        for (int b = 1; b < 32; b++) {
+            if (b == 9 || b == 10 || b == 13 || used[b]) continue;
+            if (best < 0 || cnt[b] < cnt[best]) best = b;
+        }
+        used[best] = 1; fl[nf++] = best;
+    }
+    const int esc = fl[0], cap = fl[1], upp = fl[2];
+
+    WTab t; wt_init(&t, 1u << 16);
+    for (size_t i = 0; i < n;) {
+        if (!wrt_alpha(d[i])) { i++; continue; }
+        size_t j = i;
+        while (j < n && wrt_alpha(d[j])) j++;
+        int len = (int)(j - i);
+        if (len <= WRT_MAXW && wrt_form(d + i, len) >= 0) wt_find(&t, d + i, len, 1)->cnt++;
+        i = j;
+    }
+
+    /* How often a word must occur to earn an entry.  Each entry costs its
+     * spelling once, compressed, and a code-space slot; rare words are cheaper
+     * left as letters.  That spelling is a larger share of a small segment, so
+     * small segments want a higher bar.  Measured at -9: on book2 and news
+     * (0.4-0.6 MB) 8 loses to no transform at all while 48 wins by 0.7%; on
+     * 16 MB of enwik8 20 beats 10 and 6; on all of enwik8 20 beats 40. */
+    const uint32_t fmin = n < ((size_t)1 << 20) ? 48 : n < ((size_t)4 << 20) ? 32 : 20;
+
+    size_t nw = 0;
+    for (uint32_t i = 0; i <= t.mask; i++)
+        if (t.e[i].len >= 2 && t.e[i].cnt >= fmin) nw++;
+    /* The split between one-, two- and three-byte codes is flat: on enwik8
+     * at -9, 64/48, 48/72 and 32/90 lead bytes all land within 0.04%. */
+    const int N1 = WRT_N1, N2L = WRT_N2L;
+    const size_t cap1 = N1, cap2 = (size_t)N2L * 128,
+                 cap3 = (size_t)(128 - N1 - N2L) * 16384;
+    if (nw < cap1) { wt_free(&t); return NULL; }
+    WEnt **w = malloc(nw * sizeof *w);
+    if (!w) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
+    nw = 0;
+    for (uint32_t i = 0; i <= t.mask; i++)
+        if (t.e[i].len >= 2 && t.e[i].cnt >= fmin) w[nw++] = &t.e[i];
+    WS_AR = t.ar;
+    qsort(w, nw, sizeof *w, wcmp_freq);
+    if (nw > cap1 + cap2 + cap3) nw = cap1 + cap2 + cap3;
+    size_t c0 = nw < cap1 ? nw : cap1;
+    size_t c1 = nw - c0 < cap2 ? nw - c0 : cap2;
+    size_t c2 = nw - c0 - c1;
+
+    /* Neighbour statistics for the clustered classes: for each word, how
+     * often each of the K most frequent words stands just before it and just
+     * after it.  Words used alike -- "said"/"told", "january"/"march" -- end
+     * up with similar rows. */
+    const int K = WRT_K, dim = 2 * WRT_K;
+    const size_t nc = c0 + c1;
+    for (size_t i = 0; i < nw && i < (size_t)K; i++) w[i]->fr = (int32_t)i;
+    for (size_t i = 0; i < nc; i++) w[i]->ci = (int32_t)i;
+    float *F = calloc(nc * (size_t)dim, sizeof(float));
+    if (!F) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
+    {
+        int pr = -1, pc = -1;
+        for (size_t i = 0; i < n;) {
+            if (!wrt_alpha(d[i])) { i++; continue; }
+            size_t j = i;
+            while (j < n && wrt_alpha(d[j])) j++;
+            int len = (int)(j - i), r = -1, c = -1;
+            if (len <= WRT_MAXW) {
+                const WEnt *e = wt_find(&t, d + i, len, 0);
+                if (e) { r = e->fr; c = e->ci; }
+            }
+            if (c >= 0 && pr >= 0) F[(size_t)c * dim + pr] += 1.0f;
+            if (pc >= 0 && r >= 0) F[(size_t)pc * dim + K + r] += 1.0f;
+            pr = r; pc = c;
+            i = j;
+        }
+    }
+    for (size_t i = 0; i < nc; i++) {
+        float *row = F + i * dim, s = 0.0f;
+        for (int k = 0; k < dim; k++) { row[k] = sqrtf(row[k]); s += row[k] * row[k]; }
+        if (s > 0.0f) { s = 1.0f / sqrtf(s); for (int k = 0; k < dim; k++) row[k] *= s; }
+    }
+    {
+        int *ids = malloc((nc ? nc : 1) * sizeof(int));
+        float *mu = malloc(dim * sizeof(float)), *v = malloc(dim * sizeof(float)),
+              *nv = malloc(dim * sizeof(float));
+        WKey *key = malloc((nc ? nc : 1) * sizeof(WKey));
+        WEnt **ord = malloc((nc ? nc : 1) * sizeof *ord);
+        if (!ids || !mu || !v || !nv || !key || !ord) {
+            fprintf(stderr, "gleipnir: out of memory\n"); exit(1);
+        }
+        const size_t base[2] = { 0, c0 }, cn[2] = { c0, c1 };
+        for (int c = 0; c < 2; c++) {
+            for (size_t i = 0; i < cn[c]; i++) ids[i] = (int)(base[c] + i);
+            wrt_bisect(F, dim, w, ids, (int)cn[c], mu, v, nv, key);
+            for (size_t i = 0; i < cn[c]; i++) ord[i] = w[ids[i]];
+            memcpy(w + base[c], ord, cn[c] * sizeof *ord);
+        }
+        free(ids); free(mu); free(v); free(nv); free(key); free(ord);
+    }
+    free(F);
+    qsort(w + c0 + c1, c2, sizeof *w, wcmp_alpha);
+    for (size_t i = 0; i < nw; i++) w[i]->id = (int32_t)i;
+
+    size_t dlen = 0;
+    for (size_t i = 0; i < nw; i++) dlen += (size_t)w[i]->len + 1;
+    uint8_t *out = malloc(dlen + 2 * n + 16), *o = out;
+    if (!out) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
+    for (size_t i = 0; i < nw; i++) {
+        memcpy(o, t.ar + w[i]->off, w[i]->len); o += w[i]->len; *o++ = '\n';
+    }
+    for (size_t i = 0; i < n;) {
+        int b = d[i];
+        if (!wrt_alpha(b)) {
+            if (b >= 0x80 || b == esc || b == cap || b == upp) *o++ = (uint8_t)esc;
+            *o++ = (uint8_t)b; i++;
+            continue;
+        }
+        size_t j = i;
+        while (j < n && wrt_alpha(d[j])) j++;
+        int len = (int)(j - i), f = -1;
+        const WEnt *e = NULL;
+        if (len <= WRT_MAXW && (f = wrt_form(d + i, len)) >= 0) e = wt_find(&t, d + i, len, 0);
+        if (e && e->id >= 0) {
+            if (f == 1) *o++ = (uint8_t)cap;
+            else if (f == 2) *o++ = (uint8_t)upp;
+            wrt_emit_code(&o, (uint32_t)e->id, N1, N2L);
+        } else {
+            memcpy(o, d + i, (size_t)len); o += len;
+        }
+        i = j;
+    }
+    free(w); wt_free(&t);
+    size_t on = (size_t)(o - out);
+    /* Worth it only if the model will see clearly less; otherwise the model is
+     * better off with the letters, which it already predicts well. */
+    if (on * 100 > n * 90) { free(out); return NULL; }
+    h->esc = (uint8_t)esc; h->cap = (uint8_t)cap; h->upp = (uint8_t)upp;
+    h->n1 = (uint8_t)N1; h->n2l = (uint8_t)N2L;
+    h->cnt[0] = (uint32_t)c0; h->cnt[1] = (uint32_t)c1; h->cnt[2] = (uint32_t)c2;
+    h->dlen = (uint32_t)dlen;
+    *outn = on;
+    return out;
+}
+
+/* A header as read from an archive: everything the decoder indexes with has
+ * to be proved in range here, because it all came from untrusted bytes. */
+static int wrt_valid(const Wrt *h) {
+    if (h->esc == 0 || h->esc >= 0x80 || h->cap == 0 || h->cap >= 0x80 ||
+        h->upp == 0 || h->upp >= 0x80) return 0;
+    if (h->esc == h->cap || h->esc == h->upp || h->cap == h->upp) return 0;
+    if (wrt_alpha(h->esc) || wrt_alpha(h->cap) || wrt_alpha(h->upp)) return 0;
+    if ((int)h->n1 + (int)h->n2l > 128) return 0;
+    if (h->cnt[0] > h->n1) return 0;
+    if (h->cnt[1] > (uint32_t)h->n2l * 128) return 0;
+    if (h->cnt[2] > (uint32_t)(128 - h->n1 - h->n2l) * 16384) return 0;
+    return 1;
+}
+
+/* Undo wrt_encode.  t[0..tn) is the transformed stream; exactly outn bytes
+ * must come out, no more and no fewer. */
+static int wrt_decode(const uint8_t *t, size_t tn, const Wrt *h, uint8_t *out, size_t outn) {
+    if (!wrt_valid(h) || h->dlen > tn) return -1;
+    const size_t nw = (size_t)h->cnt[0] + h->cnt[1] + h->cnt[2];
+    uint32_t *off = malloc((nw + 1) * sizeof(uint32_t));
+    if (!off) return -1;
+    size_t p = 0;
+    for (size_t i = 0; i < nw; i++) {
+        size_t s = p;
+        while (p < h->dlen && t[p] != '\n') {
+            if (t[p] < 'a' || t[p] > 'z') { free(off); return -1; }
+            p++;
+        }
+        if (p >= h->dlen || p == s || p - s > WRT_MAXW) { free(off); return -1; }
+        off[i] = (uint32_t)s;
+        p++;
+    }
+    if (p != h->dlen) { free(off); return -1; }
+    off[nw] = (uint32_t)p;
+    const int n1 = h->n1, n2l = h->n2l;
+    const uint32_t c0 = h->cnt[0], c1 = h->cnt[1], c2 = h->cnt[2];
+    size_t o = 0;
+    int rc = 0;
+    while (p < tn) {
+        int b = t[p++];
+        if (b == h->esc) {
+            if (p >= tn || o >= outn) { rc = -1; break; }
+            out[o++] = t[p++];
+            continue;
+        }
+        int mode = 0;
+        if (b == h->cap || b == h->upp) {
+            mode = b == h->cap ? 1 : 2;
+            if (p >= tn) { rc = -1; break; }
+            b = t[p++];
+            if (b < 0x80) { rc = -1; break; }
+        }
+        if (b < 0x80) {
+            if (o >= outn) { rc = -1; break; }
+            out[o++] = (uint8_t)b;
+            continue;
+        }
+        int k = b - 0x80;
+        size_t wi;
+        if (k < n1) {
+            if ((uint32_t)k >= c0) { rc = -1; break; }
+            wi = (size_t)k;
+        } else if (k < n1 + n2l) {
+            if (p >= tn || t[p] < 0x80) { rc = -1; break; }
+            uint32_t id = (uint32_t)(k - n1) * 128 + (uint32_t)(t[p++] - 0x80);
+            if (id >= c1) { rc = -1; break; }
+            wi = c0 + id;
+        } else {
+            if (p + 1 >= tn || t[p] < 0x80 || t[p + 1] < 0x80) { rc = -1; break; }
+            uint32_t id = ((uint32_t)(k - n1 - n2l) * 128 + (uint32_t)(t[p] - 0x80)) * 128
+                        + (uint32_t)(t[p + 1] - 0x80);
+            p += 2;
+            if (id >= c2) { rc = -1; break; }
+            wi = (size_t)c0 + c1 + id;
+        }
+        size_t len = off[wi + 1] - off[wi] - 1;
+        if (len > outn - o) { rc = -1; break; }
+        memcpy(out + o, t + off[wi], len);
+        if (mode == 1) out[o] = (uint8_t)(out[o] - 32);
+        else if (mode == 2) for (size_t q = 0; q < len; q++) out[o + q] = (uint8_t)(out[o + q] - 32);
+        o += len;
+    }
+    free(off);
+    return (rc || o != outn) ? -1 : 0;
+}
+
 /* ------------------------------------------------------------ segmentation
  * A whole-file verdict is the wrong granularity.  A tar of executables is not
  * "an executable" -- it never starts with MZ, so a file-level x86 check never
@@ -2208,13 +2749,27 @@ typedef struct {
     uint8_t *sout;  size_t slen;    /* stored-block bytes */
     const uint8_t *ain, *sin;       /* decompress inputs */
     uint8_t *plain;                 /* decompress output */
+    int      wrt;                   /* stream is word-transformed */
+    Wrt      wh;
 } Job;
+
+/* Both sides must set this before model_alloc, which picks the byte-class
+ * table from it. */
+static void wrt_ctx(Ctx *TH, const Job *j) {
+    TH->wrt = j->wrt;
+    TH->wf_esc = j->wh.esc; TH->wf_cap = j->wh.cap; TH->wf_upp = j->wh.upp;
+    TH->wn1 = j->wh.n1; TH->wn2l = j->wh.n2l;
+}
 
 static void do_compress_chunk(Job *j) {
     Ctx *TH = j->cx;
     j->blk = malloc(sizeof(Blk) * MAXBLK);
     if (!j->blk) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
-    j->nb  = segment(j->in, j->n, j->blk, MAXBLK, j->file_is_exe);
+    /* A transformed stream is text by construction, and its code bytes would
+     * only confuse the detectors -- 0xE8 followed by 0xFF is an ordinary
+     * three-byte code here, not a call. */
+    if (j->wrt) { j->nb = 1; j->blk[0].type = B_MODEL; j->blk[0].len = (uint32_t)j->n; }
+    else j->nb = segment(j->in, j->n, j->blk, MAXBLK, j->file_is_exe);
     size_t off = 0;
     for (int i = 0; i < j->nb; i++) {
         if (BKIND(j->blk[i].type) == B_X86) e8e9(j->in + off, j->blk[i].len, 0);
@@ -2223,6 +2778,7 @@ static void do_compress_chunk(Job *j) {
                        (int)((BALGN(j->blk[i].type) - off) & 3));
         off += j->blk[i].len;
     }
+    wrt_ctx(TH, j);
     model_alloc(TH, j->n);
     /* The read side checked every allocation and the write side checked none.
      * Unchecked, enc_bit would write the first coded byte through a null
@@ -2262,6 +2818,7 @@ static void do_compress_chunk(Job *j) {
 
 static void do_decompress_chunk(Job *j) {
     Ctx *TH = j->cx;
+    wrt_ctx(TH, j);
     model_alloc(TH, j->n);
     dec_init(TH, j->ain, j->alen);
     size_t soff = 0;
@@ -2426,12 +2983,15 @@ static const char *lvlname(int lvl) {
 #endif
 
 #define GEN_MAGIC   0x414E4547u          /* "GENA" little-endian */
-#define GEN_VERSION 2
+#define GEN_VERSION 3
+/* v3 adds the word-transformed segment kind and nothing else, so a v2
+ * archive is a valid v3 archive that happens not to use it. */
+#define GEN_VERSION_MIN 2
 
 /* Release version of the *program*, which moves independently of the archive
  * format version above.  A format bump breaks compatibility; a release bump
  * usually does not. */
-#define GLEIPNIR_RELEASE "1.0.1"
+#define GLEIPNIR_RELEASE "1.1.0"
 #define HDR_BYTES   48
 #define TRL_BYTES   20
 #define SEG_MAX_DEF (64u << 20)          /* default cap on a segment, bytes */
@@ -2653,6 +3213,7 @@ static void wr(FILE *f, const void *p, size_t k, const char *what) {
  */
 #define SEG_STORED 0
 #define SEG_MODEL  1
+#define SEG_WTXT   2    /* modelled, over a word-transformed stream */
 
 /* Filters run in place, so a segment that ends up stored has to be put back
  * the way it came.  Mirrors the loop v1 ran before its raw-store fallback. */
@@ -2724,6 +3285,8 @@ typedef struct {
     Dfl     *fl;
     uint8_t *w;   size_t wn;   /* the buffer the model actually sees */
     uint8_t *owned;            /* w, when it is not an alias of raw */
+    int      wrt;
+    Wrt      wh;
     Ctx     *cx;
     Job     *j;
 } SegW;
@@ -2731,9 +3294,22 @@ typedef struct {
 static void segw_prep(SegW *s, Job *j) {
     s->j = j;
     memset(j, 0, sizeof *j);
-    s->fl = NULL; s->owned = NULL; s->nsym = 0; s->bps = 0; s->nd = 0;
+    s->fl = NULL; s->owned = NULL; s->nsym = 0; s->bps = 0; s->nd = 0; s->wrt = 0;
     s->w = s->raw; s->wn = s->rawlen;
     if (!s->rawlen) return;
+
+    /* Text first: a segment the word transform takes is modelled as the
+     * transformed stream and nothing else runs on it.  Not with a record
+     * stride, which says the segment is a table, not prose. */
+    size_t tn = 0;
+    uint8_t *tt = DET_STRIDE ? NULL : wrt_encode(s->raw, s->rawlen, &s->wh, &tn);
+    if (tt) {
+        s->wrt = 1; s->owned = tt; s->w = tt; s->wn = tn;
+        s->cx = aalloc(sizeof(Ctx));
+        j->cx = s->cx; j->mode = 0; j->in = s->w; j->n = s->wn;
+        j->file_is_exe = 0; j->wrt = 1; j->wh = s->wh;
+        return;
+    }
 
     if (scan_alphabet(s->raw, s->rawlen, s->sym, &s->nsym, &s->bps)) {
         s->owned = malloc(s->rawlen / (8 / s->bps) + 8);
@@ -2763,7 +3339,7 @@ static void segw_emit(SegW *s, Buf *out) {
 
     size_t body = j->alen + j->slen;
     size_t hdr  = 1 + 2 + (size_t)s->nsym + 8 + 4 + (size_t)s->nd * 19 + 3 + 4
-                + (size_t)j->nb * 5 + 16;
+                + (size_t)j->nb * 5 + 16 + (s->wrt ? 21 : 0);
 
     if (hdr + body >= s->rawlen + 1) {
         /* Not worth modelling.  If w aliases the caller's buffer the worker
@@ -2773,7 +3349,13 @@ static void segw_emit(SegW *s, Buf *out) {
         b8(out, SEG_STORED);
         bput(out, s->raw, s->rawlen);
     } else {
-        b8(out, SEG_MODEL);
+        if (s->wrt) {
+            b8(out, SEG_WTXT);
+            b8(out, s->wh.esc); b8(out, s->wh.cap); b8(out, s->wh.upp);
+            b8(out, s->wh.n1);  b8(out, s->wh.n2l);
+            for (int c = 0; c < 3; c++) b32(out, s->wh.cnt[c]);
+            b32(out, s->wh.dlen);
+        } else b8(out, SEG_MODEL);
         b8(out, (uint8_t)s->bps); b8(out, (uint8_t)s->nsym);
         if (s->nsym) bput(out, s->sym, (size_t)s->nsym);
         b64(out, s->wn);
@@ -2817,6 +3399,7 @@ typedef struct {
     Blk     *blk; uint32_t nb;
     const uint8_t *ain, *sin;
     uint16_t stride; uint8_t width;
+    Wrt      wh;
     Ctx     *cx;
     Job     *j;
 } SegR;
@@ -2834,7 +3417,13 @@ static int segr_parse(SegR *s, Job *j) {
         s->stride = 0; s->width = 1;
         return 0;
     }
-    if (s->kind != SEG_MODEL) return -1;
+    if (s->kind == SEG_WTXT) {
+        s->wh.esc = rd8(&r); s->wh.cap = rd8(&r); s->wh.upp = rd8(&r);
+        s->wh.n1  = rd8(&r); s->wh.n2l = rd8(&r);
+        for (int c = 0; c < 3; c++) s->wh.cnt[c] = rd32(&r);
+        s->wh.dlen = rd32(&r);
+        if (r.bad || !wrt_valid(&s->wh)) return -1;
+    } else if (s->kind != SEG_MODEL) return -1;
 
     s->bps = rd8(&r); s->nsym = rd8(&r);
     /* scan_alphabet emits 1, 2 or 4 bits per symbol and nothing else, over an
@@ -2875,6 +3464,10 @@ static int segr_parse(SegR *s, Job *j) {
         }
         dcur = s->fl[i].pos + s->fl[i].plen;
     }
+    /* The writer never packs or recovers DEFLATE under the word transform,
+     * and wrt_decode reads the working buffer directly, so neither may be
+     * claimed here. */
+    if (s->kind == SEG_WTXT && (s->bps || s->nd)) r.bad = 1;
     s->stride = rd16(&r);
     s->width  = rd8(&r);
     s->nb     = rd32(&r);
@@ -2904,6 +3497,7 @@ static int segr_parse(SegR *s, Job *j) {
     s->cx = aalloc(sizeof(Ctx));
     j->cx = s->cx; j->mode = 1; j->n = s->wn; j->nb = (int)s->nb; j->blk = s->blk;
     j->ain = s->ain; j->alen = s->alen; j->sin = s->sin;
+    j->wrt = s->kind == SEG_WTXT; j->wh = s->wh;
     return 0;
 }
 
@@ -2914,6 +3508,11 @@ static int segr_finish(SegR *s) {
     memcpy(w, s->j->plain, (size_t)s->wn);
     unfilter(w, s->blk, (int)s->nb);
 
+    if (s->kind == SEG_WTXT) {
+        int wrc = wrt_decode(w, (size_t)s->wn, &s->wh, s->out, (size_t)s->rawlen);
+        free(w);
+        return wrc;
+    }
     int rc = 0;
     uint8_t *fin = w, *collapsed = NULL;
     size_t finlen = (size_t)s->wn;
@@ -3347,9 +3946,9 @@ static int parse_header(const uint8_t *h, Head *o) {
     uint32_t magic; memcpy(&magic, h + 0, 4);
     if (magic != GEN_MAGIC) { fprintf(stderr, "gleipnir: not a Gleipnir archive\n"); return -1; }
     uint16_t ver; memcpy(&ver, h + 4, 2);
-    if (ver != GEN_VERSION) {
-        fprintf(stderr, "gleipnir: archive format v%u, this build reads v%u\n",
-                ver, GEN_VERSION);
+    if (ver < GEN_VERSION_MIN || ver > GEN_VERSION) {
+        fprintf(stderr, "gleipnir: archive format v%u, this build reads v%u to v%u\n",
+                ver, GEN_VERSION_MIN, GEN_VERSION);
         return -1;
     }
     uint64_t want; memcpy(&want, h + 40, 8);
@@ -3665,7 +4264,7 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
         Sha sh; sha_init(&sh);
         uint64_t done = 0;
         int nthr = 1, eof = 0;
-        SegW *sw = NULL; Job *jb = NULL;
+        SegW *sw = NULL; Job *jb = NULL, *rjb = NULL;
 
         /* The first segment is read before anything is set up, because record
          * geometry is detected from the head of the file and there is no
@@ -3679,11 +4278,17 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
         if (headn < seg) eof = 1;
         if (headn) {
             detect_period(head, headn);
+            /* Size the thread count for the larger of the two context sets a
+             * segment of this file might run: word-transformed or not. */
+            DET_WRT = !DET_STRIDE;
             set_level(lvl);
             nthr = threads_for(seg);
+            DET_WRT = 0;
+            set_level(lvl);
             sw = calloc((size_t)nthr, sizeof(SegW));
             jb = calloc((size_t)nthr, sizeof(Job));
-            if (!sw || !jb) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
+            rjb = calloc((size_t)nthr, sizeof(Job));
+            if (!sw || !jb || !rjb) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
         } else { free(head); head = NULL; }
 
         while (head || !eof) {
@@ -3708,7 +4313,20 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
             }
             if (!nb) break;
 
-            run_jobs(jb, nb);
+            /* Word-transformed segments model with their own context set, and
+             * the context set is global, so each kind runs as its own batch. */
+            for (int pass = 0; pass < 2; pass++) {
+                int nr = 0;
+                for (int i = 0; i < nb; i++) if (jb[i].wrt == pass) rjb[nr++] = jb[i];
+                if (!nr) continue;
+                DET_WRT = pass;
+                set_level(lvl);
+                run_jobs(rjb, nr);
+                nr = 0;
+                for (int i = 0; i < nb; i++) if (jb[i].wrt == pass) jb[i] = rjb[nr++];
+            }
+            DET_WRT = 0;
+            set_level(lvl);
 
             for (int i = 0; i < nb; i++) {
                 segw_emit(&sw[i], &blob);
@@ -3729,7 +4347,7 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
             progress("compressing", rawtotal + done, grand,
                      (double)(time(NULL) - w0));
         }
-        free(sw); free(jb);
+        free(sw); free(jb); free(rjb);
         /* A read error ends the member early.  What was read is still stored
          * consistently -- size, segments and SHA-256 all describe the same
          * bytes -- but it is not the whole file, so say so. */
@@ -4003,11 +4621,13 @@ static int try_recover(Archive *a, uint64_t si, uint8_t *out, int lvl) {
     sr.rawlen = s->rawlen; sr.hash = s->hash; sr.out = out;
     int rc = -1;
     if (segr_parse(&sr, &j) == 0) {
-        if (sr.kind == SEG_MODEL) {
+        if (sr.kind != SEG_STORED) {
             DET_STRIDE = sr.stride;
             DET_WIDTH  = sr.width ? sr.width : 1;
+            DET_WRT    = sr.kind == SEG_WTXT;
             set_level(lvl);
             run_jobs(&j, 1);
+            DET_WRT = 0;
         }
         if (segr_finish(&sr) == 0 &&
             xxh64(out, (size_t)s->rawlen, 0) == s->hash) rc = 0;
@@ -4070,7 +4690,12 @@ static int run_members(Archive *a, const char *destdir, int test_only,
         DET_STRIDE = 1; DET_WIDTH = 1;
         set_level(a->h.lvl);
         nthr = threads_for(segbytes);
-        DET_STRIDE = ds; DET_WIDTH = dw;
+        /* A word-transformed segment runs a different, larger context set. */
+        DET_STRIDE = 0; DET_WRT = 1;
+        set_level(a->h.lvl);
+        int nw = threads_for(segbytes);
+        if (nw < nthr) nthr = nw;
+        DET_STRIDE = ds; DET_WIDTH = dw; DET_WRT = 0;
     }
     SegR *sr = calloc((size_t)nthr, sizeof(SegR));
     Job  *jb = calloc((size_t)nthr, sizeof(Job));
@@ -4177,15 +4802,17 @@ static int run_members(Archive *a, const char *destdir, int test_only,
             for (;;) {
                 int seed = -1;
                 for (int t = 0; t < nb; t++)
-                    if (!hand[t] && sr[t].ok == 1 && sr[t].kind == SEG_MODEL) { seed = t; break; }
+                    if (!hand[t] && sr[t].ok == 1 && sr[t].kind != SEG_STORED) { seed = t; break; }
                 if (seed < 0) break;
                 DET_STRIDE = sr[seed].stride;
                 DET_WIDTH  = sr[seed].width ? sr[seed].width : 1;
+                DET_WRT    = sr[seed].kind == SEG_WTXT;
                 set_level(a->h.lvl);
                 int nrun = 0;
                 for (int t = seed; t < nb; t++) {
-                    if (hand[t] || sr[t].ok != 1 || sr[t].kind != SEG_MODEL) continue;
-                    if (sr[t].stride != sr[seed].stride || sr[t].width != sr[seed].width)
+                    if (hand[t] || sr[t].ok != 1 || sr[t].kind == SEG_STORED) continue;
+                    if (sr[t].stride != sr[seed].stride || sr[t].width != sr[seed].width ||
+                        sr[t].kind != sr[seed].kind)
                         continue;
                     map[nrun] = t; rj[nrun] = jb[t]; nrun++;
                     hand[t] = 1;
@@ -4194,6 +4821,7 @@ static int run_members(Archive *a, const char *destdir, int test_only,
                 run_jobs(rj, nrun);
                 for (int t = 0; t < nrun; t++) jb[map[t]] = rj[t];
             }
+            DET_WRT = 0;
 
             /* ---- verify and write, in order ---- */
             for (int t = 0; t < nb; t++) {
@@ -4535,6 +5163,7 @@ static void usage(void) {
       "            -1  4 ctx  no SSE      -2  6 ctx  1 SSE\n"
       "            -3  8 ctx  2 SSE       -5 12 ctx  3 SSE\n"
       "            -7 19 ctx  4 SSE       -9 27 ctx  6 SSE (30 on rasters)\n"
+      "            -5, -7 and -9 add 4 word contexts on word-transformed text\n"
       "  -f1/-f2   throughput presets below -1\n"
       "  -mN       resize every context table by 2^N (-m-1 halves them),\n"
       "            -16 to 16\n"
@@ -4553,6 +5182,9 @@ static void usage(void) {
       "  -x GLOB   exclude paths matching GLOB.  Repeatable.  Matched against\n"
       "            the stored name and the bare filename, so -x \"*.log\" works\n"
       "            whatever directory the file is in\n"
+      "  -w0       do not word-transform text (default -w1: segments that\n"
+      "            are mostly words are dictionary-coded before modelling,\n"
+      "            which is smaller and faster on prose and markup)\n"
       "  -q        quiet\n"
       "  --version, --help\n"
       "\n"
@@ -4569,8 +5201,8 @@ int main(int argc, char **argv) {
      * annoying to script around. */
     if (argc >= 2 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-V"))) {
         printf("Gleipnir %s\n", GLEIPNIR_RELEASE);
-        printf("archive format v%d  (this build reads and writes v%d only)\n",
-               GEN_VERSION, GEN_VERSION);
+        printf("archive format v%d  (this build writes v%d and reads v%d to v%d)\n",
+               GEN_VERSION, GEN_VERSION, GEN_VERSION_MIN, GEN_VERSION);
         printf("built %s %s\n", __DATE__, __TIME__);
         /* GPL section 5 asks that a copyright notice and a warranty
          * disclaimer be kept intact and shown where the program
@@ -4618,6 +5250,13 @@ int main(int argc, char **argv) {
                         MEMSHIFT_MIN, MEMSHIFT_MAX);
                 return 1;
             }
+        }
+        else if (c == 'w') {
+            /* -w0 models text as letters, the way 1.0 did; for an A/B, or
+             * when the extra time the dictionary build takes matters more
+             * than the size. */
+            if ((argv[a][2] != '0' && argv[a][2] != '1') || argv[a][3]) { usage(); return 1; }
+            WRT_ON = argv[a][2] == '1';
         }
         else if (c == 'q') VERBOSE = 0;
         else if (c == 'L') longform = 1;

@@ -196,7 +196,7 @@ LIMITS WORTH KNOWING
     scrub or repair it, since neither the checksums nor the parity blocks are
     readable through ciphertext.
   * No append. Adding to an archive means rewriting it.
-  * Archives are format v2 and are not readable by earlier builds.
+  * Archives are format v3; 1.1 reads v2 and v3, earlier builds read v2 only.
   * Verified up to 2.2 GB per file. Nothing larger has been tried.
   * Recovery covers one lost segment per group and not two.
   * Linux is verified on Ubuntu 26.04 (gcc 15.2), built from source via the
