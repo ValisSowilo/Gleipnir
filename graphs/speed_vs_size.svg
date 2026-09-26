@@ -34,62 +34,64 @@
 <text class="sub" x="20" y="39">Silesia, 202 MB, single thread, one uninterrupted run. 8 gen presets. Silesia record is 26.5 MB (paq8px -12L, 29 GB).</text>
 <text class="lbl" x="401.0" y="460" text-anchor="middle">compression speed (MB/s, log)</text>
 <text class="lbl" x="14" y="237.5" text-anchor="middle" transform="rotate(-90 14 237.5)">Silesia total (MB) — lower is better</text>
-<line class="grid" x1="66" y1="386.6" x2="736" y2="386.6"/>
-<text class="lbl" x="57" y="390.6" text-anchor="end">35</text>
-<line class="grid" x1="66" y1="335.3" x2="736" y2="335.3"/>
-<text class="lbl" x="57" y="339.3" text-anchor="end">40</text>
-<line class="grid" x1="66" y1="283.9" x2="736" y2="283.9"/>
-<text class="lbl" x="57" y="287.9" text-anchor="end">45</text>
-<line class="grid" x1="66" y1="232.5" x2="736" y2="232.5"/>
-<text class="lbl" x="57" y="236.5" text-anchor="end">50</text>
-<line class="grid" x1="66" y1="181.2" x2="736" y2="181.2"/>
-<text class="lbl" x="57" y="185.2" text-anchor="end">55</text>
-<line class="grid" x1="66" y1="129.8" x2="736" y2="129.8"/>
-<text class="lbl" x="57" y="133.8" text-anchor="end">60</text>
-<line class="grid" x1="66" y1="78.5" x2="736" y2="78.5"/>
-<text class="lbl" x="57" y="82.5" text-anchor="end">65</text>
-<line class="grid" x1="188.9" y1="61" x2="188.9" y2="414"/>
-<text class="lbl" x="188.9" y="432" text-anchor="middle">0.5</text>
-<line class="grid" x1="288.0" y1="61" x2="288.0" y2="414"/>
-<text class="lbl" x="288.0" y="432" text-anchor="middle">1</text>
-<line class="grid" x1="387.1" y1="61" x2="387.1" y2="414"/>
-<text class="lbl" x="387.1" y="432" text-anchor="middle">2</text>
-<line class="grid" x1="518.0" y1="61" x2="518.0" y2="414"/>
-<text class="lbl" x="518.0" y="432" text-anchor="middle">5</text>
-<line class="grid" x1="617.1" y1="61" x2="617.1" y2="414"/>
-<text class="lbl" x="617.1" y="432" text-anchor="middle">10</text>
-<line class="grid" x1="716.2" y1="61" x2="716.2" y2="414"/>
-<text class="lbl" x="716.2" y="432" text-anchor="middle">20</text>
+<line class="grid" x1="66" y1="385.6" x2="736" y2="385.6"/>
+<text class="lbl" x="57" y="389.6" text-anchor="end">35</text>
+<line class="grid" x1="66" y1="334.4" x2="736" y2="334.4"/>
+<text class="lbl" x="57" y="338.4" text-anchor="end">40</text>
+<line class="grid" x1="66" y1="283.2" x2="736" y2="283.2"/>
+<text class="lbl" x="57" y="287.2" text-anchor="end">45</text>
+<line class="grid" x1="66" y1="232.0" x2="736" y2="232.0"/>
+<text class="lbl" x="57" y="236.0" text-anchor="end">50</text>
+<line class="grid" x1="66" y1="180.8" x2="736" y2="180.8"/>
+<text class="lbl" x="57" y="184.8" text-anchor="end">55</text>
+<line class="grid" x1="66" y1="129.6" x2="736" y2="129.6"/>
+<text class="lbl" x="57" y="133.6" text-anchor="end">60</text>
+<line class="grid" x1="66" y1="78.4" x2="736" y2="78.4"/>
+<text class="lbl" x="57" y="82.4" text-anchor="end">65</text>
+<line class="grid" x1="72.4" y1="61" x2="72.4" y2="414"/>
+<text class="lbl" x="72.4" y="432" text-anchor="middle">0.2</text>
+<line class="grid" x1="199.4" y1="61" x2="199.4" y2="414"/>
+<text class="lbl" x="199.4" y="432" text-anchor="middle">0.5</text>
+<line class="grid" x1="295.5" y1="61" x2="295.5" y2="414"/>
+<text class="lbl" x="295.5" y="432" text-anchor="middle">1</text>
+<line class="grid" x1="391.6" y1="61" x2="391.6" y2="414"/>
+<text class="lbl" x="391.6" y="432" text-anchor="middle">2</text>
+<line class="grid" x1="518.6" y1="61" x2="518.6" y2="414"/>
+<text class="lbl" x="518.6" y="432" text-anchor="middle">5</text>
+<line class="grid" x1="614.7" y1="61" x2="614.7" y2="414"/>
+<text class="lbl" x="614.7" y="432" text-anchor="middle">10</text>
+<line class="grid" x1="710.7" y1="61" x2="710.7" y2="414"/>
+<text class="lbl" x="710.7" y="432" text-anchor="middle">20</text>
 <line class="axis" x1="66" y1="61" x2="66" y2="414"/>
 <line class="axis" x1="66" y1="414" x2="736" y2="414"/>
-<path class="genl" d="M368.6,312.4 L325.9,340.8 L341.3,322.9 L298.8,348.4 L258.5,359.1 L215.0,371.2 L173.4,388.6 L133.2,397.6" />
-<circle cx="368.6" cy="312.4" r="5.5" class="gen"/>
-<circle cx="325.9" cy="340.8" r="5.5" class="gen"/>
-<circle cx="341.3" cy="322.9" r="5.5" class="gen"/>
-<circle cx="298.8" cy="348.4" r="5.5" class="gen"/>
-<circle cx="258.5" cy="359.1" r="5.5" class="gen"/>
-<circle cx="215.0" cy="371.2" r="5.5" class="gen"/>
-<circle cx="173.4" cy="388.6" r="5.5" class="gen"/>
-<circle cx="133.2" cy="397.6" r="5.5" class="gen"/>
-<circle cx="142.5" cy="363.0" r="5" stroke="#d29922" fill="#d29922"/>
-<circle cx="644.3" cy="83.6" r="5" stroke="#953800" fill="#953800"/>
-<circle cx="370.1" cy="271.4" r="5" stroke="#1a7f37" fill="#1a7f37"/>
-<circle cx="634.2" cy="212.2" r="5" stroke="#6e7781" fill="#6e7781"/>
-<circle cx="310.1" cy="324.8" r="5" stroke="#8250df" fill="#8250df"/>
-<circle cx="195.2" cy="260.6" r="5" stroke="#cf222e" fill="#cf222e"/>
-<text class="tagb" x="325.9" y="363.8" text-anchor="middle">-f2</text>
-<text class="tag" x="310.1" y="304.8" text-anchor="middle" fill="#8250df">lpaq1 -6</text>
-<text class="tagb" x="341.3" y="345.9" text-anchor="middle">-1</text>
-<text class="tagb" x="298.8" y="371.4" text-anchor="middle">-2</text>
-<text class="tagb" x="258.5" y="348.1" text-anchor="middle">-3</text>
-<text class="tagb" x="368.6" y="301.4" text-anchor="middle">-f1</text>
-<text class="tagb" x="215.0" y="360.2" text-anchor="middle">-5</text>
-<text class="tagb" x="173.4" y="377.6" text-anchor="middle">-7</text>
-<text class="tagb" x="133.2" y="386.6" text-anchor="middle">-9</text>
-<text class="tag" x="142.5" y="352.0" text-anchor="middle" fill="#d29922">zpaq -m5</text>
-<text class="tag" x="644.3" y="72.6" text-anchor="middle" fill="#953800">gzip -9</text>
-<text class="tag" x="370.1" y="260.4" text-anchor="middle" fill="#1a7f37">xz -9e</text>
-<text class="tag" x="634.2" y="201.2" text-anchor="middle" fill="#6e7781">bzip2 -9</text>
-<text class="tag" x="195.2" y="249.6" text-anchor="middle" fill="#cf222e">brotli -q11</text>
+<path class="genl" d="M378.4,321.8 L334.0,344.3 L359.9,327.8 L316.8,350.0 L280.3,358.9 L230.9,372.5 L187.1,388.5 L131.2,397.6" />
+<circle cx="378.4" cy="321.8" r="5.5" class="gen"/>
+<circle cx="334.0" cy="344.3" r="5.5" class="gen"/>
+<circle cx="359.9" cy="327.8" r="5.5" class="gen"/>
+<circle cx="316.8" cy="350.0" r="5.5" class="gen"/>
+<circle cx="280.3" cy="358.9" r="5.5" class="gen"/>
+<circle cx="230.9" cy="372.5" r="5.5" class="gen"/>
+<circle cx="187.1" cy="388.5" r="5.5" class="gen"/>
+<circle cx="131.2" cy="397.6" r="5.5" class="gen"/>
+<circle cx="647.0" cy="83.5" r="5" stroke="#953800" fill="#953800"/>
+<circle cx="383.1" cy="270.8" r="5" stroke="#1a7f37" fill="#1a7f37"/>
+<circle cx="635.2" cy="211.7" r="5" stroke="#6e7781" fill="#6e7781"/>
+<circle cx="314.7" cy="324.0" r="5" stroke="#8250df" fill="#8250df"/>
+<circle cx="205.5" cy="260.0" r="5" stroke="#cf222e" fill="#cf222e"/>
+<circle cx="153.6" cy="362.0" r="5" stroke="#d29922" fill="#d29922"/>
+<text class="tagb" x="334.0" y="333.3" text-anchor="middle">-f2</text>
+<text class="tagb" x="359.9" y="316.8" text-anchor="middle">-1</text>
+<text class="tagb" x="378.4" y="310.8" text-anchor="middle">-f1</text>
+<text class="tagb" x="316.8" y="373.0" text-anchor="middle">-2</text>
+<text class="tagb" x="280.3" y="347.9" text-anchor="middle">-3</text>
+<text class="tag" x="314.7" y="313.0" text-anchor="middle" fill="#8250df">lpaq1 -6</text>
+<text class="tagb" x="230.9" y="361.5" text-anchor="middle">-5</text>
+<text class="tagb" x="187.1" y="377.5" text-anchor="middle">-7</text>
+<text class="tagb" x="131.2" y="386.6" text-anchor="middle">-9</text>
+<text class="tag" x="647.0" y="72.5" text-anchor="middle" fill="#953800">gzip -9</text>
+<text class="tag" x="383.1" y="259.8" text-anchor="middle" fill="#1a7f37">xz -9e</text>
+<text class="tag" x="635.2" y="200.7" text-anchor="middle" fill="#6e7781">bzip2 -9</text>
+<text class="tag" x="205.5" y="249.0" text-anchor="middle" fill="#cf222e">brotli -q11</text>
+<text class="tag" x="153.6" y="351.0" text-anchor="middle" fill="#d29922">zpaq -m5</text>
 <text class="sub" x="728.0" y="76.0" text-anchor="end">gen presets joined by the blue line</text>
 </svg>

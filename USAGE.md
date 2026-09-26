@@ -16,17 +16,20 @@ Ordered by measured cost, which is **not** the order the names suggest — the
 
 | preset | output | ratio | bpc | compress | decompress | RAM |
 |--------|--------|-------|-----|----------|------------|-----|
-| `-f1`  | 44,279,445 | 4.79× | 1.671 | 1.84 MB/s | 1.84 MB/s | 204 MB |
-| `-1`   | 43,207,157 | 4.91× | 1.631 | 1.52 MB/s | 1.53 MB/s | 196 MB |
-| `-f2`  | 41,376,463 | 5.12× | 1.562 | 1.37 MB/s | 1.31 MB/s | 238 MB |
-| `-2`   | 40,605,710 | 5.22× | 1.533 | 1.13 MB/s | 1.13 MB/s | 234 MB |
-| `-3`   | 39,510,297 | 5.36× | 1.491 | 0.85 MB/s | 0.86 MB/s | 305 MB |
-| `-5`   | 38,273,415 | 5.54× | 1.445 | 0.63 MB/s | 0.62 MB/s | 483 MB |
-| `-7`   | 36,493,092 | 5.81× | 1.377 | 0.47 MB/s | 0.45 MB/s | 922 MB |
-| `-9`   | 35,582,296 | 5.96× | 1.343 | 0.36 MB/s | 0.32 MB/s | 1055 MB |
+| `-f1`  | 43,229,187 | 4.90× | 1.632 | 1.91 MB/s | 1.92 MB/s | 203 MB |
+| `-1`   | 42,620,088 | 4.97× | 1.609 | 1.67 MB/s | 1.66 MB/s | 195 MB |
+| `-f2`  | 40,928,575 | 5.18× | 1.545 | 1.38 MB/s | 1.38 MB/s | 237 MB |
+| `-2`   | 40,346,553 | 5.25× | 1.523 | 1.22 MB/s | 1.21 MB/s | 233 MB |
+| `-3`   | 39,429,389 | 5.38× | 1.488 | 0.94 MB/s | 0.93 MB/s | 304 MB |
+| `-5`   | 38,043,334 | 5.57× | 1.436 | 0.66 MB/s | 0.65 MB/s | 482 MB |
+| `-7`   | 36,401,926 | 5.82× | 1.374 | 0.48 MB/s | 0.48 MB/s | 954 MB |
+| `-9`   | 35,467,098 | 5.98× | 1.339 | 0.32 MB/s | 0.32 MB/s | 1193 MB |
 
 Every row above comes from **one interleaved session** (`scripts/bench_session.py`,
-2 h 25 m), with `-7` and `zpaq -m5` repeated at both ends as drift sentinels.
+2 h 37 m, gleipnir 1.1), with `-7` and `zpaq -m5` repeated at both ends as drift
+sentinels. The sentinels caught load during the run's first three rows, so
+`-7` and `-9` come from a follow-up run bracketed by its own sentinels — see
+[README.md](README.md#benchmarks).
 Sizes are deterministic and reproduce across every session ever run; times are
 only comparable *within* one uninterrupted run, which is why this is a single
 run rather than the best figure for each row assembled from several.
@@ -38,9 +41,9 @@ within-session stability and says nothing about the spread *between* sessions,
 and `min()` is unbiased against random noise but selects for earliest position
 against a trend. Consistency was mistaken for accuracy.
 
-**`-7` carries ±6%** — its two sentinel readings in this run were 437.0 s and
-464.0 s, where `zpaq -m5` read 559.4 s both times, so the instability is
-specific to the preset rather than to the machine. Every row was round-trip
+**Times are only good within one session.** `-7` read 441.5, 441.9 and
+441.7 s across the two runs here, but has ranged from 404 to 492 s across
+earlier sessions with byte-identical output. Every row was round-trip
 verified. No preset is dominated: there is no rung that another beats on both
 size and speed.
 
@@ -52,10 +55,10 @@ reconstructs each prediction to interpret the next bit. There is no fast path
 on the read side and there never will be. If you need to restore quickly under
 pressure, stop here and use zstd.
 
-**A terabyte at `-5` is about nineteen days each way, single-threaded.** `-t0`
+**A terabyte at `-5` is about eighteen days each way, single-threaded.** `-t0`
 on this six-core box measured a 4.4× speedup (`-f1` went from 1.82 to 8.00
-MB/s on a 2.2 GB file), which brings that down to roughly **four and a half
-days each way**. Plan capacity from those numbers, not from the MB/s figure.
+MB/s on a 2.2 GB file), which brings that down to roughly **four days each
+way**. Plan capacity from those numbers, not from the MB/s figure.
 
 So `gleipnir` earns its place on data that is:
 
@@ -73,9 +76,9 @@ pressure, for anything in a latency-sensitive path, for data already
 compressed (video, JPEG, most archives), and for petabyte-scale stores.
 
 Against the closest comparable tool, `zpaq -m5`, `gleipnir -5` wins on all three
-axes at once — 2.2% smaller, 1.6× faster, 43% less memory. That advantage is
-specific to `-5`: `-9` is 9.0% smaller than zpaq but costs 1.07× the time and
-1.26× the memory, so it wins on size alone. Against `zstd --long -19` gleipnir is
+axes at once — 2.7% smaller, 1.75× faster, 43% less memory. That advantage is
+specific to `-5`: `-9` is 9.3% smaller than zpaq but costs 1.18× the time and
+1.42× the memory, so it wins on size alone. Against `zstd --long -19` gleipnir is
 far smaller and far slower. Those are the comparisons worth making.
 
 ## Quick start
@@ -103,7 +106,7 @@ gleipnir c -5 -t0 -p32 archive.gl /data/2019-invoices
 ```
 
 - **`-5`** is the value preset, and `-7` is the one to consider next. Going
-  from `-5` to `-9` buys 7.0% off the size for 2.1× the time on both ends;
+  from `-5` to `-9` buys 6.8% off the size for 2.1× the time on both ends;
   most of that penalty is the last rung alone, which is the worst deal on the
   ladder. See the exchange-rate table below.
 - **`-t0`** uses every core. It costs a little ratio — each worker models its
@@ -123,30 +126,27 @@ Lower is a better deal.
 
 | step | size saved | time added | exchange |
 |---|---|---|---|
-| `-f1`→`-1` | 2.42% | 21.1% | 8.7× |
-| `-1`→`-f2` | 4.24% | 11.3% | 2.7× |
-| `-f2`→`-2` | 1.86% | 20.9% | 11.2× |
-| `-2`→`-3` | 2.70% | 32.6% | 12.1× |
-| `-3`→`-5` | 3.13% | 35.6% | 11.4× |
-| `-5`→`-7` | 4.65% | 33.8% | 7.3× |
-| `-7`→`-9` | 2.50% | 32.5% | **13.0×** |
+| `-f1`→`-1` | 1.41% | 14.2% | 10.1× |
+| `-1`→`-f2` | 3.97% | 20.6% | 5.2× |
+| `-f2`→`-2` | 1.42% | 13.3% | 9.3× |
+| `-2`→`-3` | 2.27% | 30.1% | 13.2× |
+| `-3`→`-5` | 3.52% | 42.8% | 12.2× |
+| `-5`→`-7` | 4.31% | 37.2% | 8.6× |
+| `-7`→`-9` | 2.57% | 49.7% | **19.4×** |
 
-The whole ladder from `-f1` to `-9` is 19.6% smaller for 5.2× the time.
+The whole ladder from `-f1` to `-9` is 18.0% smaller for 6.0× the time.
 
-No step is wildly out of line with the others: the ladder costs roughly
-11-13× per rung from `-2` upward. Earlier revisions of this table put
-`-7`→`-9` at 30.9× and told you to stop at `-7`; that figure came from
-dividing times measured in different sessions, and a single-session
-re-measurement puts the step at 13.0× — no worse than `-2`→`-3`.
-The advice to stop at `-7` was an artefact of the measurement, not a
-property of the ladder. Choose by memory and absolute time instead:
-`-9` needs 1055 MB and 597 s where `-7` needs 922 MB and ~450 s.
+In this session the last rung is the dear one: `-7`→`-9` costs 19.4× per 1%
+saved, against 5–13× everywhere else. Read that with care. 1.0.2's session
+measured the same step at 13.0×, and an earlier revision of this table, which
+divided times from different sessions, had it at 30.9× — the step's time term
+moves more between sessions than any real change has moved it. Choose by
+memory and absolute time instead:
+`-9` needs 1193 MB and 661 s where `-7` needs 954 MB and 442 s.
 
-Treat `-7`'s numbers as the softest here. Its two sentinel readings in the
-single-session run were 437.0 s and 464.0 s — a 6.18% spread — where
-`zpaq -m5` repeated to 0.00%. So `-5`→`-7` (7.3×) and `-7`→`-9` (13.0×)
-each carry roughly ±6% on the time term. Every other preset repeated
-cleanly, and every size in the table is exact.
+Every size in the table is exact. The times are one session's, and
+`-7`'s has moved by up to 22% between sessions in the past, so read any single
+exchange rate as ±10%.
 
 Then, and this is the part people skip:
 
@@ -307,13 +307,14 @@ the whole input in a single segment, so the model never resets mid-file:
 gleipnir c -9 -s2000 archive.gl bigfile     # one segment for anything under 2 GB
 ```
 
-On a single large file this is the smallest `gleipnir` can go. `enwik8 -9` drops 1.8%
-(19,155,646 → 18,810,676) and `enwik9 -9` drops 4.3% (164,080,953 → 157,073,377),
-the gain widening with preset because a cold restart wastes more of a stronger
-model. Time is unchanged — the work is identical, only the segment boundaries
-move — but memory rises with the segment, which is now the whole file: `enwik9
--9` peaks near 3.0 GB compressing and 3.8 GB decompressing, against roughly 1 GB
-at the default. Use it for a single large file going to cold storage where ratio
+On a single large file this is the smallest `gleipnir` can go. With 1.1's word
+transform `enwik8 -9` drops 2.3% (18,450,584 → 18,027,359) — more than 1.0.2's
+1.8%, because one segment also means one dictionary instead of two. In 1.0.2
+`enwik9 -9` dropped 4.3% (164,080,953 → 157,073,377); 1.1's solid enwik9 is
+148,026,632. Time is unchanged — the work is identical, only the segment
+boundaries move — but memory rises with the segment, which is now the whole
+file: 1.1's `enwik9 -9` peaks at 2.8 GB compressing and 3.2 GB decompressing,
+against roughly 1 GB at the default. Use it for a single large file going to cold storage where ratio
 is the point and the RAM is there; keep the default for multi-file archives,
 where every member already starts fresh and 64 MB segments bound both memory and
 the blast radius of damage. A file under 64 MB is already one segment and gains
@@ -499,13 +500,15 @@ four.
 
 ## Verification
 
-Everything above is checked by three suites that must all pass before a build
+Everything above is checked by five suites that must all pass before a build
 is used:
 
 ```bash
 python scripts/fuzz.py  gleipnir.exe --v2      # 81 edge cases x 8 presets = 648 round trips
 python scripts/tfuzz.py gleipnir.exe --v2      # decode at a different -t than encoded
 python scripts/gfuzz.py 250 --exe gleipnir.exe     # corruption: every mode, every damage model
+python scripts/sfuzz.py --exe gleipnir.exe         # well-formed archives whose fields contradict
+python scripts/wfuzz.py 30 --exe gleipnir.exe      # word-transformed text, round trip
 ```
 
 `scripts/gfuzz.py` is the one specific to this format. It asserts the contract that

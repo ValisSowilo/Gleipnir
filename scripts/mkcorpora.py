@@ -60,8 +60,8 @@ CORPORA = [
      "size-only, so it is machine-independent and comparable.",
      [("cmix v21", 14_623_723, "LTCB"), ("nncp v3.2", 14_915_298, "LTCB"),
       ("paq8px -12L", 15_849_084, "LTCB"), ("zpaq -max", 17_855_729, "LTCB"),
-      ("gleipnir -9", 18_810_676, "here"), ("lpaq1 -9", 19_755_948, "LTCB"),
-      ("gleipnir -5", 19_660_660, "here"), ("xz -9e", 24_703_772, "LTCB"),
+      ("gleipnir 1.1 -9", 18_027_359, "here"), ("gleipnir 1.0.2 -9", 18_810_676, "here"),
+      ("lpaq1 -9", 19_755_948, "LTCB"), ("gleipnir 1.1 -5", 18_658_545, "here"), ("xz -9e", 24_703_772, "LTCB"),
       ("brotli -q11", 25_764_698, "LTCB"), ("bzip2 -9", 29_008_736, "LTCB"),
       ("gzip -9", 36_445_248, "LTCB")]),
 
@@ -71,8 +71,8 @@ CORPORA = [
      "sizes (Mahoney's hardware); bpc is size-only and machine-independent.",
      [("nncp v3.2", 106_632_363, "LTCB"), ("cmix v21", 107_963_380, "LTCB"),
       ("paq8px -12L", 124_696_410, "LTCB"), ("zpaq -max", 142_252_605, "LTCB"),
-      ("gleipnir -9", 157_073_377, "here"), ("lpaq1 -9", 164_508_919, "LTCB"),
-      ("gleipnir -5", 167_360_632, "here"), ("xz tuned", 197_331_816, "LTCB"),
+      ("gleipnir 1.1 -9", 148_026_632, "here"), ("gleipnir 1.0.2 -9", 157_073_377, "here"),
+      ("lpaq1 -9", 164_508_919, "LTCB"), ("gleipnir 1.0.2 -5", 167_360_632, "here"), ("xz tuned", 197_331_816, "LTCB"),
       ("brotli", 223_597_884, "LTCB"), ("bzip2 -9", 253_977_839, "LTCB"),
       ("gzip -9", 322_591_995, "LTCB")]),
 

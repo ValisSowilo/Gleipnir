@@ -2269,9 +2269,11 @@ six-file set — only the `-8` ablation above, on one file.
 | mtime and POSIX permission restore | done |
 | 8 presets benchmarked on full Silesia, one interleaved session | done, `scripts/bench_session.py` |
 
-**Verification gates.** Four suites must pass before a build is used:
+**Verification gates.** Five suites must pass before a build is used:
 `scripts/fuzz.py` and `scripts/tfuzz.py` (round-trip, `--v2` for the new CLI),
-`scripts/gfuzz.py` (corruption), and `scripts/sfuzz.py` (semantic).
+`scripts/gfuzz.py` (corruption), `scripts/sfuzz.py` (semantic), and
+`scripts/wfuzz.py` (round-trip through the word transform, which the others'
+inputs are too small to reach; §29).
 `scripts/gfuzz.py` asserts the property that matters for a backup tool:
 for *any* input, `gen` either exits 0 with byte-exact output, or exits 1/2 with
 a diagnostic. 250 randomized trials across seven damage models — bitflip,
@@ -2485,6 +2487,9 @@ truncated and malformed multi-byte codes, a flag or escape as the last byte,
 output shorter or longer than `rawlen`, and kind 2 claiming alphabet packing or
 DEFLATE records — plus a third positive control, a hand-built kind-2 segment
 that must decode exactly. `fuzz.py`, `tfuzz.py` and `gfuzz.py` pass unchanged.
-A transform-specific round-trip fuzzer (text with flag bytes, high bytes, all
-three case forms, mixed case, and words either side of the 32-letter limit)
-ran 190 cases across `-1`, `-5` and `-9` without a failure.
+`scripts/wfuzz.py` generates text the transform takes — flag bytes, high
+bytes, all three case forms, mixed case, words either side of the 32-letter
+limit — and round-trips it; 190 cases across `-1`, `-5` and `-9` passed before
+merge. CI runs it on Linux, macOS and Windows and under UBSan, since the UBSan
+step's own round trip (`gleipnir.c`, 238 KB) sits just below the transform's
+256 KB minimum.

@@ -50,7 +50,7 @@
 <text class="lbl" x="57" y="65.0" text-anchor="end">6</text>
 <line class="axis" x1="66" y1="61" x2="66" y2="368"/>
 <line class="axis" x1="66" y1="368" x2="856" y2="368"/>
-<rect x="73.2" y="344.3" width="11.8" height="23.7" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="73.2" y="345.0" width="11.8" height="23.0" fill="#0969da" opacity="1.0" rx="1.5"/>
 <rect x="86.1" y="343.0" width="11.8" height="25.0" fill="#d29922" opacity="0.72" rx="1.5"/>
 <rect x="98.9" y="341.9" width="11.8" height="26.1" fill="#8250df" opacity="0.72" rx="1.5"/>
 <rect x="111.8" y="334.7" width="11.8" height="33.3" fill="#1a7f37" opacity="0.72" rx="1.5"/>
@@ -85,7 +85,7 @@
 <rect x="493.9" y="273.2" width="11.8" height="94.8" fill="#8250df" opacity="0.72" rx="1.5"/>
 <rect x="506.8" y="252.6" width="11.8" height="115.4" fill="#1a7f37" opacity="0.72" rx="1.5"/>
 <text class="lbl" x="493.9" y="384.0" text-anchor="middle">osdb</text>
-<rect x="534.1" y="285.7" width="11.8" height="82.3" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="534.1" y="287.3" width="11.8" height="80.7" fill="#0969da" opacity="1.0" rx="1.5"/>
 <rect x="546.9" y="283.9" width="11.8" height="84.1" fill="#d29922" opacity="0.72" rx="1.5"/>
 <rect x="559.7" y="279.9" width="11.8" height="88.1" fill="#8250df" opacity="0.72" rx="1.5"/>
 <rect x="572.6" y="254.3" width="11.8" height="113.7" fill="#1a7f37" opacity="0.72" rx="1.5"/>
@@ -100,7 +100,7 @@
 <rect x="691.4" y="349.7" width="11.8" height="18.3" fill="#8250df" opacity="0.72" rx="1.5"/>
 <rect x="704.3" y="350.3" width="11.8" height="17.7" fill="#1a7f37" opacity="0.72" rx="1.5"/>
 <text class="lbl" x="691.4" y="384.0" text-anchor="middle">nci</text>
-<rect x="731.6" y="313.7" width="11.8" height="54.3" fill="#0969da" opacity="1.0" rx="1.5"/>
+<rect x="731.6" y="314.4" width="11.8" height="53.6" fill="#0969da" opacity="1.0" rx="1.5"/>
 <rect x="744.4" y="312.0" width="11.8" height="56.0" fill="#d29922" opacity="0.72" rx="1.5"/>
 <rect x="757.2" y="308.2" width="11.8" height="59.8" fill="#8250df" opacity="0.72" rx="1.5"/>
 <rect x="770.1" y="285.4" width="11.8" height="82.6" fill="#1a7f37" opacity="0.72" rx="1.5"/>

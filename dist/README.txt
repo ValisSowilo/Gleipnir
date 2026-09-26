@@ -1,10 +1,10 @@
-Gleipnir 1.0.1 -- a context-mixing archiver
+Gleipnir 1.1.0 -- a context-mixing archiver
 ======================================
 
 WHAT THIS IS
 
 Gleipnir compresses smaller than mainstream archivers and is much slower than all
-of them. On the Silesia corpus it produces a 35.6 MB archive where zpaq -m5
+of them. On the Silesia corpus it produces a 35.5 MB archive where zpaq -m5
 produces 39.1 MB, xz -9e produces 48.5 MB and gzip -9 produces 67.6 MB.
 
 It is built for data you intend to keep and rarely read: archives you will
@@ -38,7 +38,7 @@ QUICK START
 
 RIGHT-CLICK MENU
 
-If you used the Windows setup installer (gleipnir-1.0.1-setup.exe) and ticked the
+If you used the Windows setup installer (gleipnir-1.1.0-setup.exe) and ticked the
 Explorer option during install, File Explorer gains:
 
   right-click a folder or file   ->  Compress with Gleipnir
@@ -84,20 +84,20 @@ works and not a missing optimisation. The decoder runs the same model the
 encoder ran, one bit at a time.
 
   preset   compress    decompress   memory     Silesia output
-  -f1      1.84 MB/s   1.84 MB/s     204 MB    44.3 MB
-  -1       1.52 MB/s   1.53 MB/s     196 MB    43.2 MB
-  -3       0.85 MB/s   0.86 MB/s     305 MB    39.5 MB
-  -5       0.63 MB/s   0.62 MB/s     483 MB    38.3 MB
-  -7       0.47 MB/s   0.45 MB/s     922 MB    36.5 MB
-  -9       0.36 MB/s   0.32 MB/s    1055 MB    35.6 MB
+  -f1      1.91 MB/s   1.92 MB/s    203 MB    43.2 MB
+  -1       1.67 MB/s   1.66 MB/s    195 MB    42.6 MB
+  -3       0.94 MB/s   0.93 MB/s    304 MB    39.4 MB
+  -5       0.66 MB/s   0.65 MB/s    482 MB    38.0 MB
+  -7       0.48 MB/s   0.48 MB/s    954 MB    36.4 MB
+  -9       0.32 MB/s   0.32 MB/s   1193 MB    35.5 MB
 
 At -5 that is roughly 18 CPU-days per terabyte in each direction, single
 threaded, or about a day with 16 cores. If you need fast restores, use zstd
 or xz instead. They decompress hundreds of times faster and this tool will
 disappoint you.
 
-Memory figures above are for compression. Decompression peaks 37-40 MB higher,
-so size a restore machine off the larger number.
+Memory figures above are for compression. From -f1 to -5 decompression peaks
+37-39 MB higher, so size a restore machine off the larger number.
 
 
 VERIFYING WITHOUT DECOMPRESSING

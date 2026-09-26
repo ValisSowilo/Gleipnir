@@ -60,6 +60,13 @@ jobs:
       - name: Semantic fuzz
         run: python3 scripts/sfuzz.py --exe gleipnir
 
+      # The inputs above are all too small for the word transform (256 KB
+      # minimum), so none of them builds a word-transformed segment.
+      - name: Word-transform fuzz
+        run: |
+          python3 scripts/wfuzz.py 20 --exe gleipnir --level 1 --seed 1
+          python3 scripts/wfuzz.py 6 --exe gleipnir --level 9 --seed 2
+
       # UBSan defaults to print-and-continue: it does not abort, and it does not
       # change the exit status.  A finding is therefore invisible to anything
       # that only checks exit codes -- which is exactly how a left shift of a
@@ -86,6 +93,8 @@ jobs:
           # And the same for the parser: sfuzz drives every rejection path, and
           # a UBSan abort there surfaces as an exit status it refuses to accept.
           python3 scripts/sfuzz.py --exe gleipnir-ubsan
+          # The round trip above never reaches the word transform; this does.
+          python3 scripts/wfuzz.py 4 --exe gleipnir-ubsan --level 5 --seed 3
 
       - name: Archive built on Linux must read on Linux
         run: |
@@ -159,6 +168,9 @@ jobs:
       - name: Semantic fuzz (path containment is Windows-specific)
         run: python scripts/sfuzz.py --exe gleipnir.exe
 
+      - name: Word-transform fuzz
+        run: python scripts/wfuzz.py 10 --exe gleipnir.exe --level 1 --seed 4
+
       - name: Upload the Windows binary
         uses: actions/upload-artifact@v7
         with:
@@ -173,7 +185,7 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             ver="${GITHUB_REF#refs/tags/v}"
           else
-            ver="1.0.1"
+            ver="1.1.0"
           fi
           echo "GLEIPNIR_VER=$ver" >> "$GITHUB_ENV"
           echo "version: $ver"
@@ -256,6 +268,13 @@ jobs:
 
       - name: Semantic fuzz
         run: python3 scripts/sfuzz.py --exe gleipnir
+
+      # The inputs above are all too small for the word transform (256 KB
+      # minimum), so none of them builds a word-transformed segment.
+      - name: Word-transform fuzz
+        run: |
+          python3 scripts/wfuzz.py 20 --exe gleipnir --level 1 --seed 1
+          python3 scripts/wfuzz.py 6 --exe gleipnir --level 9 --seed 2
 
       - name: Round-trip fuzz across thread counts
         run: python3 scripts/tfuzz.py --v2 gleipnir
