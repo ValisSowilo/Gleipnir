@@ -1755,11 +1755,16 @@ static void add_wrt_ctx(int bits) {
 #define FE_TXT   0x200          /* word contexts on untransformed text */
 #define FE_IH4   0x400          /* four bytes of follow-history, order-1 indirect */
 #define FE_RUN   0x800          /* run model */
-/* What each preset runs, chosen from the measured cost of each feature (see
- * ARCHITECTURE.md section 30).  -5 takes the cheap ones and on its own beats
- * 1.1's -7 on size and on time; -7 adds the line and indirect contexts and
- * beats 1.1's -9 the same way; -9 takes everything.  Below -5 nothing is
- * added: those presets are about speed, and model 4 there is model 3. */
+/* What each preset runs.  Each feature was priced alone -- size gained
+ * against time added -- and a preset takes a feature when its rate beats the
+ * rate of simply stepping up to the next preset (ARCHITECTURE.md section 30).
+ * -1 and -2 take only what is nearly free outside machine code: the x86
+ * contexts run on x86 blocks alone, and order 0 is a 4 KB table.  -3 adds the
+ * match context, -5 the second mixer and the long-match model, -7 the line
+ * and indirect contexts, and -9 everything.  The -f presets are left alone:
+ * they are defined by their throughput. */
+#define FE1 (FE_X86 | FE_O0)
+#define FE3 (FE1 | FE_MCTX)
 #define FE5 (FE_MIX2 | FE_MM2 | FE_MCTX | FE_MCTX2 | FE_X86 | FE_O0 | FE_IH4)
 #define FE7 (FE5 | FE_IND3 | FE_LCTX)
 #define FE9 (FE7 | FE_X2IN | FE_TXT | FE_RUN)
@@ -1911,7 +1916,8 @@ static void set_level(int lvl) {
     /* Model 4 adds to the context set built above; model 3 adds nothing and
      * leaves every flag off, so it runs exactly the 1.1 code. */
     FEAT = 0;
-    if (MODEL >= 4 && !FASTP) FEAT = lvl >= 9 ? FE9 : (lvl >= 7 ? FE7 : (lvl >= 5 ? FE5 : 0));
+    if (MODEL >= 4 && !FASTP)
+        FEAT = lvl >= 9 ? FE9 : (lvl >= 7 ? FE7 : (lvl >= 5 ? FE5 : (lvl >= 3 ? FE3 : FE1)));
 #ifdef EXPFEAT
     {
         const char *e = getenv("GLEIPNIR_FEAT");
