@@ -30,7 +30,7 @@ expense are decorrelated.  Two sentinels -- `-7` and zpaq -- run at both the
 start and the end; if the machine drifts over the two hours, the pair of
 readings for each says so directly instead of leaving it to be assumed.
 
-  python bench_session.py [--out bench_session.json] [--quick]
+  python bench_session.py [--out bench_session.json] [--exe EXE] [--quick]
 """
 import os, re, sys, json, time, shutil, hashlib, subprocess
 
@@ -157,8 +157,10 @@ def run_ref(name, base, files):
 
 
 def main():
-    global SIL
+    global SIL, GEN
     out = "bench_session.json"
+    if "--exe" in sys.argv:
+        GEN = os.path.abspath(sys.argv[sys.argv.index("--exe") + 1])
     if "--out" in sys.argv:
         out = sys.argv[sys.argv.index("--out") + 1]
     quick = "--quick" in sys.argv

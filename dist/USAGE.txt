@@ -1,4 +1,4 @@
-Gleipnir 1.0.1 -- usage reference
+Gleipnir 1.1.0 -- usage reference
 ============================
 
 Run `gleipnir --help` for a short version of the option list below.
@@ -104,25 +104,25 @@ Measured on the Silesia corpus (211,938,580 bytes), single thread, all in
 one session:
 
   preset   output       compress    decompress   RAM (compress)
-  -f1      44.3 MB      1.84 MB/s   1.84 MB/s      204 MB
-  -1       43.2 MB      1.52 MB/s   1.53 MB/s      196 MB
-  -f2      41.4 MB      1.37 MB/s   1.31 MB/s      238 MB
-  -2       40.6 MB      1.13 MB/s   1.13 MB/s      234 MB
-  -3       39.5 MB      0.85 MB/s   0.86 MB/s      305 MB
-  -5       38.3 MB      0.63 MB/s   0.62 MB/s      483 MB
-  -7       36.5 MB      0.47 MB/s   0.45 MB/s      922 MB
-  -9       35.6 MB      0.36 MB/s   0.32 MB/s     1055 MB
+  -f1      43.2 MB      1.91 MB/s   1.92 MB/s       203 MB
+  -1       42.6 MB      1.67 MB/s   1.66 MB/s       195 MB
+  -f2      40.9 MB      1.38 MB/s   1.38 MB/s       237 MB
+  -2       40.3 MB      1.22 MB/s   1.21 MB/s       233 MB
+  -3       39.4 MB      0.94 MB/s   0.93 MB/s       304 MB
+  -5       38.0 MB      0.66 MB/s   0.65 MB/s       482 MB
+  -7       36.4 MB      0.48 MB/s   0.48 MB/s       954 MB
+  -9       35.5 MB      0.32 MB/s   0.32 MB/s      1193 MB
 
 Every step up the ladder costs roughly 11-13x more time per 1% of size it
 saves, from -2 upward. There is no bargain rung. Pick the slowest one you can
 afford to wait for, twice, once now and once when you restore.
 
-Decompression needs 37-40 MB MORE memory than compression at every preset.
+From -f1 to -5, decompression needs 37-39 MB MORE memory than compression.
 The RAM column above is the compression figure, so size a restore machine
-off the larger number: -9 needs about 1095 MB to extract, not 1055.
+off the larger number. At -7 and -9 the two are within 10 MB.
 
--7's timing varies by about 6% between runs for reasons that are not yet
-understood. Every other preset repeats consistently.
+Times vary between sessions -- -7's has moved by up to 22% -- so treat any
+single figure as approximate. Sizes are exact.
 
 
 VERIFYING WITHOUT A FULL RESTORE

@@ -21,7 +21,8 @@ Benchmark](https://mattmahoney.net/dc/text.html#1571) at 157,139,908 bytes
 Source Compression Benchmark](https://mattmahoney.net/dc/silesia.html) at
 35,583,396 bytes — ahead of every zpaq entry on the board. **It beats `zpaq -m5`
 on all twelve Silesia files**, and at `-5` it wins on all three axes at once:
-2.2% smaller than `zpaq -m5`, 1.6× faster, and 43% less memory.
+2.7% smaller than `zpaq -m5`, 1.75× faster, and 43% less memory (1.1; 1.0.2 was
+2.2% smaller and 1.6× faster).
 
 **1.1 adds a word transform for text** (see
 [Transforms](#word-transform-dictionary-coding-of-text)). It takes enwik9 from
@@ -29,8 +30,8 @@ on all twelve Silesia files**, and at `-5` it wins on all three axes at once:
 **18,027,359 (−4.16%)**, and the Silesia per-file total from 35,583,396 to
 **35,468,198**. Measured against the published tables those would place about
 **29th** on the LTCB and **48th** on Silesia; 1.1 has not been submitted, so
-the listings above are 1.0.2's. Every figure below that is not marked 1.1 is
-1.0.2's too.
+the listings above are 1.0.2's. The preset table and benchmarks below are
+1.1's; figures from 1.0.2 are marked as such.
 
 > **Using it as an archiver?** See **[USAGE.md](USAGE.md)**. `gleipnir.c` wraps the
 > engine documented here in a real archive format — directories, per-segment and
@@ -40,20 +41,20 @@ the listings above are 1.0.2's. Every figure below that is not marked 1.1 is
 
 ```
                       total       ratio     bpc     comp     decomp          peak
-gleipnir -9           35,582,296       5.96x   1.343     597s       672s       1055 MB
-gleipnir -7           36,493,092       5.81x   1.377     451s       467s        922 MB
-gleipnir -5           38,273,415       5.54x   1.445     337s       342s        483 MB
-zpaq -m5         39,113,069       5.42x   1.476     559s       582s      839 MB *
-gleipnir -3           39,510,297       5.36x   1.491     248s       248s        305 MB
-gleipnir -2           40,605,710       5.22x   1.533     187s       188s        234 MB
-gleipnir -f2          41,376,463       5.12x   1.562     155s       162s        238 MB
-lpaq1 -6         43,006,234       4.93x   1.623     173s       186s      199 MB *
-gleipnir -1           43,207,157       4.91x   1.631     139s       139s        196 MB
-gleipnir -f1          44,279,445       4.79x   1.671     115s       115s        204 MB
-xz -9e           48,456,100       4.37x   1.829     114s         2s      509 MB *
+gleipnir -9           35,467,098       5.98x   1.339     661s       661s       1193 MB
+gleipnir -7           36,401,926       5.82x   1.374     442s       441s        954 MB
+gleipnir -5           38,043,334       5.57x   1.436     322s       324s        482 MB
+zpaq -m5         39,113,069       5.42x   1.476     563s       570s      839 MB *
+gleipnir -3           39,429,389       5.38x   1.488     226s       227s        304 MB
+gleipnir -2           40,346,553       5.25x   1.523     173s       176s        233 MB
+gleipnir -f2          40,928,575       5.18x   1.545     153s       154s        237 MB
+gleipnir -1           42,620,088       4.97x   1.609     127s       128s        195 MB
+lpaq1 -6         43,006,234       4.93x   1.623     176s       187s      199 MB *
+gleipnir -f1          43,229,187       4.90x   1.632     111s       111s        203 MB
+xz -9e           48,456,100       4.37x   1.829     108s         2s      509 MB *
 brotli -q11      49,564,563       4.28x   1.871     387s         1s      219 MB *
-bzip2 -9         54,506,769       3.89x   2.057      18s        11s       12 MB *
-gzip -9          67,631,918       3.13x   2.553      17s         3s        8 MB *
+bzip2 -9         54,506,769       3.89x   2.057      17s        11s       12 MB *
+gzip -9          67,631,918       3.13x   2.553      16s         2s        8 MB *
 ```
 
 Silesia, 211,938,580 bytes, one machine, single thread, every `gleipnir` result
@@ -61,36 +62,44 @@ round-trip verified against its SHA-256. `gleipnir` reports its own peak RSS fro
 inside the process, which is exact; the codecs marked `*` do not, so theirs is
 **sampled at 50 ms and is a lower bound** — never compare the two as equals.
 
-The `peak` column is **compression**. Decompression peaks 37–40 MB higher at
-every preset (`-9` needs 1095 MB, not 1055), so size a restore host off the
-decompression figure — that is the one that has to succeed when it matters.
+The `peak` column is **compression**. From `-f1` to `-5` decompression peaks
+37–39 MB higher, so size a restore host off the decompression figure — that is
+the one that has to succeed when it matters. At `-7` and `-9` the peak is set
+by a word-transformed text file, where the two are within 10 MB of each other
+(`-9`: 1193 MB compressing, 1183 decompressing).
 
 **Every row above was measured in one session**, interleaved, with `gleipnir -7` and
 `zpaq -m5` repeated at both ends as drift sentinels
-(`scripts/bench_session.py`, 2 h 25 m). Earlier revisions of this table mixed sessions,
-which is not safe here — see below.
+(`scripts/bench_session.py`, 2 h 37 m, 2026-09-26) — with one exception, and
+the sentinels are what caught it. That run's opening sentinels read 26% slower
+than its closing ones, so its first three rows (`-7`, zpaq and `-9`) were
+measured under load. Those three were re-run in a follow-up session bracketed
+by its own sentinels, which agreed to 0.05% (`-7`) and 0.87% (zpaq) and match
+the main run's closing readings; the discarded rows are kept in
+`bench_session.json`. Mixing sessions blindly is not safe here — see below.
 
 **Sizes are exact and reproduce across every session ever run**, including
 zpaq's 39,113,069 to the byte. Only the time axis was ever in question.
 
-> ⚠️ **`-7`'s timing is unstable and its speed claim carries a range.** In this
-> single run the two `-7` sentinels measured **437.0 s and 464.0 s — a 6.18%
-> spread** — while `zpaq -m5` measured 559.4 s both times, a drift of 0.00%.
-> The instability is specific to the preset, not the machine. Across sessions
-> `-7` has read 404, 437, 462, 464, 486, 490 and 492 s with byte-identical
-> output. Its `1.24×` below uses the mean; the range is 1.21–1.28×.
+> ⚠️ **Times move between sessions; sizes never do.** `-7` read 441.5, 441.9
+> and 441.7 s across the two runs here, but has read anywhere from 404 to 492 s
+> in earlier sessions with byte-identical output. `-9` read 661 s here against
+> 597 s in 1.0.2's session — yet in a same-session A/B on mozilla, a file the
+> word transform leaves untouched, 1.1 was 12% *faster* than 1.0.2 with
+> identical output, so that move is the session, not the code. Compare times
+> within one table, never across two.
 > See [ARCHITECTURE.md §26](ARCHITECTURE.md#26-the-reproducibility-problem).
 
 Two honest summaries, because there is no single one:
 
-- **`-5` beats `zpaq -m5` on all three axes at once**: 2.2% smaller, 1.6× faster,
-  and 43% less memory.
-- **`-9` buys 9.0% over `zpaq -m5` by spending**: 1.07× the time and 1.26× the
-  memory. Two claims here have been withdrawn. An earlier draft of this file
-  said `-9` used *less* memory than zpaq; measured head to head that is wrong
-  — 1055 MB against 839 MB. It also said 1.31× the time, which was a
-  cross-session artefact: measured inside one session `-9` is **1.07× slower**
-  (597.1 s against zpaq's 559.4 s). See [Benchmarks](#benchmarks).
+- **`-5` beats `zpaq -m5` on all three axes at once**: 2.7% smaller, 1.75×
+  faster, and 43% less memory.
+- **`-9` buys 9.3% over `zpaq -m5` by spending**: 1.18× the time and 1.42× the
+  memory (1193 MB against 839 MB; the word transform's four extra contexts
+  are 256 MB of that on text). An earlier draft of this file said `-9` used
+  *less* memory than zpaq, which measured head to head was wrong, and once
+  quoted 1.31× the time, which was a cross-session artefact. See
+  [Benchmarks](#benchmarks).
 
 On the [Silesia Open Source Compression
 Benchmark](https://mattmahoney.net/dc/silesia.html) Gleipnir 1.0.2 is listed
@@ -100,9 +109,9 @@ author and listed by Mahoney on 2026-09-25; like other submitted results on
 that page, it has not been independently re-run.
 
 > **Which figure is the listed one.** The board compresses the twelve files
-> *individually*, while the 35,582,296 above is a single archive over the whole
-> directory, which lets deduplication work across files, and it comes from the
-> pre-release build used for the timing session. The listed figure is the
+> *individually*, while the 35,467,098 above is a single archive over the whole
+> directory, which lets deduplication work across files. (1.1 compressing each
+> file on its own gives 35,468,198, 1,100 bytes more.) The listed figure is the
 > **released v1.0.2 binary compressing each file on its own: 35,583,396**
 > (`-9 -s1000 -t1`), measured 2026-09-23 and round-trip verified — ahead of
 > `paq8pxd_v4 -5` by 2,906 bytes. Per-file sizes are in
@@ -118,8 +127,7 @@ It is **not** state of the art: `paq8px -12L` reaches 27,825,511 — this is
 +28.6% larger — using 29 GB. See [Where this stands](#where-this-stands).
 
 All eight presets against all six reference codecs, on one machine and one
-corpus. `graphs/speed_vs_size.svg` below is the previous build; these three are
-current:
+corpus:
 
 ![all presets vs reference codecs, compression](graphs/presets_ladder.svg)
 ![all presets vs reference codecs, decompression](graphs/presets_ladder_decomp.svg)
@@ -130,10 +138,11 @@ per 1% of size it saves — is the graph to read before choosing a preset:
 
 ![what each step up the ladder costs](graphs/presets_marginal.svg)
 
-**Decompression needs more memory than compression**, consistently 37–40 MB
-more at every preset — 18% at `-f1`, 4% at `-9`, where the model dominates.
-The `peak` column in the table above is the *compression* figure, so size a
-restore host off this chart rather than off that column:
+**Decompression needs more memory than compression** from `-f1` to `-5`,
+consistently 37–39 MB more — 18% at `-f1`, 8% at `-5`. At `-7` and `-9` the
+peak comes from a word-transformed text file and the two sides are within
+10 MB. The `peak` column in the table above is the *compression* figure, so
+size a restore host off this chart rather than off that column:
 
 ![peak memory, compression against decompression](graphs/presets_memory.svg)
 
@@ -154,8 +163,8 @@ enwik9 the word transform (see [Transforms](#word-transform-dictionary-coding-of
 takes 157,073,381 to **148,026,632**, which would move it from 35th to about 29th
 of 227 on that board.
 
-Six presets span the speed/ratio curve, and **`-7` is within 1.5% of `-9` for
-29% less time** — the better default for anything that is not a ratio contest.
+Eight presets span the speed/ratio curve, and **`-7` is within 2.7% of `-9` for
+33% less time** — the better default for anything that is not a ratio contest.
 
 ---
 
@@ -172,7 +181,8 @@ download](#verify-your-download).
 **Easiest — the one-click installer:**
 
 1. Open the **[Releases page](https://github.com/ValisSowilo/Gleipnir/releases/latest)**.
-   Under **Assets**, click **`gleipnir-1.0.1-setup.exe`** to download it, then
+   Under **Assets**, click **`gleipnir-<version>-setup.exe`** (for example
+   `gleipnir-1.1.0-setup.exe`) to download it, then
    double-click the downloaded file.
 2. Because it is not code-signed, Windows shows a blue **"Windows protected your
    PC"** box — click **More info**, then **Run anyway**. (It installs only into
@@ -1247,14 +1257,20 @@ Compression and decompression both measured, RSS reported by the engine itself,
 every row round-trip verified against its SHA-256 — a failed verify invalidates
 the row, not just its timing.
 
-Times come from a **single interleaved session** (`scripts/bench_session.py`, 2 h 25 m),
-with `gleipnir -7` and `zpaq -m5` repeated at both ends as drift sentinels. `gleipnir`
-archives the whole directory; reference codecs run per file and are summed,
-which is the published protocol kept unchanged so these numbers stay comparable
-to the ones they replace.
+Times come from a **single interleaved session** (`scripts/bench_session.py`, 2 h 37 m,
+2026-09-26), with `gleipnir -7` and `zpaq -m5` repeated at both ends as drift
+sentinels. `gleipnir` archives the whole directory; reference codecs run per
+file and are summed, which is the published protocol kept unchanged so these
+numbers stay comparable to the ones they replace.
 
-`-7` carries an explicit ±6%: its two sentinel readings in this run were
-437.0 s and 464.0 s, where `zpaq` read 559.4 s both times.
+That session's opening sentinels read 26% slower than its closing ones
+(`-7` 595.8 → 441.5 s, zpaq 758.1 → 561.0 s), which is the failure the
+sentinels exist to catch: the first three rows had run under load. `-7`, zpaq
+and `-9` were therefore re-measured in a follow-up run bracketed by its own
+sentinels — `-7` 441.9 / 441.7 s, zpaq 565.8 / 560.9 s — which agree with each
+other and with the main run's closing pair. `-7` and zpaq below are the means
+of their three clean readings; the discarded rows are kept in
+`bench_session.json` under `discarded`.
 
 **The protocol this replaces was wrong, and the error is worth recording.**
 Times used to be best-of-two across a forward and a reverse-order pass: the
@@ -1275,14 +1291,18 @@ question. See
 
 | preset | output | bpc | ratio | vs zpaq -m5 | comp | MB/s | decomp | MB/s | RSS |
 |---|---|---|---|---|---|---|---|---|---|
-| `-f1` | 44,279,445 | 1.671 | 4.79x | +13.21% | 115.0s | 1.844 | 115.0s | 1.843 | 204 MB |
-| `-1` | 43,207,157 | 1.631 | 4.91x | +10.47% | 139.2s | 1.522 | 138.7s | 1.528 | 196 MB |
-| `-f2` | 41,376,463 | 1.562 | 5.12x | +5.79% | 155.0s | 1.367 | 162.0s | 1.308 | 238 MB |
-| `-2` | 40,605,710 | 1.533 | 5.22x | +3.82% | 187.4s | 1.131 | 187.8s | 1.129 | 234 MB |
-| `-3` | 39,510,297 | 1.491 | 5.36x | +1.02% | 248.5s | 0.853 | 248.0s | 0.855 | 305 MB |
-| `-5` | 38,273,415 | 1.445 | 5.54x | **-2.15%** | 336.8s | 0.629 | 342.4s | 0.619 | 483 MB |
-| `-7` | 36,493,092 | 1.377 | 5.81x | **-6.70%** | 450.5s ± 6% | 0.470 | 467.4s | 0.453 | 922 MB |
-| `-9` | 35,582,296 | 1.343 | 5.96x | **-9.03%** | 597.1s | 0.355 | 672.5s | 0.315 | 1055 MB |
+| `-f1` | 43,229,187 | 1.632 | 4.90x | +10.52% | 111.1s | 1.907 | 110.5s | 1.919 | 203 MB |
+| `-1` | 42,620,088 | 1.609 | 4.97x | +8.97% | 126.9s | 1.670 | 127.7s | 1.660 | 195 MB |
+| `-f2` | 40,928,575 | 1.545 | 5.18x | +4.64% | 153.1s | 1.385 | 153.9s | 1.377 | 237 MB |
+| `-2` | 40,346,553 | 1.523 | 5.25x | +3.15% | 173.3s | 1.223 | 175.8s | 1.205 | 233 MB |
+| `-3` | 39,429,389 | 1.488 | 5.38x | +0.81% | 225.5s | 0.940 | 227.0s | 0.934 | 304 MB |
+| `-5` | 38,043,334 | 1.436 | 5.57x | **-2.73%** | 322.0s | 0.658 | 324.0s | 0.654 | 482 MB |
+| `-7` | 36,401,926 | 1.374 | 5.82x | **-6.93%** | 441.7s | 0.480 | 441.2s | 0.480 | 954 MB |
+| `-9` | 35,467,098 | 1.339 | 5.98x | **-9.32%** | 661.3s | 0.320 | 661.4s | 0.320 | 1193 MB |
+
+Every size is smaller than 1.0.2's at the same preset — from −0.2% at `-3` to
+−2.4% at `-f1` — because the word transform takes Silesia's three text files
+at every preset. The other nine files are byte-identical to 1.0.2.
 
 Against the reference codecs. Sizes and times are from the **same interleaved
 session** as the preset table above, so they are comparable to it. The peak RSS
@@ -1294,15 +1314,15 @@ its own figure exactly.
 
 | | output | comp | decomp | peak (sampled, separate run) |
 |---|---|---|---|---|
-| `zpaq -m5` | 39,113,069 | 559.4s | 581.7s | 839 MB |
-| `lpaq1 -6` | 43,006,234 | 173.2s | 186.5s | 199 MB |
-| `xz -9e` | 48,456,100 | 113.8s | 2.2s | 509 MB |
-| `brotli -q11` | 49,564,563 | 387.0s | 1.2s | 219 MB |
-| `bzip2 -9` | 54,506,769 | 17.9s | 11.0s | 12 MB |
-| `gzip -9` | 67,631,918 | 16.7s | 2.6s | 8 MB |
+| `zpaq -m5` | 39,113,069 | 562.6s | 569.9s | 839 MB |
+| `lpaq1 -6` | 43,006,234 | 176.0s | 186.9s | 199 MB |
+| `xz -9e` | 48,456,100 | 107.5s | 2.1s | 509 MB |
+| `brotli -q11` | 49,564,563 | 386.9s | 1.0s | 219 MB |
+| `bzip2 -9` | 54,506,769 | 17.4s | 10.9s | 12 MB |
+| `gzip -9` | 67,631,918 | 16.0s | 2.1s | 8 MB |
 
-`zpaq` is a drift sentinel, so it has two readings: 559.4 s both times on the
-compression side, and 581.7 s is the mean of 587.6 and 575.8.
+`zpaq` is a drift sentinel, so it has three clean readings here — 561.0,
+565.8 and 560.9 s compressing — and the table carries their mean.
 
 **This table used to be the `scripts/bench_refs.ps1` run throughout, and that is how it
 came to disagree with its own surroundings** — it gave zpaq 544.8 s while every
@@ -1321,58 +1341,55 @@ Where each preset sits against `zpaq -m5`:
 
 | preset | size | speed | memory |
 |---|---|---|---|
-| `-f1` | +13.21% | **4.87x faster** | 204 MB vs 839 |
-| `-1` | +10.47% | **4.02x faster** | 196 MB vs 839 |
-| `-f2` | +5.79% | **3.61x faster** | 238 MB vs 839 |
-| `-2` | +3.82% | **2.99x faster** | 234 MB vs 839 |
-| `-3` | +1.02% | **2.25x faster** | 305 MB vs 839 |
-| `-5` | **-2.15%** | **1.66x faster** | 483 MB vs 839 |
-| `-7` | **-6.70%** | **1.24x faster** *(range 1.21–1.28)* | 922 MB vs 839 |
-| `-9` | **-9.03%** | 1.07x slower | 1055 MB vs 839 |
+| `-f1` | +10.52% | **5.06x faster** | 203 MB vs 839 |
+| `-1` | +8.97% | **4.43x faster** | 195 MB vs 839 |
+| `-f2` | +4.64% | **3.68x faster** | 237 MB vs 839 |
+| `-2` | +3.15% | **3.25x faster** | 233 MB vs 839 |
+| `-3` | +0.81% | **2.49x faster** | 304 MB vs 839 |
+| `-5` | **-2.73%** | **1.75x faster** | 482 MB vs 839 |
+| `-7` | **-6.93%** | **1.27x faster** | 954 MB vs 839 |
+| `-9` | **-9.32%** | 1.18x slower | 1193 MB vs 839 |
 
 Six points worth pulling out:
 
 - **`-5` is the only row that wins on all three axes at once**: smaller, faster
-  and lighter than `zpaq -m5` simultaneously. `-3` gives up 1.02% of size to be
-  more than twice as fast.
-- **`-7` beats zpaq on size *and* speed, at 1.24× rather than the 1.35× once
-  claimed.** The size win is exact and has reproduced in every session ever
-  run: 6.70% smaller. The speed figure needed two corrections. The original
-  **1.35× divided one session's zpaq time by another session's `-7`**. A later
-  attempt to correct it to 1.06× was also wrong — it compared `gleipnir`'s
-  whole-directory archive against a whole-directory zpaq run, while every
-  published reference figure is per-file-summed, so it was a methodology
-  mismatch rather than a fix. Measured in one session under the published
-  methodology, `-7` is **1.24× faster** (450.5 s mean against zpaq's 559.4 s),
-  with a 1.21–1.28× range from `-7`'s own instability. The Tier-2 gates
-  remain the largest single-preset improvement in the engine's history.
-  Between `-5` and `-7` the memory nearly doubles, which is where the a4/a6
-  SSE tables switch on — and `-7` is also the preset whose timing is least
-  stable, which may not be a coincidence.
-- **`-9` is much closer to zpaq than previously published**: 1.07× slower, not
-  1.31×. It gained the most of any preset from being measured properly
-  (597 s here against 716 s before), which is the other half of the same
-  lesson — cross-session error is not a bias in one direction, it is noise,
-  and it had been flattering `-7` while penalising `-9`.
+  and lighter than `zpaq -m5` simultaneously. `-3` gives up 0.81% of size to be
+  two and a half times as fast.
+- **`-7` beats zpaq on size *and* speed**: 6.93% smaller and 1.27× faster
+  (441.7 s against 562.6 s). The speed figure has a history worth keeping. The
+  original 1.35× divided one session's zpaq time by another session's `-7`; a
+  later "correction" to 1.06× compared a whole-directory zpaq run against the
+  per-file-summed protocol every published figure uses. Only a single session
+  under one methodology gives a ratio that means anything, and `-7`'s time has
+  ranged 404–492 s across sessions (§26) — though all three of its readings
+  here fell within 0.4 s of each other.
+- **`-9` is 1.18× zpaq's time in this session, against 1.07× in 1.0.2's.**
+  That is not the word transform costing time: in a same-session A/B on mozilla,
+  which the transform declines, 1.1 was 12% *faster* than 1.0.2 with identical
+  output, and on the three text files it takes it is faster still. It is the
+  cross-session variance §26 documents, landing on `-9` this time. The memory
+  is real, though: the four extra contexts add 256 MB on text, which is why
+  `-9` now peaks at 1193 MB rather than 1055.
 - **The `-f` rungs interleave with the numbered ones rather than sitting below
   them.** Ordered by measured cost the ladder is `f1, 1, f2, 2, 3, 5, 7, 9` —
   `-f2` is both smaller and slower than `-1`. Their naming implies a separate
   track; they are really two more rungs on the same one. No preset is
   dominated: none is beaten by another on size and speed together.
-- **`-1` is Pareto-equal to lpaq1 to within measurement noise**: 0.47% larger,
-  1.17× faster, 2% less memory. Neither dominates the other.
+- **`-1` now beats lpaq1 on every axis**: 0.90% smaller, 1.39× faster, and 4 MB
+  lighter. In 1.0.2 it was 0.47% larger and the two were a draw; the word
+  transform is worth 6% at `-1` on text, the most of any rung but `-f1`.
 - **Decompression is symmetric with compression** to within about 2% at every
   preset. That is inherent — the decoder runs the identical model and the same
-  predict/update path, and allocates the same tables, so decompression memory
-  equals compression memory. There is no asymmetric optimisation available here,
-  unlike the LZ codecs: `xz` decodes **52× faster** than it encodes and `brotli`
-  **322×**, which is the whole reason they are shipped to browsers.
+  predict/update path, and allocates the same tables. There is no asymmetric
+  optimisation available here, unlike the LZ codecs: `xz` decodes **51× faster**
+  than it encodes and `brotli` **about 390×**, which is the whole reason they
+  are shipped to browsers.
 
 ![decompression size against speed](graphs/decomp_vs_size.svg)
 
 That asymmetry is the clearest statement of what this class of compressor is
 for. On the decode axis the LZ family is not a competitor, it is a different
-product: brotli finishes the corpus in 1.2 seconds against `-9`'s 722. Context
+product: brotli finishes the corpus in 1.0 seconds against `-9`'s 661. Context
 mixing is worth it when the data will be stored far more often than it is read,
 or when the bytes saved are worth more than the seconds spent.
 
@@ -1420,8 +1437,8 @@ competitors was measured on this machine and is directly comparable throughout.
 | `paq8px_v206 -12L` | 15,849,084 | 1.268 | | | LTCB |
 | `zpaq 6.42 -max` | 17,855,729 | 1.428 | | | LTCB |
 | **`gleipnir -9`** (1.1) | **18,027,359** | **1.442** | 345.6s | 324.9s | here |
+| **`gleipnir -5`** (1.1) | **18,658,545** | **1.493** | 153.9s | 145.4s | here |
 | `gleipnir -9` (1.0.2) | 18,810,676 | 1.505 | 347.1s | 324.4s | here |
-| **`gleipnir -5`** | **19,660,660** | **1.573** | 179.6s | 181.7s | here |
 | `lpaq1 -9` | 19,755,948 | 1.580 | | | LTCB |
 | `xz -9e` (tuned) | 24,703,772 | 1.976 | | | LTCB |
 | `brotli -q11` | 25,764,698 | 2.061 | | | LTCB |
@@ -1432,8 +1449,9 @@ With the word transform `gleipnir -9` is 8.7% smaller than `lpaq1 -9` and
 trails `zpaq -max` by only 1.0% (1.0.2 trailed it by 5.3%); it beats every LZ
 codec by a wide margin and trails the heavy CM and neural engines by more. The
 1.1 row and the 1.0.2 row come from the same interleaved session on the same
-machine, so their times compare directly; the `-5` row is 1.0.2's. Speeds run
-0.29 MB/s at `-9` and 0.56 MB/s at `-5`, decoding within a few percent of that. Text is where this engine is weakest
+machine, so their times compare directly; the 1.1 `-5` row is from a separate
+pass on the same machine. Speeds run 0.29 MB/s at `-9` and 0.65 MB/s at `-5`,
+decoding within a few percent of that. Text is where this engine is weakest
 relative to the field — the full preset ladder and the reason are in [Where it
 struggles](#where-it-struggles).
 
@@ -1628,11 +1646,13 @@ timing in it must be thrown away rather than corrected.
 
 ## Verification
 
-No change ships without both suites passing:
+No change ships without these round-trip suites passing (the corruption and
+semantic suites, `gfuzz.py` and `sfuzz.py`, are in [SECURITY.md](SECURITY.md)):
 
 ```bash
 python scripts/fuzz.py gleipnir.exe --v2    # 81 edge cases x 8 presets = 648 round trips
 python scripts/tfuzz.py gleipnir.exe --v2   # 10 cases x 6 thread counts = 60 round trips
+python scripts/wfuzz.py 30 --exe gleipnir.exe   # word-transformed text, round trip
 ```
 
 708 round trips, every one byte-exact. The level sweep in `scripts/fuzz.py` is not
@@ -1699,33 +1719,35 @@ and carried neither the word-pair nor the line model, the two things that
 actually pay on text. Rebuilt around orders 1–6 plus word, word-pair, line,
 previous-line, indirect and one sparse.
 
-enwik8, single thread, released binary, all `gleipnir` rows round-trip verified. The
-`gleipnir` ladder and the two reference codecs were each run as an uninterrupted pass
-on the same idle machine (not interleaved with drift sentinels the way the
-Silesia table is, so read the times as same-machine rather than same-session):
+enwik8, one segment (`-s1000`), single thread, all `gleipnir` rows round-trip
+verified. The 1.1 ladder was run as one uninterrupted pass on an idle machine,
+the reference codecs in an earlier pass on the same machine — so read times
+across the two as same-machine, not same-session:
 
-| | output | bpc | comp | decomp |
-|---|---|---|---|---|
-| `-1` | 23,263,174 | 1.861 | 72.3s | 74.5s |
-| `-3` | 20,125,007 | 1.610 | 144.5s | 133.4s |
-| `-5` | 19,660,660 | 1.573 | 179.6s | 181.7s |
-| `-7` | 19,088,707 | 1.527 | 239.9s | 243.5s |
-| `-9` | 18,810,676 | 1.505 | 347.1s | 324.4s |
-| lpaq1 -6 | 20,078,550 | 1.606 | 87.0s | 93.1s |
-| zpaq -m5 | 19,625,046 | 1.570 | 297.8s | 298.3s |
+| | 1.0.2 | 1.1 | bpc | comp | decomp |
+|---|---|---|---|---|---|
+| `-1` | 23,263,174 | **21,278,252** | 1.702 | 49.8s | 48.5s |
+| `-3` | 20,125,007 | **19,398,969** | 1.552 | 91.4s | 90.9s |
+| `-5` | 19,660,660 | **18,658,545** | 1.493 | 153.9s | 145.4s |
+| `-7` | 19,088,707 | **18,351,294** | 1.468 | 199.5s | 196.7s |
+| `-9` | 18,810,676 | **18,027,359** | 1.442 | 345.6s | 324.9s |
+| lpaq1 -6 | | 20,078,550 | 1.606 | 87.0s | 93.1s |
+| zpaq -m5 | | 19,625,046 | 1.570 | 297.8s | 298.3s |
 
-The old strict domination is gone: `-5` is now **2.08% smaller than lpaq1**
-where the pre-rebuild `-5` was 2.4% larger. But **lpaq1 is still ahead at
-comparable ratio** — it is 0.23% smaller than `-3` *and* faster (87.0s against
-144.5s), reaching output between `-3` and `-5` in half of `-5`'s time. It
-dominates `-3` outright and sits on this engine's size-time frontier just below
-`-5`, which is a fair summary of where text modelling here still falls short.
+In 1.0.2 **lpaq1 was still ahead at comparable ratio**: 0.23% smaller than
+`-3` and faster, sitting on this engine's size-time frontier just below `-5`.
+That was the clearest summary of where text modelling here fell short, and the
+word transform is what closed it. `-3` is now **3.4% smaller than lpaq1** at
+about its speed, and `-1` is 6% larger at 1.7× lpaq1's speed. Neither side
+dominates any more.
 
-Against `zpaq -m5` on enwik8, only `-7` and `-9` win on size: `-5` is 0.18%
-*larger* (though 1.7× faster), `-7` is 2.73% smaller and still 1.2× faster, `-9`
-is 4.15% smaller at 1.2× the time. This is a much thinner margin than the −9.03%
-on Silesia, and that contrast is the point: **the Silesia advantage comes from
-structured and binary content, not from text.**
+Against `zpaq -m5` on enwik8, 1.0.2 won on size only at `-7` and `-9`. **1.1
+wins from `-3` up**: `-3` is 1.15% smaller at 3.3× the speed, `-5` 4.9% smaller
+at 1.9×, `-7` 6.5% smaller at 1.5×, `-9` 8.1% smaller at 0.86×. That is now
+roughly the margin it holds on Silesia (−9.32% at `-9`), where it used to be
+half of it; in 1.0.2 the contrast was the point — the Silesia advantage came
+from structured and binary content, not text — and the transform has mostly
+removed it.
 
 `-7` is the preset where the match bypass earns least on this file. enwik8 is a
 single 100 MB stream of prose whose matches are mostly medium-length, which is
