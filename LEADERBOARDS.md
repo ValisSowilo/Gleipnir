@@ -4,12 +4,14 @@ This file records exactly how Gleipnir compares to the two public benchmark
 tables it is measured against, and — more importantly — what those comparisons
 do *not* mean.
 
-> **Gleipnir is not listed on either board.** It has never been submitted to,
-> tested by, or verified by anyone but its author. Every placement below is a
-> comparison of Gleipnir's own measured totals against figures published on
-> those pages. Read them as "would place around", never as "is ranked".
+> **Gleipnir 1.0.2 is listed on both boards**, added by Matt Mahoney on
+> **2026-09-25**: **35th of 227** on the Large Text Compression Benchmark and
+> **49th of 322** on the Silesia Open Source Compression Benchmark. The results
+> were submitted by the author and measured on the author's machine (LTCB note
+> 116); as the LTCB page says of every submitted entry, Mahoney has not
+> re-run them himself.
 
-Both pages were last fetched and parsed on **2026-09-23**. Entry counts move as
+Both pages were last fetched and parsed on **2026-09-25**. Entry counts move as
 Mahoney adds results, so the denominators here are a snapshot with a date on
 it, not a constant. The previous revision of the README carried "50th of 211",
 a count that had been stale for some time; that is the failure this file exists
@@ -20,10 +22,10 @@ to prevent.
 ## Silesia Open Source Compression Benchmark
 
 <http://mattmahoney.net/dc/silesia.html> — ranks by total compressed size over
-the twelve-file Silesia corpus (211,938,580 bytes). **320 entries** on
-2026-09-23 (the page reads "as of Sept. 21, 2026").
+the twelve-file Silesia corpus (211,938,580 bytes). **322 entries** on
+2026-09-25, Gleipnir included (the page reads "as of Sept. 25, 2026").
 
-### The figure that is comparable to the board
+### The listed figure
 
 The board compresses each file individually. Measured that way on the
 **released v1.0.2 binary** (`gleipnir.exe`, SHA-256 `013522ab…6dc7`) on
@@ -62,20 +64,33 @@ The release is 190,561 bytes smaller per-file than the development build that
 produced `bench_final.json`, which is why that file's total should no longer be
 quoted.
 
-### Where it would place
+### Where it is listed
 
 ```
   46.  35,336,837   paq8l -8
   47.  35,457,761   fp8_v4 -8
   48.  35,511,180   paq8l -7
-  49.  35,583,396   gleipnir -9   <-- would place here (v1.0.2, per-file)
+  49.  35,583,396   gleipnir 1.0.2 -9 -s1000 -t1   <-- listed 2026-09-25
   50.  35,586,302   paq8pxd_v4 -5
   51.  35,909,528   paq8px_v69 -5
   52.  35,983,639   paq8pxd_v4 -4
 ```
 
-**49th of 320.** The margin is thin in both directions: Gleipnir clears
+**49th of 322.** The margin is thin in both directions: Gleipnir clears
 `paq8pxd_v4 -5` by 2,906 bytes and trails `paq8l -7` by 72,216.
+
+The row as published:
+
+```
+ 35583396  2048  9632 2025  1136 1745  2196  882  2645 3584  5499  3698  309 gleipnir 1.0.2 -9 -s1000 -t1
+```
+
+The total matches exactly. Two per-file cells do not match the measurement
+above: the page shows **sao 3584** and **x-ray 3698** where the measured sizes
+are 3854 and 3608 KB. The twelve cells on the page sum to 35,399 KB, not the
+~35,579 the total implies, while the measured cells do sum to it — so this looks
+like a transcription slip on the page. It does not affect the rank, which is by
+total only.
 
 ### "Ahead of every zpaq entry"
 
@@ -88,7 +103,8 @@ Every Gleipnir figure above is below all of them.
 
 ## Large Text Compression Benchmark (enwik9)
 
-<http://mattmahoney.net/dc/text.html> — **226 entries** on 2026-09-23.
+<http://mattmahoney.net/dc/text.html> — **227 entries** on 2026-09-25, Gleipnir
+included as entry [.1571](https://mattmahoney.net/dc/text.html#1571).
 
 ### How it ranks, which is not how you would guess
 
@@ -102,10 +118,10 @@ Two consequences that matter:
 **The decompressor counts.** Gleipnir's raw 157,073,381 (v1.0.2 release, stored
 name `enwik9`) is not the number that would be listed. Zipped at deflate level 9:
 
-| decompressor | zip | total | placement |
+| decompressor | zip | total | rank |
 |---|---|---|---|
-| `gleipnir.c` v1.0.2 (209,435 raw) | 66,527 | 157,139,908 | 35th of 227 |
-| `gleipnir.exe` v1.0.2 (255,857 raw) | 124,882 | 157,198,263 | 35th of 227 |
+| `gleipnir.c` v1.0.2 (209,435 raw) | 66,527 | 157,139,908 | **35th of 227 — the listed entry** |
+| `gleipnir.exe` v1.0.2 (255,857 raw) | 124,882 | 157,198,263 | would also be 35th |
 
 It lands in the same slot either way — the decompressor is 0.04–0.09% of the
 total, against a 4.5% margin over the next entry down. zlib was the risk here
@@ -116,7 +132,7 @@ zip is self-contained rather than needing zlib source alongside it.
   32.  153,238,244   fp8 v3            -8
   33.  156,391,589   WinRK 3.03        pwcm +td 800MB SFX
   34.  157,049,402   ppmonstr J        -m1700 -o16
-  35.  157,139,908   gleipnir -9       <-- would place here
+  35.  157,139,908   gleipnir 1.0.2    -9 -s1000 -t1   <-- listed 2026-09-25
   36.  157,388,188   stc
   37.  159,363,208   zcm 0.93          -m8 -t1
   38.  159,842,292   slim 23d          -m1700 -o12
@@ -125,6 +141,19 @@ zip is self-contained rather than needing zlib source alongside it.
 The board gained four entries above this point between 2026-09-07 and
 2026-09-23, which is why this reads 35th where the previous revision read 31st.
 Nothing about Gleipnir changed.
+
+The row as published, with the source zip (`sd`) as the decompressor and the
+hardware in note 116 (Ryzen 5 4500, 16 GB DDR4, Windows 11):
+
+```
+gleipnir 1.0.2  -9 -s1000 -t1  18,810,680  157,073,381  66,527 sd  157,139,908  3170  3150  3836  CM  116
+```
+
+It matches the v1.0.2 measurements in this file: enwik9 157,073,381, 3170 /
+3150 ns/byte, 3,836 MB peak (the decompression peak). The listed enwik8,
+18,810,680, is four bytes above the 18,810,676 the README quotes — the same
+stored-name effect explained below: the archive stored `enwik8` rather than a
+two-character name. The codec output is identical.
 
 The v1.0.2 release was measured on enwik9 on 2026-09-23: **157,073,381** in one
 segment (`-9 -s1000 -t1`, stored name `enwik9`), 3169.7 s to compress and
@@ -217,8 +246,8 @@ The placement cost of running that way:
 
 | run | total with `gleipnir.c` zip | placement |
 |---|---|---|
-| one segment | 157,139,908 | 35th of 227 |
-| default `-s64` | 164,147,480 | 47th of 227 |
+| one segment | 157,139,908 | 35th of 227 (listed) |
+| default `-s64` | 164,147,480 | would be 47th of 227 |
 
 Twelve places for 4.46%, which is what a board this dense at the top costs.
 
@@ -247,5 +276,6 @@ gleipnir c -9 enwik9-s64.gl   enwik9      # default: sixteen segments
 gleipnir c -9 -s1000 enwik9-solid.gl enwik9   # one segment
 ```
 
-The board pages change. Re-fetch them before repeating any placement claim in
-this file, and update the date at the top when you do.
+The board pages change. Re-fetch them before repeating any rank in this file,
+and update the date at the top when you do; ranks drift as entries are added
+above, even though Gleipnir's own figures do not.

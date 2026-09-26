@@ -4,19 +4,22 @@
 [![release](https://img.shields.io/github/v/release/ValisSowilo/Gleipnir?label=release)](https://github.com/ValisSowilo/Gleipnir/releases/latest)
 [![licence](https://img.shields.io/badge/licence-GPL--3.0--or--later-blue)](LICENSE.md)
 [![platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows%20%7C%20macOS%20arm64-lightgrey)](#download-and-install)
+[![LTCB](https://img.shields.io/badge/LTCB%20enwik9-35th%20of%20227-brightgreen)](https://mattmahoney.net/dc/text.html#1571)
+[![Silesia](https://img.shields.io/badge/Silesia-49th%20of%20322-brightgreen)](https://mattmahoney.net/dc/silesia.html)
 
 A from-scratch lossless compressor and archiver in **one 4,701-line C file**,
 with zlib as its only dependency. It predicts each bit with 27 statistical
 models — 30 on raster data — blends their predictions with a learned mixer, and
 codes the result with an arithmetic coder.
 
-**It beats `zpaq -m5` on all twelve Silesia files**, and its `-9` total would
-place **just inside the top 50 of 320 entries** on the [Silesia Open Source
-Compression Benchmark](http://mattmahoney.net/dc/silesia.html) — ahead of every
-zpaq entry on the board. Gleipnir is not itself listed there; that is a
-comparison against the published table, not a placement. At `-5` it wins on all
-three axes at once: 2.2% smaller than `zpaq -m5`, 1.6× faster, and 43% less
-memory.
+**Gleipnir 1.0.2 is listed on both of Matt Mahoney's benchmarks** (added
+2026-09-25): **35th of 227** on the [Large Text Compression
+Benchmark](https://mattmahoney.net/dc/text.html#1571) at 157,139,908 bytes
+(enwik9 plus the zipped decompressor), and **49th of 322** on the [Silesia Open
+Source Compression Benchmark](https://mattmahoney.net/dc/silesia.html) at
+35,583,396 bytes — ahead of every zpaq entry on the board. **It beats `zpaq -m5`
+on all twelve Silesia files**, and at `-5` it wins on all three axes at once:
+2.2% smaller than `zpaq -m5`, 1.6× faster, and 43% less memory.
 
 > **Using it as an archiver?** See **[USAGE.md](USAGE.md)**. `gleipnir.c` wraps the
 > engine documented here in a real archive format — directories, per-segment and
@@ -78,20 +81,20 @@ Two honest summaries, because there is no single one:
   cross-session artefact: measured inside one session `-9` is **1.07× slower**
   (597.1 s against zpaq's 559.4 s). See [Benchmarks](#benchmarks).
 
-That `-9` total would place **just inside the top 50 of 320 entries** on the
-[Silesia Open Source Compression
-Benchmark](http://mattmahoney.net/dc/silesia.html), ahead of every zpaq entry on
-the board — the best zpaq-involving entry there is 36,603,712. Gleipnir is not
-itself listed on that page: this is a comparison against the published table,
-not a placement, and the figure has not been verified by anyone else.
+On the [Silesia Open Source Compression
+Benchmark](https://mattmahoney.net/dc/silesia.html) Gleipnir 1.0.2 is listed
+**49th of 322 entries**, ahead of every zpaq entry on the board — the best
+zpaq-involving entry there is 36,603,712. The result was submitted by the
+author and listed by Mahoney on 2026-09-25; like other submitted results on
+that page, it has not been independently re-run.
 
-> **Caveat on that comparison.** The board compresses the twelve files
+> **Which figure is the listed one.** The board compresses the twelve files
 > *individually*, while the 35,582,296 above is a single archive over the whole
 > directory, which lets deduplication work across files, and it comes from the
-> pre-release build used for the timing session. The figure directly comparable
-> to the board is the **released v1.0.2 binary compressing each file on its
-> own: 35,583,396**, measured 2026-09-23 and round-trip verified. That would be
-> 49th of 320, ahead of `paq8pxd_v4 -5` by 2,906 bytes. Per-file sizes are in
+> pre-release build used for the timing session. The listed figure is the
+> **released v1.0.2 binary compressing each file on its own: 35,583,396**
+> (`-9 -s1000 -t1`), measured 2026-09-23 and round-trip verified — ahead of
+> `paq8pxd_v4 -5` by 2,906 bytes. Per-file sizes are in
 > [LEADERBOARDS.md](LEADERBOARDS.md).
 
 **[LEADERBOARDS.md](LEADERBOARDS.md)** carries the full working for both this
@@ -1295,8 +1298,9 @@ Every `gleipnir` row was measured here on the released binary and round-trip
 verified against its SHA-256.
 
 That default-segmentation run peaks at **977 MB** rather than the multiple
-gigabytes a single segment needs, and it still compares to 47th of 227 on the
-enwik9 board against 35th for the solid run — twelve places for 4.46%. See
+gigabytes a single segment needs, and it would still compare to 47th of 227 on
+the enwik9 board against the 35th at which the solid run is listed — twelve
+places for 4.46%. See
 [LEADERBOARDS.md](LEADERBOARDS.md) for the full working.
 
 **The competitor provenance differs by corpus, and it matters.** For enwik8 and
@@ -1352,10 +1356,12 @@ struggles](#where-it-struggles).
 
 At the gigabyte scale `gleipnir -9` is 4.5% smaller than `lpaq1 -9` and beats every LZ
 codec by a wide margin, while trailing `zpaq -max` by 10.4% and the dedicated text
-engines by more, running at 0.31 MB/s where `-5` runs at 0.62. Its 157,073,377
-would sit mid-table on the LTCB leaderboard, behind the CM and neural engines and
-ahead of `lpaq1` and every LZ codec — 35th of 227 entries once the decompressor
-is zipped and counted, which is how that board scores. Compressing the whole
+engines by more, running at 0.31 MB/s where `-5` runs at 0.62. On the LTCB
+leaderboard it is **listed 35th of 227** (added 2026-09-25, [note
+116](https://mattmahoney.net/dc/text.html#1571)), behind the CM and neural
+engines and ahead of `lpaq1` and every LZ codec: 157,073,381 for enwik9 plus
+66,527 for the zipped `gleipnir.c` decompressor, 157,139,908 in total, which is
+how that board scores. Compressing the whole
 gigabyte in one segment peaks at **3,032 MB measured**, against the 3.0 GB this
 file used to assert; decoding peaks at **3,836 MB**, measured on
 the v1.0.2 release on 2026-09-24.
@@ -1363,7 +1369,7 @@ the v1.0.2 release on 2026-09-24.
 The default 64 MB segmentation was measured on 2026-09-07 rather than estimated:
 **164,080,953 bytes at 1.313 bpc, peaking at 977 MB across fifteen segments** —
 so segmenting costs **4.46%** and roughly two thirds of the memory. Even at the
-default it stays ahead of `lpaq1 -9`, by 0.26%, and compares to 47th of 227.
+default it stays ahead of `lpaq1 -9`, by 0.26%, and would compare to 47th of 227.
 
 > Re-measuring the single-segment run returned 157,073,381, four bytes above the
 > 157,073,377 above. The codec output is identical; archive size includes the
