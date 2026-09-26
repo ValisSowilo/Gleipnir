@@ -7,10 +7,12 @@
 [![LTCB](https://img.shields.io/badge/LTCB%20enwik9-35th%20of%20227-brightgreen)](https://mattmahoney.net/dc/text.html#1571)
 [![Silesia](https://img.shields.io/badge/Silesia-49th%20of%20322-brightgreen)](https://mattmahoney.net/dc/silesia.html)
 
-A from-scratch lossless compressor and archiver in **one 4,701-line C file**,
+A from-scratch lossless compressor and archiver in **one 5,340-line C file**,
 with zlib as its only dependency. It predicts each bit with 27 statistical
-models — 30 on raster data — blends their predictions with a learned mixer, and
-codes the result with an arithmetic coder.
+models — 30 on raster data, 31 on text — blends their predictions with a
+learned mixer, and codes the result with an arithmetic coder. Text is first
+dictionary-coded, each frequent word becoming a one-to-three byte code from a
+dictionary built out of the text itself.
 
 **Gleipnir 1.0.2 is listed on both of Matt Mahoney's benchmarks** (added
 2026-09-25): **35th of 227** on the [Large Text Compression
@@ -20,6 +22,15 @@ Source Compression Benchmark](https://mattmahoney.net/dc/silesia.html) at
 35,583,396 bytes — ahead of every zpaq entry on the board. **It beats `zpaq -m5`
 on all twelve Silesia files**, and at `-5` it wins on all three axes at once:
 2.2% smaller than `zpaq -m5`, 1.6× faster, and 43% less memory.
+
+**1.1 adds a word transform for text** (see
+[Transforms](#word-transform-dictionary-coding-of-text)). It takes enwik9 from
+157,073,381 to **148,026,632 (−5.76%)** and enwik8 from 18,810,680 to
+**18,027,359 (−4.16%)**, and the Silesia per-file total from 35,583,396 to
+**35,468,198**. Measured against the published tables those would place about
+**29th** on the LTCB and **48th** on Silesia; 1.1 has not been submitted, so
+the listings above are 1.0.2's. Every figure below that is not marked 1.1 is
+1.0.2's too.
 
 > **Using it as an archiver?** See **[USAGE.md](USAGE.md)**. `gleipnir.c` wraps the
 > engine documented here in a real archive format — directories, per-segment and
@@ -135,11 +146,13 @@ sit on the diagonal. `xz` decodes ~50× faster than it encodes and `brotli`
 
 ![compression size against speed](graphs/speed_vs_size.svg)
 
-On enwik8 (100 MB of Wikipedia text) it reaches **18,810,676** — 4.2% below
+On enwik8 (100 MB of Wikipedia text) 1.1 reaches **18,027,359** — 8.1% below
 `zpaq -m5`'s 19,625,046 measured on the same machine, but well behind the Large
 Text Compression Benchmark leaders, which is where this engine is weakest.
-`cmix v21` reaches 14,623,723 at 31 GB, and `durilca'kingsize` reaches
-16,209,219 while running roughly 4× *faster* — the case for a text preprocessor.
+`cmix v21` reaches 14,623,723 at 31 GB, and `durilca'kingsize` 16,209,219. On
+enwik9 the word transform (see [Transforms](#word-transform-dictionary-coding-of-text))
+takes 157,073,381 to **148,026,632**, which would move it from 35th to about 29th
+of 227 on that board.
 
 Six presets span the speed/ratio curve, and **`-7` is within 1.5% of `-9` for
 29% less time** — the better default for anything that is not a ratio contest.
@@ -290,10 +303,12 @@ usage: gleipnir c [opts] archive path...   compress files or directories
             -1  4 ctx  no SSE      -2  6 ctx  1 SSE
             -3  8 ctx  2 SSE       -5 12 ctx  3 SSE
             -7 19 ctx  4 SSE       -9 27 ctx  6 SSE (30 on rasters)
+            -5, -7 and -9 add 4 word contexts on word-transformed text
   -f1/-f2   throughput presets below -1
   -mN       resize every context table by 2^N (-m-1 halves them)
   -tN       worker threads, -t0 = all cores (default 1)
   -sN       segment size in MB (default 64)
+  -w0       do not word-transform text (default -w1)
   -pN       recovery records: one parity block per N segments
   -D        with t, decode everything and check SHA-256 as well
   -L / -M   with l, print SHA-256 per member / a sha256sum manifest
@@ -321,6 +336,7 @@ gleipnir -9: 1 file, 10192446 -> 2048642  1.608 bpc  46.0s  0.22 MB/s  846 MB pe
 ```
 input
   │
+  ├─ word transform                text segments: frequent words → 1-3 byte codes
   ├─ small-alphabet packing        ≤16 distinct bytes → 1/2/4 bits per symbol
   ├─ DEFLATE recompression         embedded zlib/gzip/zip streams → plaintext
   │
@@ -330,7 +346,7 @@ input
   │
   └─ per bit:
         4-30 context models → bit histories → StateMaps → stretch
-        (27 at -9, 30 with a detected period)
+        (27 at -9, 30 with a detected period, 31 on word-transformed text)
                 │
                 ├─ ISSE chain (11 stages, refines low order with high)
                 ├─ match model (learned confidence)
@@ -804,6 +820,90 @@ disagree. Output is byte-identical; the cost is not: **−7.4% time on dickens
 Applied before modelling, undone after decoding. Each must be **exactly**
 reversible, which is harder than it looks.
 
+### Word transform (dictionary coding of text)
+
+A context mixer predicts text a letter at a time, so a word costs as many
+predictions as it has letters, and an order-4 context sees only part of one
+word. When a segment is mostly words, the encoder now builds a dictionary from
+that segment and replaces each frequent word with a **one-to-three byte code**
+(`0x80`–`0xFF`), so the model sees a stream about a third shorter in which an
+order-4 context spans four words. This is the transform
+[`drt`](https://mattmahoney.net/dc/text.html#1440) and
+[`xwrt`](https://mattmahoney.net/dc/text.html#1512) apply in front of lpaq, built
+into the archiver instead of run as a separate pass:
+
+- **The dictionary comes from the segment itself**, so nothing is shipped with
+  the decoder and it works on any language written in Latin letters. It travels
+  at the head of the transformed stream as plain words, where the model
+  compresses it with everything else.
+- **Case is a flag, not a different word.** `The`, `the` and `THE` share one
+  code; a capitalised or all-capitals word gets a one-byte flag in front.
+  Mixed-case runs (`iPhone`) stay as letters.
+- **Code order carries meaning.** Frequency decides a word's code length, but
+  inside the one- and two-byte classes words are ordered so that ones used in
+  similar surroundings sit together — by recursively splitting on the first
+  principal component of who-comes-before-and-after statistics. The lead byte
+  of a two-byte code then names a cluster of related words, which the model
+  can learn from. On 16 MB of enwik8 the order it finds runs, verbatim,
+  `december february january june march november`, `three two four nine
+  seven`, `black red single sodium symbolic yellow` and `admitted assumed
+  believed proven said thought` — imperfect, and clearly useful. That
+  ordering is worth 0.6% over alphabetical, which is worth 0.3% over plain
+  frequency order.
+- **The model knows it is looking at codes.** Code bytes hash as word
+  characters, the case flags are transparent to the word hash, and the mixer
+  gets a separate weight set for the middle of a multi-byte code. On
+  transformed segments at `-5` and above, four more contexts join the model:
+  the word with the word two back, with the **lead bytes of the last two words**
+  (a word-class trigram the dictionary ordering makes possible), with the last
+  punctuation, and the previous word with the last three bytes. Those are worth
+  a further 0.5–0.8%.
+- **It declines when it would not pay**: under 256 KB, under 40% letters, over
+  2% bytes above `0x7F` (each would need an escape), a detected record stride,
+  or a result not at least 10% shorter. Forced onto samba anyway it costs
+  +10.5%, which is what those gates are for. Small segments also get a higher
+  bar for dictionary entry, since there the dictionary's own spelling is a
+  larger share of the output.
+
+Measured at `-9`, round-trip verified, each against the same build with the
+transform off (`-w0`):
+
+| input | without | with | |
+|---|---:|---:|---:|
+| enwik9 (1 GB, `-s1000`) | 157,073,381 | 148,026,632 | **−5.76%** |
+| enwik8 (100 MB, `-s1000`) | 18,810,680 | 18,027,359 | **−4.16%** |
+| xml (Silesia) | 309,168 | 300,259 | −2.88% |
+| dickens (Silesia) | 2,048,642 | 2,008,326 | −1.97% |
+| book1 (Calgary) | 196,036 | 193,532 | −1.28% |
+| python.src (mixed corpus) | 577,794 | 570,617 | −1.24% |
+| webster (Silesia) | 5,499,051 | 5,433,078 | −1.20% |
+| book2 (Calgary) | 127,008 | 126,122 | −0.70% |
+| news (Calgary) | 94,715 | 94,078 | −0.67% |
+
+Every other Silesia file is declined and comes out **byte-identical** to 1.0.
+
+It is also **faster or no slower at every preset**, because there is less
+stream to model. On 16 MB of enwik8, each preset run four times per arm in
+A-B-B-A order against `-w0` with the same binary, medians:
+
+| preset | size | compress | decompress |
+|---|---:|---:|---:|
+| `-f1` | −10.2% | −15% | −22% |
+| `-1` | −6.0% | −25% | −23% |
+| `-3` | −2.1% | −26% | −26% |
+| `-5` | −3.5% | ±0% | −11% |
+| `-7` | −2.5% | −6% | −10% |
+| `-9` | −2.7% | −13% | −14% |
+
+The gain in size is largest on the smallest models, since the transform does
+for a weak model what a strong one partly did already. At `-5` and up the four
+extra contexts spend most of the time the shorter stream saves; they are worth
+0.5–0.8% of size there, which is the better use of it. Treat any single time
+here as ±10%: the slowest `-w0` run of `-7` was 32% slower than its fastest.
+
+The transform changes the archive format (a new segment kind), so archives
+using it need 1.1 or later to extract; 1.1 still reads every 1.0 archive.
+
 ### Small-alphabet packing
 
 If a file uses ≤16 distinct byte values, symbols are packed 1, 2 or 4 to the
@@ -1005,10 +1105,9 @@ being fed noise.
 
 Not detected, because nothing in the corpora needs it: JPEG (would need a full
 DCT-coefficient model), audio/WAV, UTF-16 text, base64, and BMP/TIFF headers.
-The absent capability that *would* pay on this corpora is not a detector at all
-but a **text preprocessor** — a dictionary/word-substitution stage of the kind
-`durilca'kingsize` uses to reach 16,209,219 on enwik8, 15% below this compressor
-while running about 4× faster.
+The absent capability that was going to pay on these corpora was not a detector
+at all but a **text preprocessor**, and that now exists: see the word transform
+under [Transforms](#word-transform-dictionary-coding-of-text).
 
 ---
 
@@ -1320,7 +1419,8 @@ competitors was measured on this machine and is directly comparable throughout.
 | `nncp v3.2` | 14,915,298 | 1.193 | | | LTCB |
 | `paq8px_v206 -12L` | 15,849,084 | 1.268 | | | LTCB |
 | `zpaq 6.42 -max` | 17,855,729 | 1.428 | | | LTCB |
-| **`gleipnir -9`** | **18,810,676** | **1.505** | 347.1s | 324.4s | here |
+| **`gleipnir -9`** (1.1) | **18,027,359** | **1.442** | 345.6s | 324.9s | here |
+| `gleipnir -9` (1.0.2) | 18,810,676 | 1.505 | 347.1s | 324.4s | here |
 | **`gleipnir -5`** | **19,660,660** | **1.573** | 179.6s | 181.7s | here |
 | `lpaq1 -9` | 19,755,948 | 1.580 | | | LTCB |
 | `xz -9e` (tuned) | 24,703,772 | 1.976 | | | LTCB |
@@ -1328,10 +1428,12 @@ competitors was measured on this machine and is directly comparable throughout.
 | `bzip2 -9` | 29,008,736 | 2.321 | | | LTCB |
 | `gzip -9` | 36,445,248 | 2.916 | | | LTCB |
 
-`gleipnir -9` is 4.8% smaller than `lpaq1 -9` and beats every LZ codec by a wide
-margin, while trailing `zpaq -max` by 5.3% and the heavy CM and neural engines by
-more. The two `gleipnir` rows compress at 0.29 MB/s (`-9`) and 0.56 MB/s (`-5`),
-decoding within a few percent of that. Text is where this engine is weakest
+With the word transform `gleipnir -9` is 8.7% smaller than `lpaq1 -9` and
+trails `zpaq -max` by only 1.0% (1.0.2 trailed it by 5.3%); it beats every LZ
+codec by a wide margin and trails the heavy CM and neural engines by more. The
+1.1 row and the 1.0.2 row come from the same interleaved session on the same
+machine, so their times compare directly; the `-5` row is 1.0.2's. Speeds run
+0.29 MB/s at `-9` and 0.56 MB/s at `-5`, decoding within a few percent of that. Text is where this engine is weakest
 relative to the field — the full preset ladder and the reason are in [Where it
 struggles](#where-it-struggles).
 
@@ -1345,7 +1447,8 @@ struggles](#where-it-struggles).
 | `cmix v21` | 107,963,380 | 0.864 | | | LTCB |
 | `paq8px_v206 -12L` | 124,696,410 | 0.998 | | | LTCB |
 | `zpaq 6.42 -max` | 142,252,605 | 1.138 | | | LTCB |
-| **`gleipnir -9`** | **157,073,377** | **1.257** | 3186.3s | 3261.6s | here |
+| **`gleipnir -9`** (1.1) | **148,026,632** | **1.184** | † | † | here |
+| `gleipnir -9` (1.0.2) | 157,073,377 | 1.257 | 3186.3s | 3261.6s | here |
 | **`gleipnir -9` default `-s64`** | **164,080,953** | **1.313** | 3192.0s | | here |
 | `lpaq1 -9` | 164,508,919 | 1.316 | | | LTCB |
 | **`gleipnir -5`** | **167,360,632** | **1.339** | 1620.0s | 1690.5s | here |
@@ -1354,9 +1457,18 @@ struggles](#where-it-struggles).
 | `bzip2 -9` | 253,977,839 | 2.032 | | | LTCB |
 | `gzip -9` | 322,591,995 | 2.581 | | | LTCB |
 
-At the gigabyte scale `gleipnir -9` is 4.5% smaller than `lpaq1 -9` and beats every LZ
-codec by a wide margin, while trailing `zpaq -max` by 10.4% and the dedicated text
-engines by more, running at 0.31 MB/s where `-5` runs at 0.62. On the LTCB
+At the gigabyte scale `gleipnir -9` 1.1 is 10.0% smaller than `lpaq1 -9` and beats
+every LZ codec by a wide margin, while trailing `zpaq -max` by 4.1% (1.0.2: 10.4%)
+and the dedicated text engines by more. The `-s64` and `-5` rows are 1.0.2's.
+
+† The 1.1 enwik9 run measured 4,546 s to compress and 3,339 s to decompress,
+round-trip verified, but an earlier run of identical code on the same file
+took 3,176 s to compress on a quieter machine, so neither time is a clean
+comparison with 1.0.2's and neither is claimed as one. Peak working set was
+**2,847 MB compressing and 3,235 MB decompressing**, below 1.0.2's 3,033 and
+3,836 MB: the model sees two thirds of the bytes.
+
+1.0.2 runs at 0.31 MB/s where `-5` runs at 0.62. On the LTCB
 leaderboard it is **listed 35th of 227** (added 2026-09-25, [note
 116](https://mattmahoney.net/dc/text.html#1571)), behind the CM and neural
 engines and ahead of `lpaq1` and every LZ codec: 157,073,381 for enwik9 plus
@@ -1639,13 +1751,19 @@ looked worthless in ablations when they were merely starved. Now guarded by a
 
 ### Open
 
-**Text is the weakest content type relative to the field.** On enwik8 this
-engine is +20.9% against `paq8px -12L` and +31.0% against `cmix v21`. More
-telling, `durilca'kingsize` reaches 16,209,219 — 15% *below* this engine — while
-running about 4× faster, on a slower CPU. It does that with dictionary
-preprocessing, not with better modelling. **A text preprocessor is the single
-largest opportunity left, and it is a transform, not a model.** Not attempted
-here.
+**Text is still the weakest content type relative to the field**, though less
+so. This section used to call a text preprocessor "the single largest
+opportunity left" and record it as not attempted; it is now the word transform,
+worth 4.16% on enwik8 and 5.76% on enwik9. On enwik8 the engine is now +13.7%
+against `paq8px -12L` (was +18.7%), +23.3% against `cmix v21` (was +28.6%) and
++11.2% against `durilca'kingsize` (was +16.0%).
+What those still have that this does not is a *static*, hand-ordered English
+dictionary — paq8hp and drt ship one of 43,000–45,000 words, which from
+paq8hp3 on is "organized into semantically related groups" by hand — and text
+models built around it. The clustering here recovers some of that grouping
+automatically, per segment, from the text alone. A shipped dictionary would help
+English and nothing else, and would count against the decompressor size on
+the LTCB, so it is a trade rather than a free gain.
 
 **Container formats are the largest absolute gap.** mozilla, samba, ooffice and
 nci account for the bulk of the distance to the record. paq8px has a dozen
@@ -1701,21 +1819,24 @@ Per file against `zpaq -m5` and against the published Silesia record
 
 | file | gleipnir -9 | zpaq -m5 | vs zpaq | record | vs record |
 |---|---|---|---|---|---|
-| xml | 309,168 | 326,987 | −5.4% | 245,000 | +26.2% |
+| xml | 300,259 | 326,987 | −8.2% | 245,000 | +22.6% |
 | ooffice | 1,745,601 | 1,766,594 | −1.2% | 1,212,000 | +44.0% |
 | reymont | 882,432 | 956,543 | −7.7% | 699,000 | +26.2% |
 | sao | 3,854,835 | 3,899,298 | −1.1% | 3,723,000 | +3.5% |
 | x-ray | 3,608,251 | 3,669,743 | −1.7% | 3,503,000 | +3.0% |
 | mr | 2,025,644 | 2,181,349 | −7.1% | 1,750,000 | +15.8% |
 | osdb | 2,196,117 | 2,204,782 | −0.4% | 1,969,000 | +11.5% |
-| dickens | 2,048,642 | 2,094,787 | −2.2% | 1,860,000 | +10.1% |
+| dickens | 2,008,326 | 2,094,787 | −4.1% | 1,860,000 | +8.0% |
 | samba | 2,645,273 | 3,053,862 | −13.4% | 1,587,000 | +66.7% |
 | nci | 1,136,166 | 1,251,149 | −9.2% | 776,000 | +46.4% |
-| webster | 5,499,051 | 5,666,876 | −3.0% | 4,401,000 | +25.0% |
+| webster | 5,433,078 | 5,666,876 | −4.1% | 4,401,000 | +23.5% |
 | mozilla | 9,632,216 | 12,041,099 | −20.0% | 6,094,000 | +58.1% |
 
-The `gleipnir -9` column is the v1.0.2 release compressing each file on its own
-(`-9 -t1`), measured 2026-09-23 and round-trip verified; it totals 35,583,396.
+The `gleipnir -9` column is each file compressed on its own (`-9 -t1`),
+round-trip verified: xml, dickens and webster from 1.1 (measured 2026-09-26),
+where the word transform takes them; the other nine from the v1.0.2 release
+(2026-09-23), which 1.1 reproduces byte for byte because the transform declines
+them. It totals 35,468,198; 1.0.2's was 35,583,396.
 
 x-ray is no longer the one file behind zpaq; the raster models moved it from
 +0.4% to −1.6% (−1.7% in the release), and mr from −0.1% to −7.0% (−7.1%). Every file is now ahead of

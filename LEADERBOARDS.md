@@ -19,6 +19,31 @@ to prevent.
 
 ---
 
+## 1.1: where it would place (not submitted)
+
+1.1 adds the word transform (README, Transforms; ARCHITECTURE §29). Measured
+2026-09-26 on the same machine as 1.0.2, round-trip verified. **These are
+comparisons against the published tables, not listings** — the listed entries
+remain 1.0.2's until a new result is submitted and accepted.
+
+| board | 1.0.2 (listed) | 1.1 | would place |
+|---|---:|---:|---|
+| LTCB, enwik9 + zipped `gleipnir.c` | 157,139,908 — 35th | 148,026,632 + 75,244 = **148,101,876** | **29th of 227**, between `mcm 0.83` (144,934,149) and `nanozip 0.09a` (149,328,821) |
+| Silesia, per file | 35,583,396 — 49th | **35,468,198** | **48th of 322**, past `paq8l -7`; `fp8_v4 -8` is 10,437 bytes ahead |
+
+For a resubmission the LTCB row would read, in the page's format:
+
+```
+gleipnir 1.1.0  -9 -s1000 -t1  18,027,359  148,026,632  75,244 sd  148,101,876  ...  CM  116
+```
+
+with the time columns left blank until they are re-measured on a quiet
+machine (see README, enwik9, on why the one run's times are not claimed), and
+peak memory 3,235 MB (decompression; compression 2,847 MB). The Silesia row
+changes three cells — dickens 2008, webster 5433, xml 300 — and no others.
+
+---
+
 ## Silesia Open Source Compression Benchmark
 
 <http://mattmahoney.net/dc/silesia.html> — ranks by total compressed size over

@@ -1456,7 +1456,8 @@ that framed the output. v2 collapses them. A segment *is* a chunk. Default
 
 | type | field | meaning |
 |---|---|---|
-| `u8` | `kind` | 0 stored verbatim, 1 modelled |
+| `u8` | `kind` | 0 stored verbatim, 1 modelled, 2 modelled over a word-transformed stream (§29) |
+| `u8`×5, `u32`×4 | `esc cap upp n1 n2l`, `cnt[3]`, `dlen` | kind 2 only: the transform's flag bytes, code-space split, class sizes and dictionary length |
 | `u8`, `u8`, `u8[nsym]` | `bps`, `nsym`, `sym[]` | alphabet packing |
 | `u64` | `wn` | working length after packing / DEFLATE expansion |
 | `u32`, `Dfl[nd]` | `nd`, `fl[]` | recovered DEFLATE streams, 19 bytes each |
@@ -1465,7 +1466,9 @@ that framed the output. v2 collapses them. A segment *is* a chunk. Default
 | `u64`, `u64` | `alen`, `slen` | arithmetic and stored-block stream lengths |
 | `u8[alen]`, `u8[slen]` | `aout`, `sout` | the two streams |
 
-Every field after `kind` is absent when `kind == 0`; a stored segment is the
+Kind 2 exists from archive format **v3**; v3 changes nothing else, so a v2
+archive is a valid v3 archive that does not use it, and 1.1 reads both. Every
+field after `kind` is absent when `kind == 0`; a stored segment is the
 tag byte followed by `rawlen` raw bytes, and `rawlen` comes from the index
 rather than from the segment.
 
@@ -2370,3 +2373,118 @@ tools and different people.
   The protocol asymmetry on the *size* axis has since been measured and is
   negligible: whole-directory and per-file-summed differ by 1,100 bytes out of
   35.6 million, 0.003% (§26). No matched run is needed.
+
+---
+
+## 29. The word transform
+
+README's "Where it struggles" used to call a text preprocessor "the single
+largest opportunity left, and it is a transform, not a model", and record it as
+not attempted. This is it. `wrt_encode` / `wrt_decode` in `gleipnir.c`; segment
+kind 2 (§16).
+
+### What it does
+
+A letter run that is all lower case, Capitalised or ALL CAPS is replaced by an
+optional case flag plus the code of its lower-case form, when that form is in
+the segment's dictionary. Codes are bytes `0x80`–`0xFF`: the first `n1` values
+are whole one-byte codes, the next `n2l` lead a two-byte code, the rest a
+three-byte one, continuation bytes again `0x80`–`0xFF`. An input byte that
+collides with a code or flag byte is written as `esc` + byte. The three flag
+bytes are the three rarest control bytes in the segment, chosen per segment
+and recorded in the header.
+
+The dictionary is the segment's own: every lower-case form occurring at least
+`fmin` times, most frequent first. It is written as newline-separated words at
+the head of the transformed stream and compressed by the model with the rest,
+so the decoder needs nothing but the archive.
+
+### Decisions, each measured
+
+All at `-9` unless stated; "slice" is the first 16 MB of enwik8.
+
+| decision | alternatives measured | result |
+|---|---|---|
+| dictionary per segment, not shipped | — | works for any Latin-script language; costs its spelling once per segment |
+| code order in the 1- and 2-byte classes | frequency / alphabetical / reverse-suffix / clustered | clustered best: −0.6% vs alphabetical, which is −0.3% vs frequency |
+| code order in the 3-byte class | clustered / alphabetical | alphabetical, by 0.02%: the dictionary text itself dominates there and sorted words compress better |
+| clustering vocabulary | 256 / 512 / 1024 neighbour words | flat within 0.05%; 512 |
+| code-space split `n1`/`n2l` | 64/48, 48/72, 32/90 (enwik8), 100/24, 32/80 (slice) | flat within 0.1%; 64/48 |
+| `fmin` | 6, 10, 20 (slice); 20, 40 (enwik8); 8–64 (book1, book2, news) | 20 from 4 MB up, 32 below, 48 below 1 MB |
+| minimum segment | 64 KB → 256 KB | gleipnir.c (238 KB) is +0.4% transformed at every `fmin` |
+| word model sees code bytes as letters | off / on | −0.4% (−5 slice); without it the word contexts go dark on exactly the text the transform is for |
+| mixer weight set for "inside a multi-byte code" | off / on | small; kept because it is free |
+| four extra contexts on transformed segments | each alone, then together | together −0.48% (−9), −0.58% (−7), −0.77% (−5) |
+
+The clustering: each word in the 1- and 2-byte classes gets a vector of how
+often each of the 512 most frequent words stands directly before it and
+directly after it (square-rooted, L2-normalised). The set is split in half on
+its first principal component — twelve power iterations, deterministic start —
+and each half recursively, down to leaves of eight sorted alphabetically. The
+lead byte of a two-byte code thereby names a cluster of words used alike. On
+the slice the recovered order runs, verbatim, `december february january june
+march november` and `three two four nine seven`. It is floating point, but
+only the encoder runs it: the order is transmitted, never recomputed, so it
+cannot make two builds disagree about a decode.
+
+The extra contexts (ORD −22 to −25): word + word two back; word + lead bytes
+of the previous two words, which on a transformed segment are word-class
+identities; word + last punctuation + previous word's lead; previous word +
+last three bytes. They also help untransformed prose (−0.44% on the slice with
+the transform off) but add about a fifth to the time, so they run only on
+segments the transform took, where they fill the slots the raster contexts
+use — a transformed segment never has a stride.
+
+Because the context set is global per batch and now differs by segment kind,
+the encoder runs the transformed and untransformed segments of a batch as two
+`run_jobs` calls, and the decoder groups by kind as it already grouped by
+stride. The thread clamp sizes for the larger set.
+
+### Gates
+
+The transform declines — and the segment is modelled exactly as in 1.0 — when
+the segment is under 256 KB, under 40% ASCII letters, over 2% bytes above
+`0x7F`, has a detected stride, has fewer than 64 dictionary words, or does not
+come out at least 10% shorter. Forcing it past the gates measured samba
++10.5% and reymont +2.2%; mozilla and nci unchanged. On Silesia it takes
+dickens, webster and xml and declines the other nine, which come out
+byte-identical.
+
+### Results
+
+| input | `-w0` | `-w1` | |
+|---|---:|---:|---:|
+| enwik9, `-s1000` | 157,073,381 | 148,026,632 | −5.76% |
+| enwik8, `-s1000` | 18,810,680 | 18,027,359 | −4.16% |
+| webster | 5,499,051 | 5,433,078 | −1.20% |
+| slice, `-9` | 3,198,670 | 3,111,462 | −2.73% |
+| xml | 309,168 | 300,259 | −2.88% |
+| dickens | 2,048,642 | 2,008,326 | −1.97% |
+
+enwik9 gains more than enwik8 because the dictionary's cost is amortised over
+ten times the text. The segment matters the same way: enwik8 at the default
+`-s64` is two segments with two dictionaries and gains only 1.92%, against
+4.16% as one segment. On enwik9, `fmin` 20 measured 148,026,632 and 24
+measured 148,049,587.
+
+Memory: the four extra contexts cost 256 MB at `-9` (four 2^22-group
+tables), so a transformed text file peaks about 260 MB higher than in 1.0 —
+dickens 845 → 1,105 MB, enwik8 1,050 → 1,328 MB, and Silesia's largest peak
+moves from mozilla's 1,055 MB to webster's 1,188 MB. Halving those tables
+costs 0.05% on the slice and 0.09% on webster, so they stay. On enwik9 the
+shorter stream outweighs them: 2,847 / 3,235 MB against 1.0.2's 3,033 /
+3,836 MB.
+
+### Verification
+
+`scripts/sfuzz.py` gained 26 cases that build kind-2 segments field by field —
+flag bytes that coincide or sit in the code range, code-space splits over 128,
+class sizes over capacity, a dictionary longer than the stream or ending inside
+a word, upper-case or over-long dictionary words, codes past the dictionary,
+truncated and malformed multi-byte codes, a flag or escape as the last byte,
+output shorter or longer than `rawlen`, and kind 2 claiming alphabet packing or
+DEFLATE records — plus a third positive control, a hand-built kind-2 segment
+that must decode exactly. `fuzz.py`, `tfuzz.py` and `gfuzz.py` pass unchanged.
+A transform-specific round-trip fuzzer (text with flag bytes, high bytes, all
+three case forms, mixed case, and words either side of the 32-letter limit)
+ran 190 cases across `-1`, `-5` and `-9` without a failure.

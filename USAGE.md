@@ -427,6 +427,7 @@ gleipnir r archive out.gl                   rebuild damaged segments
 -mN       resize every context table by 2^N (-m-1 halves them)
 -tN       worker threads, -t0 = all cores (default 1)
 -sN       segment size in MB (default 64)
+-w0       do not word-transform text (default -w1)
 -pN       recovery records, one parity block per N segments (-p alone = 32)
 -D        with t, decode everything and check SHA-256 as well
 -L        with l, also print each member's SHA-256
@@ -473,6 +474,11 @@ four.
 ## Known limits
 
 - **Decompression is as slow as compression** and cannot be made otherwise.
+- **Archives written by 1.1 need 1.1 or later to extract** when any segment was
+  word-transformed (format v3). 1.1 reads every 1.0 archive. `-w0` writes
+  segments a 1.0 build can decode, but the header still says v3, so 1.0 will
+  refuse the archive; keep a 1.0 binary for 1.0 archives, not the other way
+  round.
 - **No append.** Adding to an existing archive means rewriting it.
 - **No random access to a member** without decoding its segments from the
   start of that member.
