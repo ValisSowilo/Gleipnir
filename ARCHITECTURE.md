@@ -2577,29 +2577,43 @@ and the engine never had one. Order 0 alone is most of that effect.
 
 ### The presets
 
-A preset takes a feature when its rate — size per unit time — beats the rate
-of stepping up to the next preset, which on the five files is about 0.09% per
-1% of time between `-1` and `-3`.
+The first cut gave every preset from `-1` up a share of these, chosen on the
+five-file set by whether a feature's size-per-time beat stepping up a preset.
+Full Silesia overturned it: at equal time, 1.2's `-1` tied 1.1's, `-3` won
+by 0.7%, `-7` tied 1.1's `-9` — and `-5` lost to 1.1's `-7` by 1.5%. The
+five files are two-fifths x86 code, which flattered everything riding on the
+x86 contexts.
 
-| preset | adds | Silesia, 1.1 | Silesia, 1.2 | change | time, five files |
-|---|---|---:|---:|---:|---:|
-| `-1`, `-2` | x86, order 0 | 42,620,088 | 41,881,656 | −1.7% | +16% |
-| `-3` | + match-byte context | 39,429,389 | 38,743,491 | −1.7% | +13% |
-| `-5` | + second mixer, long match, long-match byte, follow-history | 38,043,334 | 37,180,007 | −2.3% | +33% |
-| `-7` | + line contexts, order-3 indirect | 36,401,926 | 35,474,070 | −2.5% | +48% |
-| `-9` | + linear inputs, text contexts, run model | 35,468,198 | 34,426,438 | −2.9% | +99% |
+So `-1` to `-7` keep 1.1's model and add only the x86 contexts, which run on
+x86 blocks alone: every other segment takes the 1.1 bit path and codes byte
+for byte as 1.1 did. `-9` is the maximum and takes everything. Full Silesia,
+one process, `-t1`, the two versions interleaved file by file (the enwik9
+runs were sharing the machine, equally for both):
 
-The 1.2 Silesia figures are per file; the 1.1 figures are the single-session
-table's (whole directory), except `-9`, which is per file. The two methods
-differ by about 1 KB.
-The five-file timing set is two-fifths x86 code, so it overstates what the x86
-contexts cost at `-1` to `-3` on anything else. The `-f` presets are
-unchanged: they are defined by their throughput.
+| preset | 1.1 | 1.2 | size | time |
+|---|---:|---:|---:|---:|
+| `-1` | 42,621,188 | 42,053,408 | −1.33% | +8.9% |
+| `-3` | 39,430,489 | 39,128,902 | −0.76% | +4.1% |
+| `-5` | 38,044,434 | 37,839,818 | −0.54% | +4.2% |
+| `-7` | 36,403,026 | 36,219,510 | −0.50% | +6.0% |
+| `-9` | 35,468,198 | 34,426,438 | **−2.94%** | +90% |
 
-`-7` now compresses Silesia as well as 1.1's `-9` did (+0.02%). On the five
-files it is also as fast (62.7 s against 62.2 s), and 3.1% smaller there.
+At `-1` to `-7` all of the change is in mozilla and ooffice — the other ten
+files are identical — and the rate is better than the ladder's: at `-1`,
+ooffice −12.0% for +28% time and mozilla −2.6% for +21%, where stepping from
+`-1` to `-3` buys 7.5% for about +85%. The `-f` presets are unchanged.
 
 enwik8, `-9 -s1000`: **17,599,927**, against 18,027,359 (−2.37%).
+
+enwik9, `-9 -s1000`, both verified with `t -D`:
+
+| | size | against 1.1 | compress | decode | peak |
+|---|---:|---:|---:|---:|---:|
+| `-9` | 143,807,662 | −2.85% | 5,781 s | 5,169 s | 3,632 MB |
+| `-9 -m1` | 141,380,893 | −4.49% | 5,891 s | 5,403 s | 5,006 MB |
+
+Both ran at once on a six-core machine, so the times are an upper bound;
+1.1 took 3,176 s to compress alone.
 
 ### Keeping 1.1 exactly
 
