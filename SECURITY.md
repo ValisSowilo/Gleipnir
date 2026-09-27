@@ -66,9 +66,9 @@ These are documented properties, not defects:
   expect the size not to leak — the CRIME/BREACH class of attack applies here as
   it does to every general-purpose compressor.
 - **Memory use is large and preset-dependent**, and scales with `-t` because
-  each worker owns a complete model. `-9 -t8` needs about 6.5 GB, and about
-  8.5 GB on text the word transform takes, which runs four more context
-  tables. An
+  each worker owns a complete model. In 1.2 a `-9` worker budgets about
+  1.5 GB (1.1: 1.1 GB), so `-9 -t8` needs about 12 GB; `gleipnir` caps `-t`
+  to installed RAM. An
   out-of-memory condition from settings chosen by the operator is a capacity
   question, covered in [USAGE.md](USAGE.md#memory-and-threads).
 - **The whole input is buffered in RAM.** A large input needs roughly its own

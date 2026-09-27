@@ -1,4 +1,4 @@
-Gleipnir 1.1.0 -- usage reference
+Gleipnir 1.2.0 -- usage reference
 ============================
 
 Run `gleipnir --help` for a short version of the option list below.
@@ -205,7 +205,8 @@ KNOWN LIMITS
     are readable through ciphertext.
   * No append. Adding to an archive means rewriting it.
   * No random access: a member is decoded from the start of its segments.
-  * Archives are format v3; 1.1 reads v2 and v3, earlier builds read v2 only.
+  * Archives are format v4; 1.2 reads v2 to v4. 1.1 reads v2 and v3, 1.0
+    reads v2 only, so an archive written by 1.2 needs 1.2 to extract.
   * Verified to 2.2 GB per file. Nothing larger has been tried.
   * Recovery covers one lost segment per group and not two.
   * Tested on Windows and on Ubuntu 26.04. Other Linux distributions build

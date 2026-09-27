@@ -60,6 +60,7 @@ CORPORA = [
      "size-only, so it is machine-independent and comparable.",
      [("cmix v21", 14_623_723, "LTCB"), ("nncp v3.2", 14_915_298, "LTCB"),
       ("paq8px -12L", 15_849_084, "LTCB"), ("zpaq -max", 17_855_729, "LTCB"),
+      ("gleipnir 1.2 -9", 17_599_927, "here"),
       ("gleipnir 1.1 -9", 18_027_359, "here"), ("gleipnir 1.0.2 -9", 18_810_676, "here"),
       ("lpaq1 -9", 19_755_948, "LTCB"), ("gleipnir 1.1 -5", 18_658_545, "here"), ("xz -9e", 24_703_772, "LTCB"),
       ("brotli -q11", 25_764_698, "LTCB"), ("bzip2 -9", 29_008_736, "LTCB"),
@@ -71,6 +72,7 @@ CORPORA = [
      "sizes (Mahoney's hardware); bpc is size-only and machine-independent.",
      [("nncp v3.2", 106_632_363, "LTCB"), ("cmix v21", 107_963_380, "LTCB"),
       ("paq8px -12L", 124_696_410, "LTCB"), ("zpaq -max", 142_252_605, "LTCB"),
+      ("gleipnir 1.2 -9 -m1", 141_380_893, "here"), ("gleipnir 1.2 -9", 143_807_662, "here"),
       ("gleipnir 1.1 -9", 148_026_632, "here"), ("gleipnir 1.0.2 -9", 157_073_377, "here"),
       ("lpaq1 -9", 164_508_919, "LTCB"), ("gleipnir 1.0.2 -5", 167_360_632, "here"), ("xz tuned", 197_331_816, "LTCB"),
       ("brotli", 223_597_884, "LTCB"), ("bzip2 -9", 253_977_839, "LTCB"),
@@ -81,7 +83,8 @@ CORPORA = [
      "Every codec measured here on this machine, one concatenated stream in "
      "canonical file order. At this size time is startup-dominated, so the "
      "comparison is on size.",
-     [("paq8px -8", 560_705, "here"), ("gleipnir -9", 651_967, "here"),
+     [("paq8px -8", 560_705, "here"), ("gleipnir 1.2 -9", 640_411, "here"),
+      ("gleipnir 1.1 -9", 651_967, "here"),
       ("zpaq -m5", 659_513, "here"), ("gleipnir -7", 661_432, "here"),
       ("lpaq1 -6", 682_211, "here"), ("xz -9e", 819_440, "here"),
       ("bzip2 -9", 859_448, "here"), ("gzip -9", 1_021_855, "here")]),
@@ -91,7 +94,8 @@ CORPORA = [
      "Every codec measured here on this machine, one concatenated stream in "
      "canonical file order. Size comparison; times at this scale are "
      "startup-dominated.",
-     [("paq8px -8", 302_791, "here"), ("gleipnir -9", 355_766, "here"),
+     [("paq8px -8", 302_791, "here"), ("gleipnir 1.2 -9", 348_346, "here"),
+      ("gleipnir 1.1 -9", 355_766, "here"),
       ("gleipnir -7", 359_844, "here"), ("zpaq -m5", 362_880, "here"),
       ("lpaq1 -6", 388_787, "here"), ("xz -9e", 483_616, "here"),
       ("bzip2 -9", 569_486, "here"), ("gzip -9", 735_312, "here")]),
