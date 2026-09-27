@@ -73,6 +73,8 @@ the old behaviour was wrong.
 26. [The reproducibility problem](#26-the-reproducibility-problem)
 27. [The missing rungs: real `-4`, `-6`, `-8`](#27-the-missing-rungs-real--4--6-and--8)
 28. [Status](#28-status-what-is-and-is-not-done)
+29. [The word transform](#29-the-word-transform)
+30. [Model 4](#30-model-4) — the 1.2 model: twelve additions, each priced
 
 ---
 
@@ -1467,7 +1469,9 @@ that framed the output. v2 collapses them. A segment *is* a chunk. Default
 | `u8[alen]`, `u8[slen]` | `aout`, `sout` | the two streams |
 
 Kind 2 exists from archive format **v3**; v3 changes nothing else, so a v2
-archive is a valid v3 archive that does not use it, and 1.1 reads both. Every
+archive is a valid v3 archive that does not use it, and 1.1 reads both.
+Format **v4** changes no field at all: it names the model the segments were
+coded with (§30), and 1.2 decodes v2 and v3 with the 1.1 model. Every
 field after `kind` is absent when `kind == 0`; a stored segment is the
 tag byte followed by `rawlen` raw bytes, and `rawlen` comes from the index
 rather than from the segment.
@@ -1752,19 +1756,34 @@ same work faster. Three of them improve ratio at the same time.
 Ranked by expected value, with the evidence for or against each. Four of the
 seven are refuted by measurements already in this document.
 
-### 23.1 Huge pages — best remaining candidate, currently untestable
+### 23.1 Huge pages — done on Linux, 26% at `-9`
 
 At `-9` the model is ~1 GB. With 4 KB pages that is ~256K pages against an L2
 TLB of roughly 1.5–2K entries: **under 1% coverage**, so nearly every random
 group access risks a page-table walk. With 2 MB pages the same footprint is
 ~512 pages and fits comfortably.
 
-**Status: blocked on this machine.** `t_huge.c` probes it and reports
-`GetLargePageMinimum()` = 2 MB, but `SeLockMemoryPrivilege` not held
-(`ERROR_NOT_ALL_ASSIGNED`) and a 1 GB `MEM_LARGE_PAGES` reservation failing
-with `ERROR_PRIVILEGE_NOT_HELD` (1314). Granting "Lock pages in memory"
-requires `secpol.msc` plus a logoff and cannot be done per-process. On Linux
-`MADV_HUGEPAGE` needs no privilege.
+**Measured (1.2, September 2026).** On Linux (WSL2's kernel, transparent huge
+pages in `madvise` mode, the Ubuntu default), five files, three interleaved runs
+each, output byte-identical:
+
+| preset | 4 KB pages | 2 MB pages | change |
+|---|---:|---:|---:|
+| `-9` | 214.4 s | 158.8 s | **−26%** |
+| `-3` | 32.5 s | 30.2 s | −7% |
+
+The same result came first from the same binary with and without
+`GLIBC_TUNABLES=glibc.malloc.hugetlb=1` (−27% / −11%); 1.2 now asks for huge
+pages itself (`huge_advise`: `madvise(MADV_HUGEPAGE)` on every table of 4 MB
+and up — contexts, weights, run tables, match indexes, SSE tables), so no
+environment is needed. Where THP is off the advice is ignored; where it is set
+to `always` it was already happening.
+
+**Windows is still blocked.** `t_huge.c` reports `GetLargePageMinimum()` = 2 MB
+but `SeLockMemoryPrivilege` not held (`ERROR_NOT_ALL_ASSIGNED`), and a 1 GB
+`MEM_LARGE_PAGES` reservation fails with `ERROR_PRIVILEGE_NOT_HELD` (1314).
+Granting "Lock pages in memory" takes `secpol.msc` and a logoff, so it cannot
+be a default; it could be an opt-in for machines that have the right.
 
 **The obvious objection, and why it does not settle the question:** §14 records
 that sweeping `-m-2..-m2` — a 16× table footprint change — moved total time by
@@ -1875,7 +1894,7 @@ tables live.
 
 | idea | verdict | evidence |
 |---|---|---|
-| Huge pages | **untested, worth doing** | blocked by OS privilege; §14's counter-evidence does not cover 1 GB |
+| Huge pages | **done on Linux** | −26% at `-9`, −7% at `-3` (§23.1); Windows needs a privilege |
 | Stream multiplexing | **plausible, large rewrite** | attacks the real bottleneck (§21 latency) |
 | LZ hybrid | **different product** | §11 gate sweep prices it at 14–22% on repetitive data |
 | Two-outcome prefetch | **already done, better** | per-nibble prefetch, §22 |
@@ -1884,7 +1903,8 @@ tables live.
 | Cache-resident tables | **rejected premise** | 16× footprint = 2.5% time |
 
 The honest summary: **the large remaining wins are not in this engine's
-arithmetic.** They are in memory behaviour (huge pages), in filling stalls
+arithmetic.** They are in memory behaviour (huge pages — which, measured, were
+worth 26% at `-9` on Linux), in filling stalls
 (multiplexing), or in changing what the product is (LZ hybrid). Everything
 cheap has been done, and three of the cheap things improved ratio at the same
 time.
@@ -2335,21 +2355,10 @@ tools and different people.
 - **Recovery is one loss per group.** Two losses in a group is unrecoverable.
 - **DEFLATE recovery does not cross segment boundaries**, so a zlib stream
   larger than one segment is modelled as ordinary bytes.
-- **Huge pages are blocked on this machine, not evaluated.** At `-9` the model
-  is ~1 GB against an L2 TLB of roughly 2K entries, so under 1% of it is
-  covered and nearly every group access risks a page walk; 2 MB pages would
-  cut that to ~512 pages. `t_huge.c` probes whether the experiment can run and
-  reports it cannot: `GetLargePageMinimum()` is 2 MB, but
-  `SeLockMemoryPrivilege` is not held (`ERROR_NOT_ALL_ASSIGNED`) and a 1 GB
-  `MEM_LARGE_PAGES` reservation fails with `ERROR_PRIVILEGE_NOT_HELD` (1314).
-  Granting "Lock pages in memory" needs `secpol.msc` and a logoff and cannot
-  be done per-process, so the idea is untested rather than rejected. Note that
-  the `-m-2..-m2` sweep in §14 does **not** settle it: that was measured while
-  designing `-f1`, whose 9.4 MB tables are cache-resident anyway, and says
-  nothing about the 1 GB case. On Linux `MADV_HUGEPAGE` needs no privilege.
-
-### Benchmarking and tooling
-
+- **Huge pages on Windows.** Linux gets them unprivileged and 1.2 asks for
+  them (−26% at `-9`, §23.1). Windows needs the "Lock pages in memory" right,
+  which takes `secpol.msc` and a logoff; an opt-in for machines that have it is
+  not built.
 - **Verified to 2.2 GB per file, not beyond.** The 32-bit ceiling is genuinely
   gone; nothing larger has been tried.
 - **`-7`'s absolute time is not reproducible across sessions, and this is the
@@ -2493,3 +2502,132 @@ limit — and round-trips it; 190 cases across `-1`, `-5` and `-9` passed before
 merge. CI runs it on Linux, macOS and Windows and under UBSan, since the UBSan
 step's own round trip (`gleipnir.c`, 238 KB) sits just below the transform's
 256 KB minimum.
+
+---
+
+## 30. Model 4
+
+1.1's model had every scalar tuned — learning rates, SSE rates and blends,
+counter limits, chain length — and a sweep confirmed it: thirteen of them moved
+by one step each, and none improved anything by more than 0.02%. What was left
+was structure. This section is the search over structure that became 1.2's
+model, and what each addition costs.
+
+The model is recorded in the archive: format **v4** means model 4, and v2/v3
+archives decode with model 3 — 1.1's model, bit for bit — so every archive
+written since 1.0 still extracts. `r` (repair) writes the source's version,
+never its own, because a repaired archive keeps its original segments.
+
+### How it was searched
+
+Screening ran at `-9` on 42 MB: the first 3 MB of each Silesia file and the
+first 6 MB of enwik8. Sizes are exact, so the files ran in parallel. Winners
+were then combined, priced one at a time with the rest held on (leave one
+out), timed on an otherwise idle machine on five files (the first 3 MB of
+samba, dickens, mozilla, nci and ooffice; interleaved, repeats agreeing within
+0.5%), and finally run on all of Silesia and enwik8 with every file round
+tripped.
+
+### What was added
+
+"When added" is what the feature gained when the search first added it — to
+1.1 alone, on top of the ones before it, or on the one file it was built for;
+"last one in" is the loss from removing it with all the others on (the 42 MB set, where all twelve together
+are −2.52%); time is what it adds at `-9` on the five files, as a share of
+1.1's `-9` time there (62.2 s).
+
+| feature | what it is | when added | last one in | time |
+|---|---|---:|---:|---:|
+| second mixer | a second weight set, selected by the previous byte and the partial byte instead of by match state and byte class; the two outputs are averaged in the stretched domain and each trains on its own error | −0.29% | +0.59% | +12.7% |
+| x86 contexts | a table-driven x86 length decoder tracks what the next byte is — opcode, ModRM, SIB, displacement, immediate — and three contexts join that with the opcode, the previous two opcodes, ModRM and the last bytes; inside x86 blocks it also replaces the byte class in the mixer selector. Runs only on segments that have x86 blocks | ooffice −7.1% | +0.70% | +0.8% |
+| run model | for each byte-order and word context, the last byte seen there and how many times running; while the bits coded so far agree, it predicts that byte with a strength learned per run length | −0.29% (6 contexts) | +0.33% | +33% |
+| long-match model | a second match model hashed on the last 24 bytes that only takes a candidate matching at least that far | −0.17% | +0.13% | +8.0% |
+| line contexts | the bytes above and two lines above at this column; the three bytes above and the one to the left; field number, column and previous line length | nci −4.2% | +0.11% | +12.4% |
+| order-3 indirect | what followed the last three bytes the last three times, joined with the last two | −0.17% | +0.11% | +5.9% |
+| linear inputs | every context's estimate also enters the mixer as (p − ½), not only stretched | −0.09% | +0.10% | +6.4% |
+| order 0 | a 4 KB context with no history at all | −0.10% | +0.09% | ≈0 |
+| match-byte context | the byte the match model expects, its length bucket and the last byte | −0.19% | +0.09% | +3.2% |
+| follow-history | four bytes of order-1 indirect history instead of one | −0.15% | +0.09% | ≈0 |
+| text contexts | the word-transform contexts (§29) on text the transform declined — any segment without a record stride | samba −0.51% | +0.08% | +10.3% |
+| long-match byte | the long-match model's expected byte, joined with two bytes | −0.07% | +0.03% | +2.1% |
+
+Every one is still positive with all the others on, and they are close to
+additive: the "when added" figures sum to about −2.6%, and together they are
+−2.52%.
+
+The x86 contexts made the text files smaller too, which is how order 0 was
+found: outside x86 blocks they hash to a constant, which is an order-0 model,
+and the engine never had one. Order 0 alone is most of that effect.
+
+### What did not work
+
+| idea | result |
+|---|---|
+| mixer learning rate ±1 step | −0.02% / +0.54% |
+| SSE rate ±1, SSE blend ±1 | −0.01% at best |
+| ISSE learning rates, chain length 13, counter limits 127/1023, bit-history bounds 30/3 | within ±0.03% |
+| a third mixer, order-2 selected | worse than two (−0.69% against −0.74%) |
+| each mixer on its own error, one mixer | −0.03%; kept only as part of the second mixer |
+| the match model's expected bit in the third SSE stage | −0.01% |
+| a long-match bit in the first mixer's selector | nothing |
+| six bytes of follow-history | worse than four |
+| two bytes of order-2 follow-history | worse than one, once order 1 has four |
+| linear inputs at full scale | +0.16%; a quarter scale is −0.09% |
+| the run model on every context | −0.49% on the 42 MB set but +1.28% on mr, and +45% time |
+
+### The presets
+
+A preset takes a feature when its rate — size per unit time — beats the rate
+of stepping up to the next preset, which on the five files is about 0.09% per
+1% of time between `-1` and `-3`.
+
+| preset | adds | Silesia, 1.1 | Silesia, 1.2 | change | time, five files |
+|---|---|---:|---:|---:|---:|
+| `-1`, `-2` | x86, order 0 | 42,620,088 | 41,881,656 | −1.7% | +16% |
+| `-3` | + match-byte context | 39,429,389 | 38,743,491 | −1.7% | +13% |
+| `-5` | + second mixer, long match, long-match byte, follow-history | 38,043,334 | 37,180,007 | −2.3% | +33% |
+| `-7` | + line contexts, order-3 indirect | 36,401,926 | 35,474,070 | −2.5% | +48% |
+| `-9` | + linear inputs, text contexts, run model | 35,468,198 | 34,426,438 | −2.9% | +99% |
+
+The 1.2 Silesia figures are per file; the 1.1 figures are the single-session
+table's (whole directory), except `-9`, which is per file. The two methods
+differ by about 1 KB.
+The five-file timing set is two-fifths x86 code, so it overstates what the x86
+contexts cost at `-1` to `-3` on anything else. The `-f` presets are
+unchanged: they are defined by their throughput.
+
+`-7` now compresses Silesia as well as 1.1's `-9` did (+0.02%). On the five
+files it is also as fast (62.7 s against 62.2 s), and 3.1% smaller there.
+
+enwik8, `-9 -s1000`: **17,599,927**, against 18,027,359 (−2.37%).
+
+### Keeping 1.1 exactly
+
+Model 3, which decodes every 1.1 archive, runs the code it always ran: every
+addition is behind a flag that is off for it, and `set_level` adds no context. Flags are cheap but not free —
+with every one off, the new build was 6% slower at `-1` and 4.6% at `-3`.
+Most of that was the new context cases sitting early in `rehash`'s dispatch
+and the match update moving ahead of the rehash; the rest was the checks
+themselves. So the bit path is compiled twice, once with the model-4 code
+constant-folded away, and a segment runs the copy its feature set needs. With
+the dispatch order and the update order restored for model 3, the difference
+is +0.6% at `-1` and +1.2% at `-3` — within what a relink moves.
+
+### Verification
+
+`fuzz.py`, `tfuzz.py`, `gfuzz.py`, `sfuzz.py` and `wfuzz.py` (at `-3`, `-5`,
+`-7`, `-9`) pass. A directory of x86, text, raster and prose files was
+compressed at `-5`, `-7` and `-9` with `-t6 -s1`, so every batch mixed segment
+kinds, then extracted with `-t3` and checked with `t -D`: all exact. 1.1
+archives extract with the new build, and a 1.1 archive repaired with it keeps
+v3 and extracts. All twelve Silesia files and enwik8 round trip at every
+preset measured.
+
+### Speed: huge pages
+
+The model-4 tables made `-9` slower; huge pages paid most of it back on
+Linux. 1.2 asks for 2 MB pages on every table of 4 MB and up, and on a kernel
+with transparent huge pages in `madvise` mode that took `-9` from 214 s to
+159 s on the five files (−26%) and `-3` from 32.5 s to 30.2 s (−7%), output
+unchanged. §23.1 has the measurement. Windows is not covered: its large pages
+need a privilege most accounts do not hold.
