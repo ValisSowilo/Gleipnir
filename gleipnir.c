@@ -525,6 +525,7 @@ static int DET_X86 = 0;         /* ...contain x86 code blocks */
 static int MODEL = 4;
 static int F_MIX2, F_MM2, F_X2IN, F_IH1 = 1, F_X86;
 static int FEAT;                /* the model 4 features set_level turned on */
+static int V4ON;                /* ...and whether any of them is live for this batch */
 #define MM2LEN 24               /* minimum match the second match model takes */      /* row / record length, 0 = no period found */
 static int DET_WIDTH  = 1;      /* element width in bytes: 1, 2 or 4 */
 
@@ -1570,8 +1571,8 @@ static inline __attribute__((always_inline)) void update_t(Ctx *TH, int bit, con
  * branch, but there are enough of them that together they cost -1 six percent
  * with every one switched off -- so the presets that run none of them get a
  * copy compiled without them, and cannot tell the difference from 1.1. */
-static void push_word(Ctx *TH, int byte) { if (FEAT) push_word_t(TH, byte, 1); else push_word_t(TH, byte, 0); }
-static void rehash(Ctx *TH) { if (FEAT) rehash_t(TH, 1); else rehash_t(TH, 0); }
+static void push_word(Ctx *TH, int byte) { if (V4ON) push_word_t(TH, byte, 1); else push_word_t(TH, byte, 0); }
+static void rehash(Ctx *TH) { if (V4ON) rehash_t(TH, 1); else rehash_t(TH, 0); }
 static int  predict3(Ctx *TH) { return predict_t(TH, 0); }
 static int  predict4(Ctx *TH) { return predict_t(TH, 1); }
 static void update3(Ctx *TH, int bit) { update_t(TH, bit, 0); }
@@ -1779,19 +1780,16 @@ static void add_wrt_ctx(int bits) {
 #define FE_TXT   0x200          /* word contexts on untransformed text */
 #define FE_IH4   0x400          /* four bytes of follow-history, order-1 indirect */
 #define FE_RUN   0x800          /* run model */
-/* What each preset runs.  Each feature was priced alone -- size gained
- * against time added -- and a preset takes a feature when its rate beats the
- * rate of simply stepping up to the next preset (ARCHITECTURE.md section 30).
- * -1 and -2 take only what is nearly free outside machine code: the x86
- * contexts run on x86 blocks alone, and order 0 is a 4 KB table.  -3 adds the
- * match context, -5 the second mixer and the long-match model, -7 the line
- * and indirect contexts, and -9 everything.  The -f presets are left alone:
- * they are defined by their throughput. */
-#define FE1 (FE_X86 | FE_O0)
-#define FE3 (FE1 | FE_MCTX)
-#define FE5 (FE_MIX2 | FE_MM2 | FE_MCTX | FE_MCTX2 | FE_X86 | FE_O0 | FE_IH4)
-#define FE7 (FE5 | FE_IND3 | FE_LCTX)
-#define FE9 (FE7 | FE_X2IN | FE_TXT | FE_RUN)
+/* What each preset runs.  -9 is the maximum and takes everything; it roughly
+ * doubles 1.1's -9 time for 2.9% on Silesia, which is what a size-ranked
+ * benchmark wants.  -1 to -7 keep 1.1's model and add only the x86 contexts,
+ * which run on x86 blocks alone -- anything else codes exactly as 1.1 did.
+ * The rest was measured at those presets too, but on full Silesia at equal
+ * time none of it beat simply stepping up a preset (ARCHITECTURE.md
+ * section 30).  The -f presets are defined by their throughput and take
+ * nothing. */
+#define FE1 FE_X86
+#define FE9 (FE_MIX2 | FE_MM2 | FE_MCTX | FE_MCTX2 | FE_X86 | FE_O0 | FE_IH4 |              FE_IND3 | FE_LCTX | FE_X2IN | FE_TXT | FE_RUN)
 
 static void add_ctx(int o, int bits) { ORD[NCTX] = o; GBITS[NCTX] = bits; NCTX++; }
 
@@ -1941,7 +1939,7 @@ static void set_level(int lvl) {
      * leaves every flag off, so it runs exactly the 1.1 code. */
     FEAT = 0;
     if (MODEL >= 4 && !FASTP)
-        FEAT = lvl >= 9 ? FE9 : (lvl >= 7 ? FE7 : (lvl >= 5 ? FE5 : (lvl >= 3 ? FE3 : FE1)));
+        FEAT = lvl >= 9 ? FE9 : FE1;
 #ifdef EXPFEAT
     {
         const char *e = getenv("GLEIPNIR_FEAT");
@@ -1962,6 +1960,10 @@ static void set_level(int lvl) {
         if (FEAT & FE_LCTX) { add_ctx(-29, 21 + gb); add_ctx(-30, 21 + gb); add_ctx(-31, 21 + gb); }
         if (F_X86) { add_ctx(-32, 20 + gb); add_ctx(-33, 20 + gb); add_ctx(-34, 21 + gb); }
         if (FEAT & FE_O0) add_ctx(-35, 12);
+        /* Whether this batch runs any model-4 code at all.  An x86-only
+         * preset on a segment without x86 blocks does not, and takes the
+         * 1.1 bit path -- same output, same speed. */
+        V4ON = F_MIX2 || F_MM2 || F_X2IN || F_X86 || F_IH1 != 1 || (FEAT & ~(FE_MIX2 | FE_MM2 | FE_X2IN | FE_X86 | FE_IH4));
     }
     /* NISSE indexes ICHAIN and the per-stage weight banks; a level or a
      * CHAINN override must not be able to walk off either. */
@@ -3281,7 +3283,7 @@ static void do_compress_chunk(Job *j) {
             for (uint32_t k = 0; k < j->blk[i].len; k++) {
                 if (bypass_gate(TH)) { bypass_enc_byte(TH, j->in[off + k]); continue; }
                 if (TH->need_ctx) { rehash(TH); nib_begin(TH, 0, 0); TH->need_ctx = 0; }
-                if (FEAT) for (int b = 7; b >= 0; b--) {
+                if (V4ON) for (int b = 7; b >= 0; b--) {
                     int bit = (j->in[off + k] >> b) & 1;
                     enc_bit(TH, bit, predict4(TH));
                     update4(TH, bit);
@@ -3316,7 +3318,7 @@ static void do_decompress_chunk(Job *j) {
             for (uint32_t k = 0; k < j->blk[i].len; k++) {
                 if (bypass_gate(TH)) { bypass_dec_byte(TH); continue; }
                 if (TH->need_ctx) { rehash(TH); nib_begin(TH, 0, 0); TH->need_ctx = 0; }
-                if (FEAT) for (int b = 0; b < 8; b++) { int bit = dec_bit(TH, predict4(TH)); update4(TH, bit); }
+                if (V4ON) for (int b = 0; b < 8; b++) { int bit = dec_bit(TH, predict4(TH)); update4(TH, bit); }
                 else for (int b = 0; b < 8; b++) { int bit = dec_bit(TH, predict3(TH)); update3(TH, bit); }
             }
         }
