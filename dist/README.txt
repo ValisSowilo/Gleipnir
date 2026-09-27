@@ -1,4 +1,4 @@
-Gleipnir 1.1.0 -- a context-mixing archiver
+Gleipnir 1.2.0 -- a context-mixing archiver
 ======================================
 
 WHAT THIS IS
@@ -38,7 +38,7 @@ QUICK START
 
 RIGHT-CLICK MENU
 
-If you used the Windows setup installer (gleipnir-1.1.0-setup.exe) and ticked the
+If you used the Windows setup installer (gleipnir-1.2.0-setup.exe) and ticked the
 Explorer option during install, File Explorer gains:
 
   right-click a folder or file   ->  Compress with Gleipnir
@@ -196,7 +196,8 @@ LIMITS WORTH KNOWING
     scrub or repair it, since neither the checksums nor the parity blocks are
     readable through ciphertext.
   * No append. Adding to an archive means rewriting it.
-  * Archives are format v3; 1.1 reads v2 and v3, earlier builds read v2 only.
+  * Archives are format v4; 1.2 reads v2 to v4. 1.1 reads v2 and v3, 1.0
+    reads v2 only, so an archive written by 1.2 needs 1.2 to extract.
   * Verified up to 2.2 GB per file. Nothing larger has been tried.
   * Recovery covers one lost segment per group and not two.
   * Linux is verified on Ubuntu 26.04 (gcc 15.2), built from source via the

@@ -19,28 +19,42 @@ to prevent.
 
 ---
 
-## 1.1: where it would place (not submitted)
+## 1.2: where it would place (not submitted)
 
-1.1 adds the word transform (README, Transforms; ARCHITECTURE §29). Measured
-2026-09-26 on the same machine as 1.0.2, round-trip verified. **These are
-comparisons against the published tables, not listings** — the listed entries
-remain 1.0.2's until a new result is submitted and accepted.
+1.2 makes `-9` a maximum-ratio preset — twelve model additions, about 1.9×
+1.1's time — and adds x86 contexts at every preset (README, What 1.2 changed;
+ARCHITECTURE §30). Measured 2026-09-26/27 on the same machine as 1.0.2 and
+1.1, every result round-trip verified. **These are comparisons against the
+published tables, not listings** — the listed entries remain 1.0.2's until a
+new result is submitted and accepted.
 
-| board | 1.0.2 (listed) | 1.1 | would place |
-|---|---:|---:|---|
-| LTCB, enwik9 + zipped `gleipnir.c` | 157,139,908 — 35th | 148,026,632 + 75,244 = **148,101,876** | **29th of 227**, between `mcm 0.83` (144,934,149) and `nanozip 0.09a` (149,328,821) |
-| Silesia, per file | 35,583,396 — 49th | **35,468,198** | **48th of 322**, past `paq8l -7`; `fp8_v4 -8` is 10,437 bytes ahead |
+| board | 1.0.2 (listed) | 1.1 | 1.2 | would place |
+|---|---:|---:|---:|---|
+| LTCB, enwik9 `-9` + zipped `gleipnir.c` | 157,139,908 — 35th | 148,101,876 — ~29th | 143,807,662 + 82,959 = **143,890,621** | **~27th**, past `mcm 0.83` (144,934,149) and `drt\|lpaq9m 9` (144,054,338); `zpaq 6.42` (142,257,365) is 1.1% ahead |
+| LTCB, enwik9 `-9 -m1` + zip | | | 141,380,893 + 82,959 = **141,463,852** | **~26th**, past `zpaq 6.42` too; `drt\|emma 1.23` (135,522,772) is next |
+| Silesia, per file, `-9` | 35,583,396 — 49th | 35,468,198 — ~48th | **34,426,438** | **~33rd**, past every `paq8pxd_v16` entry (best 34,523,313); `cmix v1` (33,917,866) is next |
 
 For a resubmission the LTCB row would read, in the page's format:
 
 ```
-gleipnir 1.1.0  -9 -s1000 -t1  18,027,359  148,026,632  75,244 sd  148,101,876  ...  CM  116
+gleipnir 1.2.0  -9 -s1000 -t1  17,599,927  143,807,662  82,959 sd  143,890,621  ...  CM
 ```
 
-with the time columns left blank until they are re-measured on a quiet
-machine (see README, enwik9, on why the one run's times are not claimed), and
-peak memory 3,235 MB (decompression; compression 2,847 MB). The Silesia row
-changes three cells — dickens 2008, webster 5433, xml 300 — and no others.
+with times left for a quiet re-measurement: the enwik9 run shared the machine
+with a second one, so its 5,781 s compress and 5,169 s decode are upper
+bounds. Peak memory 3,632 MB (decompression; compression 3,103 MB). A `-m1`
+row needs its own enwik8 figure, which the page takes with the same options.
+
+The Silesia row, per file, in thousands of bytes:
+
+```
+34426438  1992  9335  2013  971  1593  2173  853  2517  3841  5259  3597  283  gleipnir 1.2.0 -9 -s1000 -t1
+```
+
+### 1.1 (superseded, not submitted)
+
+1.1 added the word transform (ARCHITECTURE §29): enwik9 148,026,632 + 75,244 =
+148,101,876 (~29th), Silesia per file 35,468,198 (~48th).
 
 ---
 

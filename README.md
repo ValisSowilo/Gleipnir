@@ -7,12 +7,12 @@
 [![LTCB](https://img.shields.io/badge/LTCB%20enwik9-35th%20of%20227-brightgreen)](https://mattmahoney.net/dc/text.html#1571)
 [![Silesia](https://img.shields.io/badge/Silesia-49th%20of%20322-brightgreen)](https://mattmahoney.net/dc/silesia.html)
 
-A from-scratch lossless compressor and archiver in **one 5,340-line C file**,
-with zlib as its only dependency. It predicts each bit with 27 statistical
-models — 30 on raster data, 31 on text — blends their predictions with a
-learned mixer, and codes the result with an arithmetic coder. Text is first
-dictionary-coded, each frequent word becoming a one-to-three byte code from a
-dictionary built out of the text itself.
+A from-scratch lossless compressor and archiver in **one 5,864-line C file**,
+with zlib as its only dependency. It predicts each bit with up to 41
+statistical models, blends their predictions with two learned mixers, and codes
+the result with an arithmetic coder. Text is first dictionary-coded, each
+frequent word becoming a one-to-three byte code from a dictionary built out of
+the text itself; machine code is parsed instruction by instruction.
 
 **Gleipnir 1.0.2 is listed on both of Matt Mahoney's benchmarks** (added
 2026-09-25): **35th of 227** on the [Large Text Compression
@@ -24,14 +24,21 @@ on all twelve Silesia files**, and at `-5` it wins on all three axes at once:
 2.7% smaller than `zpaq -m5`, 1.75× faster, and 43% less memory (1.1; 1.0.2 was
 2.2% smaller and 1.6× faster).
 
-**1.1 adds a word transform for text** (see
-[Transforms](#word-transform-dictionary-coding-of-text)). It takes enwik9 from
-157,073,381 to **148,026,632 (−5.76%)** and enwik8 from 18,810,680 to
-**18,027,359 (−4.16%)**, and the Silesia per-file total from 35,583,396 to
-**35,468,198**. Measured against the published tables those would place about
-**29th** on the LTCB and **48th** on Silesia; 1.1 has not been submitted, so
-the listings above are 1.0.2's. The preset table and benchmarks below are
-1.1's; figures from 1.0.2 are marked as such.
+**1.1 added a word transform for text** (see
+[Transforms](#word-transform-dictionary-coding-of-text)), taking enwik9 from
+157,073,381 to 148,026,632 (−5.76%).
+
+**1.2 makes `-9` a maximum-ratio preset and adds an x86 model** (see [What 1.2
+changed](#what-12-changed)). `-9` takes enwik9 to **143,807,662** (−2.85%;
+**141,380,893** with `-m1`, smaller than `zpaq 6.42 -max`), enwik8 to
+**17,599,927** (−2.37%) and the Silesia per-file total to **34,426,438**
+(−2.94%), for about 1.9× 1.1's time. `-1` to `-7` keep 1.1's model and add
+only the x86 contexts: machine code gets 2.6–12% smaller, everything else is
+byte-identical to 1.1. Against the published tables those would place about
+**27th** on the LTCB (26th with `-m1`) and **33rd** on Silesia; 1.2 has not
+been submitted, so the listings above are 1.0.2's. The preset table below is
+1.1's single-session run; 1.2's differences from it are measured
+[in their own table](#what-12-changed).
 
 > **Using it as an archiver?** See **[USAGE.md](USAGE.md)**. `gleipnir.c` wraps the
 > engine documented here in a real archive format — directories, per-segment and
@@ -90,7 +97,9 @@ zpaq's 39,113,069 to the byte. Only the time axis was ever in question.
 > within one table, never across two.
 > See [ARCHITECTURE.md §26](ARCHITECTURE.md#26-the-reproducibility-problem).
 
-Two honest summaries, because there is no single one:
+The table is 1.1's. In 1.2, `-1` to `-7` differ only on machine code and `-9`
+is a different preset — see [What 1.2 changed](#what-12-changed). Three
+honest summaries, because there is no single one:
 
 - **`-5` beats `zpaq -m5` on all three axes at once**: 2.7% smaller, 1.75×
   faster, and 43% less memory.
@@ -100,6 +109,9 @@ Two honest summaries, because there is no single one:
   *less* memory than zpaq, which measured head to head was wrong, and once
   quoted 1.31× the time, which was a cross-session artefact. See
   [Benchmarks](#benchmarks).
+- **1.2's `-9` goes 12.0% below `zpaq -m5`** (34,426,438 per file) for about
+  2.2× its time and 1.9× its memory (1,579 MB). That trade is only worth making
+  where size is the only measure; `-7` is the preset to use otherwise.
 
 On the [Silesia Open Source Compression
 Benchmark](https://mattmahoney.net/dc/silesia.html) Gleipnir 1.0.2 is listed
@@ -155,16 +167,71 @@ sit on the diagonal. `xz` decodes ~50× faster than it encodes and `brotli`
 
 ![compression size against speed](graphs/speed_vs_size.svg)
 
-On enwik8 (100 MB of Wikipedia text) 1.1 reaches **18,027,359** — 8.1% below
-`zpaq -m5`'s 19,625,046 measured on the same machine, but well behind the Large
-Text Compression Benchmark leaders, which is where this engine is weakest.
-`cmix v21` reaches 14,623,723 at 31 GB, and `durilca'kingsize` 16,209,219. On
-enwik9 the word transform (see [Transforms](#word-transform-dictionary-coding-of-text))
-takes 157,073,381 to **148,026,632**, which would move it from 35th to about 29th
-of 227 on that board.
+On enwik8 (100 MB of Wikipedia text) 1.2 reaches **17,599,927** — 10.3% below
+`zpaq -m5`'s 19,625,046 measured on the same machine, and 1.4% below
+`zpaq -max`'s published 17,855,729, but well behind the Large Text Compression
+Benchmark leaders, which is where this engine is weakest. `cmix v21` reaches
+14,623,723 at 31 GB, and `durilca'kingsize` 16,209,219. On enwik9 1.2 reaches
+**143,807,662**, or **141,380,893** with `-m1`, which would move it from 35th to
+about 27th of 227 on that board (26th with `-m1`).
 
-Eight presets span the speed/ratio curve, and **`-7` is within 2.7% of `-9` for
-33% less time** — the better default for anything that is not a ratio contest.
+Eight presets span the speed/ratio curve. In 1.2 **`-7` is within 5.2% of `-9`
+for 61% less time** — the better default for anything that is not a ratio
+contest; `-9` is for when only size counts.
+
+---
+
+## What 1.2 changed
+
+**`-9` is now the maximum-ratio preset.** It runs twelve additions to the
+model that were each measured alone and with the others: a second mixer, a
+long-match model, contexts on what each match model expects, x86 instruction
+contexts, line and column contexts, an order-3 indirect context, an order-0
+context, a run model, and more. Each is still positive with all the others on;
+together they cost about 1.9× the time. [ARCHITECTURE.md
+§30](ARCHITECTURE.md#30-model-4) has what each one is, gains and costs.
+
+**`-1` to `-7` keep 1.1's model** and add only the x86 contexts: a length
+decoder follows x86 instructions and knows whether the next byte is an opcode,
+a ModRM byte, a displacement or an immediate. They run only on blocks the
+segmenter already marked as x86, so every other file codes byte for byte as in
+1.1, at the same speed. The rest of model 4 was tried at those presets too,
+and on full Silesia at equal time none of it beat simply stepping up a preset.
+
+Full Silesia, per file, one process, `-t1`, 1.1 and 1.2 interleaved file by
+file so both saw the same machine:
+
+| preset | 1.1 | 1.2 | size | time |
+|---|---:|---:|---:|---:|
+| `-1` | 42,621,188 | 42,053,408 | −1.33% | +8.9% |
+| `-3` | 39,430,489 | 39,128,902 | −0.76% | +4.1% |
+| `-5` | 38,044,434 | 37,839,818 | −0.54% | +4.2% |
+| `-7` | 36,403,026 | 36,219,510 | −0.50% | +6.0% |
+| `-9` | 35,468,198 | **34,426,438** | **−2.94%** | +90% |
+
+At `-1` to `-7` the whole difference is mozilla and ooffice, the two files
+with x86 code: ooffice −12% and mozilla −2.6% at `-1`. Other background jobs
+were running during this table, equally for both versions, so read the time
+column as a ratio, not as speeds. The `-f` presets are unchanged.
+
+| | 1.1 | 1.2 |
+|---|---:|---:|
+| enwik8 `-9 -s1000` | 18,027,359 | **17,599,927** (−2.37%) |
+| enwik9 `-9 -s1000` | 148,026,632 | **143,807,662** (−2.85%) |
+| enwik9 `-9 -s1000 -m1` | — | **141,380,893** (−4.49%) |
+| Silesia `-9` peak memory | 1,193 MB | 1,579 MB |
+
+**Huge pages on Linux.** 1.2 asks the kernel for 2 MB pages on every large
+table (`madvise(MADV_HUGEPAGE)`). The model is read at random, so with 4 KB
+pages nearly every lookup also misses the TLB. On a kernel with transparent
+huge pages in `madvise` mode — Ubuntu's default — `-9` ran **26% faster** on
+five Silesia files (214 s → 159 s) and `-3` 7% faster, output identical. It
+does nothing where THP is off or already `always`, and nothing on Windows or
+macOS, where large pages need a privilege most accounts lack.
+
+**Archives are format v4.** 1.2 reads every 1.0 and 1.1 archive and decodes
+each with the model that wrote it, bit for bit; `r` keeps a repaired archive
+at its original version. Archives written by 1.2 need 1.2 to extract.
 
 ---
 
@@ -182,7 +249,7 @@ download](#verify-your-download).
 
 1. Open the **[Releases page](https://github.com/ValisSowilo/Gleipnir/releases/latest)**.
    Under **Assets**, click **`gleipnir-<version>-setup.exe`** (for example
-   `gleipnir-1.1.0-setup.exe`) to download it, then
+   `gleipnir-1.2.0-setup.exe`) to download it, then
    double-click the downloaded file.
 2. Because it is not code-signed, Windows shows a blue **"Windows protected your
    PC"** box — click **More info**, then **Run anyway**. (It installs only into
@@ -1435,8 +1502,9 @@ competitors was measured on this machine and is directly comparable throughout.
 | `cmix v21` | 14,623,723 | 1.170 | | | LTCB |
 | `nncp v3.2` | 14,915,298 | 1.193 | | | LTCB |
 | `paq8px_v206 -12L` | 15,849,084 | 1.268 | | | LTCB |
+| **`gleipnir -9`** (1.2) | **17,599,927** | **1.408** | ‡ | ‡ | here |
 | `zpaq 6.42 -max` | 17,855,729 | 1.428 | | | LTCB |
-| **`gleipnir -9`** (1.1) | **18,027,359** | **1.442** | 345.6s | 324.9s | here |
+| `gleipnir -9` (1.1) | 18,027,359 | 1.442 | 345.6s | 324.9s | here |
 | **`gleipnir -5`** (1.1) | **18,658,545** | **1.493** | 153.9s | 145.4s | here |
 | `gleipnir -9` (1.0.2) | 18,810,676 | 1.505 | 347.1s | 324.4s | here |
 | `lpaq1 -9` | 19,755,948 | 1.580 | | | LTCB |
@@ -1445,12 +1513,15 @@ competitors was measured on this machine and is directly comparable throughout.
 | `bzip2 -9` | 29,008,736 | 2.321 | | | LTCB |
 | `gzip -9` | 36,445,248 | 2.916 | | | LTCB |
 
-With the word transform `gleipnir -9` is 8.7% smaller than `lpaq1 -9` and
-trails `zpaq -max` by only 1.0% (1.0.2 trailed it by 5.3%); it beats every LZ
-codec by a wide margin and trails the heavy CM and neural engines by more. The
-1.1 row and the 1.0.2 row come from the same interleaved session on the same
+1.2's `gleipnir -9` is 10.9% smaller than `lpaq1 -9` and **1.4% smaller than
+`zpaq -max`** (1.1 trailed it by 1.0%, 1.0.2 by 5.3%); it beats every LZ codec
+by a wide margin and trails the heavy CM and neural engines by more. The 1.1
+row and the 1.0.2 row come from the same interleaved session on the same
 machine, so their times compare directly; the 1.1 `-5` row is from a separate
-pass on the same machine. Speeds run 0.29 MB/s at `-9` and 0.65 MB/s at `-5`,
+pass on the same machine. ‡ 1.2's `-9` ran while other jobs shared the machine
+(497 s / 502 s), so no time is claimed for it; on Silesia, interleaved with
+1.1, it takes 1.9× 1.1's time. `-1` to `-7` produce 1.1's enwik8 output byte
+for byte: enwik8 has no machine code. Speeds run 0.29 MB/s at `-9` and 0.65 MB/s at `-5`,
 decoding within a few percent of that. Text is where this engine is weakest
 relative to the field — the full preset ladder and the reason are in [Where it
 struggles](#where-it-struggles).
@@ -1464,8 +1535,10 @@ struggles](#where-it-struggles).
 | `nncp v3.2` | 106,632,363 | 0.853 | | | LTCB |
 | `cmix v21` | 107,963,380 | 0.864 | | | LTCB |
 | `paq8px_v206 -12L` | 124,696,410 | 0.998 | | | LTCB |
+| **`gleipnir -9 -m1`** (1.2) | **141,380,893** | **1.131** | 5891s § | 5403s § | here |
 | `zpaq 6.42 -max` | 142,252,605 | 1.138 | | | LTCB |
-| **`gleipnir -9`** (1.1) | **148,026,632** | **1.184** | † | † | here |
+| **`gleipnir -9`** (1.2) | **143,807,662** | **1.150** | 5781s § | 5169s § | here |
+| `gleipnir -9` (1.1) | 148,026,632 | 1.184 | † | † | here |
 | `gleipnir -9` (1.0.2) | 157,073,377 | 1.257 | 3186.3s | 3261.6s | here |
 | **`gleipnir -9` default `-s64`** | **164,080,953** | **1.313** | 3192.0s | | here |
 | `lpaq1 -9` | 164,508,919 | 1.316 | | | LTCB |
@@ -1475,9 +1548,13 @@ struggles](#where-it-struggles).
 | `bzip2 -9` | 253,977,839 | 2.032 | | | LTCB |
 | `gzip -9` | 322,591,995 | 2.581 | | | LTCB |
 
-At the gigabyte scale `gleipnir -9` 1.1 is 10.0% smaller than `lpaq1 -9` and beats
-every LZ codec by a wide margin, while trailing `zpaq -max` by 4.1% (1.0.2: 10.4%)
-and the dedicated text engines by more. The `-s64` and `-5` rows are 1.0.2's.
+At the gigabyte scale `gleipnir -9` 1.2 is 12.6% smaller than `lpaq1 -9` and
+beats every LZ codec by a wide margin. It trails `zpaq -max` by 1.1% (1.1: 4.1%,
+1.0.2: 10.4%) — and with `-m1`, doubling its tables, **beats it by 0.6%**.
+The dedicated text engines stay well ahead. The `-s64` and `-5` rows are
+1.0.2's. § The two 1.2 runs ran at the same time on a six-core machine, so the
+times are an upper bound; both were verified with `t -D`, peaking at 3,632 MB
+and 5,006 MB.
 
 † The 1.1 enwik9 run measured 4,546 s to compress and 3,339 s to decompress,
 round-trip verified, but an earlier run of identical code on the same file
@@ -1518,7 +1595,8 @@ default it stays ahead of `lpaq1 -9`, by 0.26%, and would compare to 47th of 227
 | codec | size | bpc |
 |---|---|---|
 | `paq8px -8` | 560,705 | 1.428 |
-| **`gleipnir -9`** | **651,967** | **1.660** |
+| **`gleipnir -9`** (1.2) | **640,411** | **1.631** |
+| `gleipnir -9` (1.1) | 651,967 | 1.660 |
 | `zpaq -m5` | 659,513 | 1.679 |
 | `gleipnir -7` | 661,432 | 1.684 |
 | `lpaq1 -6` | 682,211 | 1.737 |
@@ -1533,7 +1611,8 @@ default it stays ahead of `lpaq1 -9`, by 0.26%, and would compare to 47th of 227
 | codec | size | bpc |
 |---|---|---|
 | `paq8px -8` | 302,791 | 0.862 |
-| **`gleipnir -9`** | **355,766** | **1.013** |
+| **`gleipnir -9`** (1.2) | **348,346** | **0.991** |
+| `gleipnir -9` (1.1) | 355,766 | 1.013 |
 | `gleipnir -7` | 359,844 | 1.024 |
 | `zpaq -m5` | 362,880 | 1.033 |
 | `lpaq1 -6` | 388,787 | 1.107 |
@@ -1546,6 +1625,7 @@ default it stays ahead of `lpaq1 -9`, by 0.26%, and would compare to 47th of 227
 On both small corpora `gleipnir -9` lands ahead of `zpaq -m5` and behind `paq8px -8`,
 the same order it holds on Silesia, and on Canterbury even `-7` passes `zpaq`.
 Times at this scale are dominated by process startup, so these two lead on size.
+`-7` is the same in 1.1 and 1.2 on both: neither corpus has x86 code.
 The picture is consistent across all five corpora: `gleipnir` beats `zpaq -m5` on
 general and structured data, edges `lpaq1` on text, and trails the engines that
 spend far more time per bit.

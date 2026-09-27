@@ -25,6 +25,13 @@ Ordered by measured cost, which is **not** the order the names suggest — the
 | `-7`   | 36,401,926 | 5.82× | 1.374 | 0.48 MB/s | 0.48 MB/s | 954 MB |
 | `-9`   | 35,467,098 | 5.98× | 1.339 | 0.32 MB/s | 0.32 MB/s | 1193 MB |
 
+**This table is 1.1's.** In 1.2, `-1` to `-7` code everything except machine
+code byte for byte as above, and x86 code 2.6–12% smaller, for 4–9% more time
+on Silesia. `-9` became a maximum-ratio preset: **34,426,438** per file
+(−2.94%), about 1.9× the time, peaking at 1,579 MB. Both were measured with 1.1
+and 1.2 interleaved on the same machine — see
+[README.md](README.md#what-12-changed).
+
 Every row above comes from **one interleaved session** (`scripts/bench_session.py`,
 2 h 37 m, gleipnir 1.1), with `-7` and `zpaq -m5` repeated at both ends as drift
 sentinels. The sentinels caught load during the run's first three rows, so
@@ -77,8 +84,8 @@ compressed (video, JPEG, most archives), and for petabyte-scale stores.
 
 Against the closest comparable tool, `zpaq -m5`, `gleipnir -5` wins on all three
 axes at once — 2.7% smaller, 1.75× faster, 43% less memory. That advantage is
-specific to `-5`: `-9` is 9.3% smaller than zpaq but costs 1.18× the time and
-1.42× the memory, so it wins on size alone. Against `zstd --long -19` gleipnir is
+specific to `-5`: in 1.2 `-9` is 12.0% smaller than zpaq but costs about 2.2×
+the time and 1.9× the memory, so it wins on size alone. Against `zstd --long -19` gleipnir is
 far smaller and far slower. Those are the comparisons worth making.
 
 ## Quick start
@@ -142,7 +149,9 @@ measured the same step at 13.0×, and an earlier revision of this table, which
 divided times from different sessions, had it at 30.9× — the step's time term
 moves more between sessions than any real change has moved it. Choose by
 memory and absolute time instead:
-`-9` needs 1193 MB and 661 s where `-7` needs 954 MB and 442 s.
+`-9` needs 1193 MB and 661 s where `-7` needs 954 MB and 442 s. In 1.2 the
+last step is steeper still: `-9` takes about 1.9× 1.1's time and 1,579 MB for
+2.94% more, so `-7` is the preset for anything but a ratio contest.
 
 Every size in the table is exact. The times are one session's, and
 `-7`'s has moved by up to 22% between sessions in the past, so read any single
@@ -281,12 +290,12 @@ triggered the attempt.
 ## Memory and threads
 
 Each worker owns a complete private model, so memory scales with `-t`. At `-9`
-a single model is over a gigabyte, which means `-t0` on a twelve-thread machine
-would ask for roughly 18 GB. `gleipnir` measures installed RAM and caps the thread
+a single model is about 1.5 GB in 1.2, which means `-t0` on a twelve-thread
+machine would ask for roughly 18 GB. `gleipnir` measures installed RAM and caps the thread
 count to fit, telling you when it does:
 
 ```
-gleipnir: -t12 needs ~18432 MB, capping at -t7 (16384 MB installed)
+gleipnir: -t12 needs ~18487 MB, capping at -t7 (16255 MB installed)
 ```
 
 Memory is bounded by the segment size and thread count, **not** by how large
@@ -307,7 +316,8 @@ the whole input in a single segment, so the model never resets mid-file:
 gleipnir c -9 -s2000 archive.gl bigfile     # one segment for anything under 2 GB
 ```
 
-On a single large file this is the smallest `gleipnir` can go. With 1.1's word
+On a single large file this is the smallest `gleipnir` can go: 1.2's
+`enwik9 -9 -s1000` is 143,807,662 and peaks at 3.6 GB. With 1.1's word
 transform `enwik8 -9` drops 2.3% (18,450,584 → 18,027,359) — more than 1.0.2's
 1.8%, because one segment also means one dictionary instead of two. In 1.0.2
 `enwik9 -9` dropped 4.3% (164,080,953 → 157,073,377); 1.1's solid enwik9 is
@@ -323,7 +333,9 @@ nothing.
 `-mN` scales every context table by `2^N`. `-m-1` halves memory; `-m1` doubles
 it. This changes the format's memory requirement on the *decode* side too, and
 that requirement is recorded in the archive — so a file written with `-m2` needs
-that much memory to read back.
+that much memory to read back. At `-9` in 1.2, `-m1` took enwik9 from
+143,807,662 to 141,380,893 (−1.7%) and its peak from 3.6 to 5.0 GB; on inputs
+the tables already hold, it buys little.
 
 ## How members are named
 
@@ -475,11 +487,11 @@ four.
 ## Known limits
 
 - **Decompression is as slow as compression** and cannot be made otherwise.
-- **Archives written by 1.1 need 1.1 or later to extract** when any segment was
-  word-transformed (format v3). 1.1 reads every 1.0 archive. `-w0` writes
-  segments a 1.0 build can decode, but the header still says v3, so 1.0 will
-  refuse the archive; keep a 1.0 binary for 1.0 archives, not the other way
-  round.
+- **Archives written by 1.2 need 1.2 or later to extract** (format v4: the
+  model changed, so no earlier build can decode them). 1.2 reads every 1.0 and
+  1.1 archive, decoding each with the model that wrote it, and `r` keeps a
+  repaired archive at its original version. Keep the newest binary; it reads
+  everything older.
 - **No append.** Adding to an existing archive means rewriting it.
 - **No random access to a member** without decoding its segments from the
   start of that member.

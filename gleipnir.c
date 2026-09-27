@@ -63,12 +63,15 @@
 #include <stdint.h>
 #include <math.h>
 #include <time.h>
+#ifdef __linux__
+#include <sys/mman.h>
+#endif
 
 #define MAXBLK   65536
 #define SEGWIN   8192          /* segmentation / content-detection window */
 #define MAXCHUNK 64
 #define MINCHUNK (1u << 20)     /* below ~1 MB a chunk is all cold-start cost */
-#define MAXCTX 32
+#define MAXCTX 44
 /* Per-context arrays are written in a loop the vectoriser widens, and a
  * whole-vector store at the tail can reach past MAXCTX entries.  Sizing them
  * with slack keeps any such store inside its own object. */
@@ -77,7 +80,7 @@
  * 32-lane limit and adding any context would have silently clamped MIXW and
  * dropped inputs.  48 is three whole 32-byte vectors, which also means a
  * widened load at the tail of st[] cannot reach past the array. */
-#define NPAD   48
+#define NPAD   104
 #ifndef AFMIN
 #define AFMIN 45
 #endif
@@ -251,6 +254,22 @@ typedef struct {
     int32_t  mptr;
     int      mlen;
     uint32_t mpr[20 * 2 * 8];   /* (length bucket, expected bit, bit index) */
+    /* Model 4.  A second match model that only takes matches of at least
+     * MM2LEN bytes, so it keeps predicting through the stretches where the
+     * first has latched onto a short, wrong candidate. */
+    int32_t *mtab2;
+    int32_t  mptr2;
+    int      mlen2, m_idx2;
+    uint32_t mpr2[20 * 2 * 8];
+    /* A second mixer, its weights selected by the previous byte instead of
+     * by match state and byte class; the two are averaged. */
+    int16_t *W2;
+    int      wsel2, pm1, pm2;
+    /* Run model: per context, the last byte seen there and how many times in
+     * a row it has been seen.  rsm learns what a run of each length is worth. */
+    uint32_t *RT[MAXCTX], *rte[MAXCTX];
+    int      rb_[MAXCTX], rc_[MAXCTX], ridx[MAXCTX];
+    uint32_t RSM[MAXCTX][48];
     int      m_idx;
     int32_t  IW[16][512];                /* ISSE: 2 weights per bit history */
     int      ip_in[16], ip_out[16], is_[16];
@@ -267,11 +286,16 @@ typedef struct {
      * segment a word's first byte is its code's lead, which names the cluster
      * of similar words the dictionary put it in. */
     int      wl0, wl2, wl3, lastp;
-    uint32_t *ind1, *ind2;              /* what followed this context last time */
+    uint64_t *ind1;                     /* what followed this context last time */
+    uint32_t *ind2, *ind3;
     int32_t  *dlast;                    /* last position of each byte value */
     int       dlog;                     /* log2 distance since the last one */
     uint32_t  nest;                     /* bracket / quote nesting state */
-    size_t   lstart, plstart;
+    size_t   lstart, plstart, pplstart;
+    int      pplen, fld;                 /* line two back; field number in this line */
+    /* x86 instruction parser (model 4): what the next byte is, the current
+     * and previous two opcodes, the ModRM byte, bytes left in the field. */
+    int      xst, xop, xpop, xpop2, xmrm, xrem, xim, xpfx, xk, xo3;
     int      c0, nc, nbits, pr;
     int      stride, rcol, swidth;
     /* Match-bypass state.  bsm is a tiny fallback StateMap indexed by the
@@ -391,6 +415,11 @@ static int      ORD[MAXCTX];    /* >0 byte order, -1 word, -2/-3 sparse */
  * stride is fixed per stream and known before set_level on both sides, so the
  * skip list is static and encoder and decoder always agree on it. */
 static int      ACT[MAXCTX], NACT;
+/* Model 4's extra mixer inputs sit after the five fixed ones: a linear-domain
+ * copy of every context's prediction (LX2), one run-model input per run
+ * context (LRUN), and the long-match model (LMM2). */
+static int      RL[MAXCTX], NRUN, LX2, LRUN, LMM2;
+static uint8_t  RUNOF[MAXCTX];
 static uint8_t  ISACT[MAXCTX];
 /* Side tables that only some contexts read.  The indirect tables are a 256 KB
  * random write per byte and nothing outside contexts -13/-14 ever looks at
@@ -419,9 +448,6 @@ static int      MIXW = 16;      /* active mixer lanes: 8 when NIN fits */
 
 /* match model */
 static uint32_t MMASK;
-#ifndef IH1
-#define IH1 1                   /* bytes of follow-history in the indirect contexts */
-#endif
 #ifndef IH2
 #define IH2 1
 #endif
@@ -490,7 +516,17 @@ static int ICHAIN[16], NISSE;
 #define MAXSTRIDE 8192
 
 static int DET_STRIDE = 0;
-static int DET_WRT = 0;         /* the segments being modelled are word-transformed */      /* row / record length, 0 = no period found */
+static int DET_WRT = 0;         /* the segments being modelled are word-transformed */
+static int DET_X86 = 0;         /* ...contain x86 code blocks */
+/* Which model to build.  3 is the 1.0/1.1 model, reproduced bit for bit so
+ * that v2 and v3 archives still decode; 4 is the 1.2 model.  Everything the
+ * 1.2 model adds is switched on in set_level through the F_ flags below and
+ * nowhere else, so model 3 runs exactly the code it always ran. */
+static int MODEL = 4;
+static int F_MIX2, F_MM2, F_X2IN, F_IH1 = 1, F_X86;
+static int FEAT;                /* the model 4 features set_level turned on */
+static int V4ON;                /* ...and whether any of them is live for this batch */
+#define MM2LEN 24               /* minimum match the second match model takes */      /* row / record length, 0 = no period found */
 static int DET_WIDTH  = 1;      /* element width in bytes: 1, 2 or 4 */
 
 /* Mean |d[i] - d[i-s]| over [lo,hi). */
@@ -572,10 +608,30 @@ static void detect_period(const uint8_t *d, size_t n) {
  * so it gets no table at all.  Every stage used to be allocated regardless:
  * at -1, where NAPM is 0, that was 43 MB of tables that were never read -- and
  * it multiplied by thread count, since each worker allocates its own. */
+/* Transparent huge pages.  The model is a few hundred megabytes to a few
+ * gigabytes read at random, one or two cache lines per lookup, so at 4 KB
+ * pages nearly every lookup also misses the TLB and walks the page table.
+ * 2 MB pages cover the same tables with 512 times fewer entries.  Measured on
+ * Linux (THP in madvise mode, five files, three runs each): -9 219 s -> 159 s,
+ * -3 33.8 s -> 30.2 s, output identical.  The advice is only a request: where
+ * THP is off, or already always on, this does nothing, and nowhere else is
+ * there an unprivileged equivalent -- Windows' large pages need the "lock
+ * pages in memory" right. */
+static void huge_advise(void *p, size_t n) {
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+    const uintptr_t H = (uintptr_t)2 << 20;
+    uintptr_t a = ((uintptr_t)p + H - 1) & ~(H - 1), e = ((uintptr_t)p + n) & ~(H - 1);
+    if (e > a) (void)madvise((void *)a, (size_t)(e - a), MADV_HUGEPAGE);
+#else
+    (void)p; (void)n;
+#endif
+}
+
 static void apm_init(APM *a, int n) {
     a->idx = 0;
     if (n <= 0) { a->t = NULL; return; }
     a->t = malloc((size_t)n * 33 * sizeof(uint16_t));
+    if (a->t) huge_advise(a->t, (size_t)n * 33 * sizeof(uint16_t));
     if (!a->t) { fprintf(stderr, "oom\n"); exit(1); }
     for (int i = 0; i < n; i++)
         for (int j = 0; j < 33; j++)
@@ -605,7 +661,120 @@ static void apm_up(APM *a, int bit, int rate) {
  * predicted from a handful of shape bits (wcap/wlen) than by duplicating the
  * whole vocabulary.  Raw case is still fully visible to the byte orders.
  */
-static void push_word(Ctx *TH, int byte) {
+/* ------------------------------------------------------------ x86 parser
+ * Inside an x86 block the byte to come is one of a handful of different
+ * things -- an opcode, a ModRM or SIB byte, a displacement, an immediate --
+ * and each is its own language.  A byte-order context cannot tell which it is
+ * looking at; a table-driven length decoder can, for almost all 32-bit code.
+ * xst says what the next byte is:
+ *   0 prefix or opcode   1 after 0F   2 ModRM   3 SIB
+ *   4 displacement       5 immediate  6 after 0F 38 / 0F 3A
+ * A misparse only costs ratio, never correctness: both sides run the same
+ * parser over the same bytes. */
+static int x86_hasm1(int op) {
+    if (op < 0x40) return (op & 7) < 4;
+    if (op == 0x62 || op == 0x63 || op == 0x69 || op == 0x6B) return 1;
+    if (op >= 0x80 && op <= 0x8F) return 1;
+    if (op == 0xC0 || op == 0xC1 || (op >= 0xC4 && op <= 0xC7)) return 1;
+    if (op >= 0xD0 && op <= 0xD3) return 1;
+    if (op >= 0xD8 && op <= 0xDF) return 1;
+    return op == 0xF6 || op == 0xF7 || op == 0xFE || op == 0xFF;
+}
+static int x86_im1(int op, int z) {
+    if (op < 0x40) return (op & 7) == 4 ? 1 : ((op & 7) == 5 ? z : 0);
+    switch (op) {
+    case 0x68: case 0x69: case 0x81: case 0xA9: case 0xC7: return z;
+    case 0x6A: case 0x6B: case 0x80: case 0x82: case 0x83: case 0xA8:
+    case 0xC0: case 0xC1: case 0xC6: case 0xCD: case 0xD4: case 0xD5: case 0xEB: return 1;
+    case 0x9A: case 0xEA: return 6;
+    case 0xC2: case 0xCA: return 2;
+    case 0xC8: return 3;
+    case 0xE8: case 0xE9: return 4;
+    default: break;
+    }
+    if (op >= 0x70 && op <= 0x7F) return 1;
+    if (op >= 0xA0 && op <= 0xA3) return 4;
+    if (op >= 0xB0 && op <= 0xB7) return 1;
+    if (op >= 0xB8 && op <= 0xBF) return z;
+    if (op >= 0xE0 && op <= 0xE7) return 1;
+    return 0;
+}
+static int x86_hasm2(int op) {
+    if (op >= 0x80 && op <= 0x8F) return 0;
+    if (op >= 0x30 && op <= 0x37) return 0;
+    if (op >= 0xC8 && op <= 0xCF) return 0;
+    switch (op) {
+    case 0x05: case 0x06: case 0x07: case 0x08: case 0x09: case 0x0B: case 0x77:
+    case 0xA0: case 0xA1: case 0xA2: case 0xA8: case 0xA9: case 0xAA: return 0;
+    default: return 1;
+    }
+}
+static int x86_im2(int op, int z) {
+    if (op >= 0x80 && op <= 0x8F) return z;
+    if (op >= 0x70 && op <= 0x73) return 1;
+    switch (op) { case 0xA4: case 0xAC: case 0xBA: case 0xC2: case 0xC4: case 0xC5: case 0xC6: return 1; }
+    return 0;
+}
+static void x86_end(Ctx *TH) {
+    TH->xpop2 = TH->xpop; TH->xpop = TH->xop; TH->xst = 0; TH->xpfx = 0; TH->xk = 0;
+}
+static void x86_operands(Ctx *TH, int disp) {
+    if (disp) { TH->xst = 4; TH->xrem = disp; TH->xk = 0; }
+    else if (TH->xim) { TH->xst = 5; TH->xrem = TH->xim; TH->xk = 0; }
+    else x86_end(TH);
+}
+static void x86_begin(Ctx *TH, int op, int hasm, int im) {
+    TH->xop = op; TH->xmrm = 0; TH->xim = im; TH->xk = 0;
+    if (hasm) TH->xst = 2;
+    else if (im) { TH->xst = 5; TH->xrem = im; }
+    else x86_end(TH);
+}
+static void x86_step(Ctx *TH, int b) {
+    int z = (TH->xpfx & 1) ? 2 : 4;             /* operand-size prefix */
+    switch (TH->xst) {
+    case 0:
+        switch (b) {
+        case 0x66: TH->xpfx |= 1; return;
+        case 0x67: TH->xpfx |= 2; return;
+        case 0xF2: case 0xF3: TH->xpfx |= 4; return;
+        case 0x26: case 0x2E: case 0x36: case 0x3E: case 0x64: case 0x65: case 0xF0:
+            TH->xpfx |= 8; return;
+        case 0x0F: TH->xst = 1; return;
+        default: x86_begin(TH, b, x86_hasm1(b), x86_im1(b, z)); return;
+        }
+    case 1:
+        if (b == 0x38 || b == 0x3A) { TH->xo3 = b; TH->xst = 6; return; }
+        x86_begin(TH, 0x100 | b, x86_hasm2(b), x86_im2(b, z)); return;
+    case 6:
+        x86_begin(TH, (TH->xo3 == 0x3A ? 0x300 : 0x200) | b, 1, TH->xo3 == 0x3A); return;
+    case 2: {
+        int mod = b >> 6, rm = b & 7, reg = (b >> 3) & 7;
+        TH->xmrm = b;
+        if ((TH->xop == 0xF6 || TH->xop == 0xF7) && reg == 0) TH->xim = TH->xop == 0xF6 ? 1 : z;
+        if (mod != 3 && rm == 4) { TH->xst = 3; return; }
+        x86_operands(TH, mod == 1 ? 1 : mod == 2 ? 4 : (mod == 0 && rm == 5) ? 4 : 0);
+        return;
+    }
+    case 3: {
+        int mod = TH->xmrm >> 6;
+        x86_operands(TH, mod == 1 ? 1 : mod == 2 ? 4 : (mod == 0 && (b & 7) == 5) ? 4 : 0);
+        return;
+    }
+    case 4:
+        TH->xk++;
+        if (--TH->xrem <= 0) {
+            if (TH->xim) { TH->xst = 5; TH->xrem = TH->xim; TH->xk = 0; }
+            else x86_end(TH);
+        }
+        return;
+    default:
+        TH->xk++;
+        if (--TH->xrem <= 0) x86_end(TH);
+        return;
+    }
+}
+
+static inline __attribute__((always_inline)) void push_word_t(Ctx *TH, int byte, const int v4) {
     int up = (byte >= 'A' && byte <= 'Z');
     int c  = up ? byte + 32 : byte;
     int wch = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
@@ -661,8 +830,12 @@ side:
     if (NEED_IND) {
         uint32_t p1 = (uint32_t)(TH->hist & 0xFF);
         uint32_t p2 = (uint32_t)(TH->hist & 0xFFFF);
-        TH->ind1[p1] = (TH->ind1[p1] << 8) | (uint32_t)byte;
+        TH->ind1[p1] = (TH->ind1[p1] << 8) | (uint64_t)byte;
         TH->ind2[p2] = (TH->ind2[p2] << 8) | (uint32_t)byte;
+        if (v4 && TH->ind3) {
+            uint32_t p3 = (uint32_t)((((TH->hist & 0xFFFFFF) * 0x9E3779B1ULL) >> 12) & 0xFFFFF);
+            TH->ind3[p3] = (TH->ind3[p3] << 8) | (uint32_t)byte;
+        }
     }
     /* Distance since this byte value last occurred, bucketed by magnitude.
      * Fixed-width records and periodic data put a strong signal here that no
@@ -678,6 +851,7 @@ side:
     /* Nesting.  Brackets and quotes make source, markup and structured data
      * behave differently inside than outside, and depth is invisible to a
      * fixed-length context. */
+    if (v4 && F_X86 && TH->blk_x86) x86_step(TH, byte);
     if (NEED_NEST) switch (byte) {
         case '(': case '[': case '{':
             TH->nest = (TH->nest << 3 | 1) & 0xFFFFFF; break;
@@ -688,11 +862,15 @@ side:
         default: break;
     }
     if (byte == '\n') {
+        TH->pplstart = TH->plstart; TH->pplen = TH->plen; TH->fld = 0;
         TH->plstart = TH->lstart;
         TH->plen    = (int)(TH->buflen - 1 - TH->lstart);   /* excludes the \n */
         TH->lstart  = TH->buflen;
         TH->col     = 0;
     } else if (TH->col < 1023) TH->col++;
+    /* Fields are runs of non-blanks; a table row names its column this way
+     * even when its widths vary. */
+    if (byte != ' ' && (TH->hist & 0xFF) == ' ' && TH->fld < 63) TH->fld++;
     if (byte == '<') TH->intag = 1;
     else if (byte == '>') TH->intag = 0;
 }
@@ -714,7 +892,7 @@ static int byte_above(const Ctx *TH) {
     return (TH->col < TH->plen) ? TH->buf[TH->plstart + TH->col] : 0x100;
 }
 
-static void rehash(Ctx *TH) {
+static inline __attribute__((always_inline)) void rehash_t(Ctx *TH, const int v4) {
     uint64_t h = TH->hist;
     /* Position within the instruction, for fixed-length code.  Folding it into
      * the byte-order hashes stops an order-3 context from conflating "the last
@@ -867,9 +1045,55 @@ static void rehash(Ctx *TH) {
         } else if (o == -18) {                 /* sparse: bytes at -1 and -4 */
             uint64_t sp = (h & 255) | (((h >> 24) & 255) << 8);
             v = (sp + 0x4C7ULL) * 0x27D4EB2F165667C5ULL;
+        } else if (o == -26) {                 /* the byte the match model
+                                                * expects, how long the match
+                                                * has run, and the last byte */
+            uint64_t e = TH->mlen > 0 ? (uint64_t)TH->buf[TH->mptr] + 1 : 0;
+            uint64_t lb = TH->mlen < 16 ? (uint64_t)TH->mlen : (TH->mlen < 32 ? 16 : (TH->mlen < 64 ? 17 : 18));
+            v = ((e << 8 | lb << 1) + ((h & 0xFF) << 20) + 0x6D6DULL) * 0x9E3779B97F4A7C15ULL;
+        } else if (o == -27) {                 /* the same for the long-match
+                                                * model, with two bytes */
+            uint64_t e = TH->mlen2 > 0 ? (uint64_t)TH->buf[TH->mptr2] + 1 : 0;
+            uint64_t lb = TH->mlen2 < 32 ? 0 : (TH->mlen2 < 64 ? 1 : (TH->mlen2 < 128 ? 2 : 3));
+            v = ((e << 8 | lb << 1) + ((h & 0xFFFF) << 20) + 0x7A7AULL) * 0xC2B2AE3D27D4EB4FULL;
+        } else if (o == -28) {                 /* indirect, order 3 */
+            uint32_t p3 = (uint32_t)((((h & 0xFFFFFF) * 0x9E3779B1ULL) >> 12) & 0xFFFFF);
+            uint64_t r = TH->ind3[p3] & 0xFFFFFFULL;
+            v = (r + ((h & 0xFFFF) << 33) + 0x1E3ULL) * 0x27D4EB2F165667C5ULL;
+        } else if (o == -29) {                 /* above, two lines up, column */
+            int c = TH->col;
+            uint64_t a2 = c < TH->pplen ? TH->buf[TH->pplstart + c] : 0x100;
+            v = (((uint64_t)byte_above(TH) | a2 << 9 | (uint64_t)(c < 255 ? c : 255) << 18) + 0x2929ULL)
+              * 0x9E3779B97F4A7C15ULL;
+        } else if (o == -30) {                 /* the three bytes above, and left */
+            int c = TH->col;
+            uint64_t al = (c >= 1 && c - 1 < TH->plen) ? TH->buf[TH->plstart + c - 1] : 0x100;
+            uint64_t ar = (c + 1 < TH->plen) ? TH->buf[TH->plstart + c + 1] : 0x100;
+            v = ((al | (uint64_t)byte_above(TH) << 9 | ar << 18 | (h & 0xFF) << 27) + 0x3030ULL)
+              * 0xC2B2AE3D27D4EB4FULL;
+        } else if (o == -31) {                 /* field number, column, the
+                                                * previous line's length */
+            v = (((uint64_t)TH->fld | (uint64_t)(TH->col < 255 ? TH->col : 255) << 6
+                  | (uint64_t)(TH->plen < 255 ? TH->plen : 255) << 14 | (h & 0xFF) << 22) + 0x3131ULL)
+              * 0x165667B19E3779F9ULL;
+        } else if (o == -32) {                 /* x86: what the next byte is,
+                                                * the opcode, ModRM */
+            v = TH->blk_x86 ? (((uint64_t)TH->xst | (uint64_t)TH->xk << 3 | (uint64_t)TH->xop << 6
+                  | (uint64_t)TH->xmrm << 16 | (uint64_t)(TH->xpfx & 3) << 24) + 0x3232ULL)
+                  * 0x9E3779B97F4A7C15ULL : 0;
+        } else if (o == -33) {                 /* x86: this and the two
+                                                * previous opcodes */
+            v = TH->blk_x86 ? (((uint64_t)TH->xst | (uint64_t)TH->xk << 3 | (uint64_t)TH->xop << 6
+                  | (uint64_t)TH->xpop << 16 | (uint64_t)TH->xpop2 << 26) + 0x3333ULL)
+                  * 0xC2B2AE3D27D4EB4FULL : 0;
+        } else if (o == -34) {                 /* x86: role, last two bytes */
+            v = TH->blk_x86 ? (((uint64_t)TH->xst | (uint64_t)TH->xk << 3 | (h & 0xFFFF) << 6
+                  | (uint64_t)TH->xop << 22) + 0x3434ULL) * 0x165667B19E3779F9ULL : 0;
+        } else if (o == -35) {                 /* order 0 */
+            v = 0x3535ULL * 0x9E3779B97F4A7C15ULL;
         } else if (o == -13) {                 /* indirect, order 1 */
             uint32_t c = (uint32_t)(h & 0xFF);
-            uint64_t r = TH->ind1[c] & ((1ULL << (8 * IH1)) - 1);
+            uint64_t r = TH->ind1[c] & ((1ULL << (8 * F_IH1)) - 1);
             v = (r + ((uint64_t)c << 33) + 0x3B9ULL) * 0x9E3779B97F4A7C15ULL;
         } else {                               /* indirect, order 2 */
             uint32_t c = (uint32_t)(h & 0xFFFF);
@@ -877,6 +1101,12 @@ static void rehash(Ctx *TH) {
             v = (r + ((uint64_t)c << 33) + 0x7E1ULL) * 0xC2B2AE3D27D4EB4FULL;
         }
         TH->hashes[k] = v ^ (v >> 31);
+        if (v4 && RUNOF[k]) {
+            uint64_t hh = TH->hashes[k];
+            uint32_t *e = &TH->RT[k][(hh >> 24) & GMASK[k]];
+            TH->rte[k] = e;
+            __builtin_prefetch(e, 1, 3);
+        }
     }
 }
 
@@ -942,7 +1172,7 @@ static void nib_begin(Ctx *TH, int lo_nibble, int hi) {
 
 /* ------------------------------------------------------------- predictor */
 
-static int predict(Ctx *TH) {
+static inline __attribute__((always_inline)) int predict_t(Ctx *TH, const int v4) {
     const int slot = TH->nc - 1;
     /* Inactive contexts keep st[i] == 0 forever (zeroed at model_alloc), so
      * their mixer lanes stay inert and their weights never move -- the output
@@ -953,6 +1183,9 @@ static int predict(Ctx *TH) {
         uint32_t *e = &TH->SM[i][TH->gp_[i]->s[slot]];
         TH->sm_e[i] = e;
         TH->st[i] = stretch_t[*e >> 20];
+        /* The same estimate in the probability domain, where the mixer
+         * weighs a confident context differently from the stretched one. */
+        if (v4 && F_X2IN) TH->st[LX2 + k] = (int16_t)(((int)(*e >> 20) - 2048) >> 2);
     }
 
     TH->m_idx = -1;
@@ -973,6 +1206,46 @@ static int predict(Ctx *TH) {
         }
     }
     TH->st[NCTX] = (int16_t)m;           /* TH->st[NCTX+1] = bias */
+
+    if (v4 && F_MM2) {
+        TH->m_idx2 = -1; m = 0;
+        if (TH->mlen2 > 0) {
+            int pb = TH->buf[TH->mptr2];
+            if (TH->nbits == 0 || (pb >> (8 - TH->nbits)) == (TH->c0 - (1 << TH->nbits))) {
+                int eb = (pb >> (7 - TH->nbits)) & 1;
+                int b  = TH->mlen2 < 16 ? TH->mlen2 : (TH->mlen2 < 32 ? 16 : (TH->mlen2 < 64 ? 17 : (TH->mlen2 < 400 ? 18 : 19)));
+                TH->m_idx2 = ((b << 1) | eb) * 8 + TH->nbits;
+                m = stretch_t[TH->mpr2[TH->m_idx2] >> 20];
+            } else TH->mlen2 = 0;
+        }
+        TH->st[LMM2] = (int16_t)m;
+    }
+
+    /* Run model.  A context that has seen the same byte several times running
+     * predicts it outright, for as long as the bits coded so far agree. */
+    if (v4) for (int r = 0; r < NRUN; r++) {
+        const int k = RL[r];
+        if (TH->nbits == 0) {
+            uint32_t v = *TH->rte[k];
+            uint32_t ck = (uint32_t)(TH->hashes[k] >> 48) & 0xFFFF;
+            TH->rc_[k] = (v >> 16) == ck ? (int)(v & 255) : 0;
+            TH->rb_[k] = (int)((v >> 8) & 255);
+        }
+        int in = 0;
+        TH->ridx[k] = -1;
+        if (TH->rc_[k]) {
+            int rb = TH->rb_[k] | 256;
+            if ((rb >> (8 - TH->nbits)) == TH->c0) {
+                int eb = (rb >> (7 - TH->nbits)) & 1;
+                int c = TH->rc_[k];
+                int cb = c < 8 ? c : (c < 16 ? 8 : (c < 32 ? 9 : (c < 64 ? 10 : 11)));
+                int ix = (cb * 2 + eb) * 2 + (TH->nbits >= 4);
+                TH->ridx[k] = ix;
+                in = stretch_t[TH->RSM[k][ix] >> 20];
+            }
+        }
+        TH->st[LRUN + r] = (int16_t)in;
+    }
 
     /* Refine the low-order estimate through progressively higher orders.  The
      * mixer still sees every model individually, so it can fall back on flat
@@ -1014,6 +1287,9 @@ static int predict(Ctx *TH) {
     /* Between the bytes of a multi-byte code the next byte is certain to be
      * another code byte, which wants a blend of its own. */
     if (TH->wrem) wc = 7 | 8;
+    /* In x86 code, what the next byte is -- opcode, ModRM, displacement,
+     * immediate -- decides the blend far better than the byte class does. */
+    if (v4 && F_X86 && TH->blk_x86) wc = TH->xst | (TH->xst ? 8 : 0);
     /* Inside fixed-length instruction code, which models to trust depends on
      * where in the instruction we are -- an opcode byte and a displacement byte
      * want completely different blends.  Outside such blocks this is always 0,
@@ -1042,9 +1318,30 @@ static int predict(Ctx *TH) {
         case 16: MIXDOT(16); break;
         case 24: MIXDOT(24); break;
         case 32: MIXDOT(32); break;
-        default: MIXDOT(40); break;
+        case 40: MIXDOT(40); break;
+        case 48: MIXDOT(48); break;
+        case 56: MIXDOT(56); break;
+        case 64: MIXDOT(64); break;
+        case 72: MIXDOT(72); break;
+        case 80: MIXDOT(80); break;
+        case 88: MIXDOT(88); break;
+        case 96: MIXDOT(96); break;
+        default: MIXDOT(104); break;
     }
 #undef MIXDOT
+    if (v4 && F_MIX2) {
+        /* A second weight set, chosen by the previous byte, averaged with the
+         * first in the stretched domain.  Each trains on its own error. */
+        TH->wsel2 = (int)((TH->hist & 0xFF) << 8 | (uint64_t)TH->c0);
+        const int16_t *w2 = TH->W2 + (size_t)TH->wsel2 * (size_t)MIXW;
+        int s2 = 0;
+        for (int i = 0; i < MIXW; i++) s2 += (int)w2[i] * TH->st[i];
+        int d1 = sum >> 16, d2 = s2 >> 16;
+        if (d1 < -2047) d1 = -2047; else if (d1 > 2047) d1 = 2047;
+        if (d2 < -2047) d2 = -2047; else if (d2 > 2047) d2 = 2047;
+        TH->pm1 = squash(d1); TH->pm2 = squash(d2);
+        sum = (d1 + d2) * 32768;
+    }
     int d = sum >> 16;
     if (d < -2047) d = -2047; else if (d > 2047) d = 2047;
     int p = squash(d);
@@ -1125,7 +1422,30 @@ static void update_match(Ctx *TH, size_t pos) {
     TH->mtab[h] = (int32_t)(pos + 1);
 }
 
-static void update(Ctx *TH, int bit) {
+/* The long-match model: indexed by a hash of the last MM2LEN bytes, and it
+ * only takes a candidate that really does match that far back. */
+static void update_match2(Ctx *TH, size_t pos) {
+    if (TH->mlen2 > 0 && (size_t)TH->mptr2 < TH->buflen - 1 && TH->buf[TH->mptr2] == TH->buf[pos]) {
+        TH->mptr2++;
+        if (TH->mlen2 < 65535) TH->mlen2++;
+    } else TH->mlen2 = 0;
+    if (TH->buflen < MM2LEN) return;
+    uint64_t v = 0;
+    for (int j = 0; j < MM2LEN; j++) v = (v + TH->buf[pos - j] + 1) * 0x9E3779B97F4A7C15ULL;
+    uint32_t h = (uint32_t)(v >> 40) & MMASK;
+    if (TH->mlen2 == 0) {
+        int32_t cand = TH->mtab2[h];
+        if (cand > 0 && (size_t)cand < TH->buflen) {
+            int L = 0;
+            long a = cand - 1, b = (long)pos;
+            while (L < 400 && a >= 0 && TH->buf[a] == TH->buf[b]) { L++; a--; b--; }
+            if (L >= MM2LEN) { TH->mptr2 = cand; TH->mlen2 = L; }
+        }
+    }
+    TH->mtab2[h] = (int32_t)(pos + 1);
+}
+
+static inline __attribute__((always_inline)) void update_t(Ctx *TH, int bit, const int v4) {
     /* mixer */
     const int err = (bit << 12) - TH->pr;
     /* Training is proportional to the error, so a bit the model already had
@@ -1139,6 +1459,8 @@ static void update(Ctx *TH, int bit) {
     const int train = !THINE || ae >= THINE;
     if (train) {
     int16_t *w = TH->W + (size_t)TH->wsel * (size_t)MIXW;
+    /* With two mixers, each learns from its own output. */
+    const int err = v4 && F_MIX2 ? (bit << 12) - TH->pm1 : (bit << 12) - TH->pr;
 #define MIXUP(N) for (int i = 0; i < (N); i++) {                              \
         int v = w[i] + ((err * TH->st[i]) >> LRSH);                           \
         w[i] = (int16_t)(v > 32767 ? 32767 : (v < -32768 ? -32768 : v));      \
@@ -1148,9 +1470,25 @@ static void update(Ctx *TH, int bit) {
         case 16: MIXUP(16); break;
         case 24: MIXUP(24); break;
         case 32: MIXUP(32); break;
-        default: MIXUP(40); break;
+        case 40: MIXUP(40); break;
+        case 48: MIXUP(48); break;
+        case 56: MIXUP(56); break;
+        case 64: MIXUP(64); break;
+        case 72: MIXUP(72); break;
+        case 80: MIXUP(80); break;
+        case 88: MIXUP(88); break;
+        case 96: MIXUP(96); break;
+        default: MIXUP(104); break;
     }
 #undef MIXUP
+    if (v4 && F_MIX2) {
+        const int e2 = (bit << 12) - TH->pm2;
+        int16_t *w2 = TH->W2 + (size_t)TH->wsel2 * (size_t)MIXW;
+        for (int i = 0; i < MIXW; i++) {
+            int v = w2[i] + ((e2 * TH->st[i]) >> LRSH);
+            w2[i] = (int16_t)(v > 32767 ? 32767 : (v < -32768 ? -32768 : v));
+        }
+    }
     }
 
     if (USE_SSE2) {
@@ -1183,6 +1521,11 @@ static void update(Ctx *TH, int bit) {
 
     /* learned match confidence */
     if (TH->m_idx >= 0) sm_update(&TH->mpr[TH->m_idx], bit, 1023);
+    if (v4 && F_MM2 && TH->m_idx2 >= 0) sm_update(&TH->mpr2[TH->m_idx2], bit, 1023);
+    if (v4) for (int r = 0; r < NRUN; r++) {
+        const int k = RL[r];
+        if (TH->ridx[k] >= 0) sm_update(&TH->RSM[k][TH->ridx[k]], bit, 1023);
+    }
 
     /* advance bit state */
     TH->c0 = (TH->c0 << 1) | bit;
@@ -1194,9 +1537,15 @@ static void update(Ctx *TH, int bit) {
         TH->nc = 1;
     } else if (TH->nbits == 8) {
         int byte = TH->c0 & 255;
+        if (v4) for (int r = 0; r < NRUN; r++) {
+            const int k = RL[r];
+            uint32_t ck = (uint32_t)(TH->hashes[k] >> 48) & 0xFFFF;
+            int c = TH->rc_[k] && TH->rb_[k] == byte ? TH->rc_[k] + (TH->rc_[k] < 255) : 1;
+            *TH->rte[k] = ck << 16 | (uint32_t)byte << 8 | (uint32_t)c;
+        }
         TH->buf[TH->buflen++] = (uint8_t)byte;
         size_t pos = TH->buflen - 1;
-        push_word(TH, byte);
+        push_word_t(TH, byte, v4);
         TH->hist = (TH->hist << 8) | (uint64_t)byte;
         TH->c0 = 1; TH->nc = 1; TH->nbits = 0;
         /* TH->rcol tracks the column of the byte about to be predicted, so it
@@ -1204,11 +1553,30 @@ static void update(Ctx *TH, int bit) {
          * now, so the phase never re-anchors and the column statistics keep
          * accumulating instead of being reset mid-file. */
         if (TH->stride && ++TH->rcol >= TH->stride) TH->rcol = 0;
-        rehash(TH);
-        update_match(TH, pos);
+        if (v4) {
+            /* The match models run first: the match contexts hash what
+             * they now expect. */
+            update_match(TH, pos);
+            if (F_MM2) update_match2(TH, pos);
+            rehash_t(TH, v4);
+        } else {
+            rehash_t(TH, v4);
+            update_match(TH, pos);
+        }
         nib_begin(TH, 0, 0);
     }
 }
+
+/* Two copies of the bit path.  Model 4's additions are each one predictable
+ * branch, but there are enough of them that together they cost -1 six percent
+ * with every one switched off -- so the presets that run none of them get a
+ * copy compiled without them, and cannot tell the difference from 1.1. */
+static void push_word(Ctx *TH, int byte) { if (V4ON) push_word_t(TH, byte, 1); else push_word_t(TH, byte, 0); }
+static void rehash(Ctx *TH) { if (V4ON) rehash_t(TH, 1); else rehash_t(TH, 0); }
+static int  predict3(Ctx *TH) { return predict_t(TH, 0); }
+static int  predict4(Ctx *TH) { return predict_t(TH, 1); }
+static void update3(Ctx *TH, int bit) { update_t(TH, bit, 0); }
+static void update4(Ctx *TH, int bit) { update_t(TH, bit, 1); }
 
 /* Feed a byte through the history without modelling it.  Stored blocks use
  * this so their contents stay visible to the match model and the record
@@ -1220,6 +1588,7 @@ static void absorb_byte(Ctx *TH, int byte) {
     TH->hist = (TH->hist << 8) | (uint64_t)byte;
     if (TH->stride && ++TH->rcol >= TH->stride) TH->rcol = 0;
     update_match(TH, pos);
+    if (F_MM2) update_match2(TH, pos);
 }
 
 static void resync(Ctx *TH) { TH->c0 = 1; TH->nc = 1; TH->nbits = 0; rehash(TH); nib_begin(TH, 0, 0); TH->need_ctx = 0; }
@@ -1277,6 +1646,7 @@ static inline void bypass_finish_byte(Ctx *TH, int byte) {
     TH->c0 = 1; TH->nc = 1; TH->nbits = 0;
     if (TH->stride && ++TH->rcol >= TH->stride) TH->rcol = 0;
     update_match(TH, pos);
+    if (F_MM2) update_match2(TH, pos);
     TH->need_ctx = 1;
 }
 
@@ -1361,6 +1731,7 @@ static int bypass_dec_byte(Ctx *TH) {
 static void *aalloc(size_t bytes) {
     uint8_t *raw = calloc(bytes + 72, 1);
     if (!raw) { fprintf(stderr, "oom\n"); exit(1); }
+    if (bytes >= ((size_t)4 << 20)) huge_advise(raw, bytes + 72);
     uintptr_t a = ((uintptr_t)raw + 8 + 63) & ~(uintptr_t)63;
     memcpy((void *)(a - 8), &raw, sizeof raw);
     return (void *)a;
@@ -1394,6 +1765,33 @@ static void add_wrt_ctx(int bits) {
     static const int wo[] = {-22, -23, -24, -25};
     for (int i = 0; i < 4; i++) { ORD[NCTX] = wo[i]; GBITS[NCTX] = bits; NCTX++; }
 }
+
+/* Model 4 features.  Every one was measured on its own and in combination;
+ * see ARCHITECTURE.md section 30 for the numbers and for what each costs. */
+#define FE_MIX2  0x001          /* second mixer, previous-byte selected */
+#define FE_MM2   0x002          /* long-match model */
+#define FE_X2IN  0x004          /* each context also as a linear input */
+#define FE_MCTX  0x008          /* context on the match model's byte */
+#define FE_MCTX2 0x010          /* ...and on the long-match model's */
+#define FE_IND3  0x020          /* indirect context, order 3 */
+#define FE_LCTX  0x040          /* three line/column contexts */
+#define FE_X86   0x080          /* x86 instruction contexts, x86 blocks only */
+#define FE_O0    0x100          /* order-0 context */
+#define FE_TXT   0x200          /* word contexts on untransformed text */
+#define FE_IH4   0x400          /* four bytes of follow-history, order-1 indirect */
+#define FE_RUN   0x800          /* run model */
+/* What each preset runs.  -9 is the maximum and takes everything; it roughly
+ * doubles 1.1's -9 time for 2.9% on Silesia, which is what a size-ranked
+ * benchmark wants.  -1 to -7 keep 1.1's model and add only the x86 contexts,
+ * which run on x86 blocks alone -- anything else codes exactly as 1.1 did.
+ * The rest was measured at those presets too, but on full Silesia at equal
+ * time none of it beat simply stepping up a preset (ARCHITECTURE.md
+ * section 30).  The -f presets are defined by their throughput and take
+ * nothing. */
+#define FE1 FE_X86
+#define FE9 (FE_MIX2 | FE_MM2 | FE_MCTX | FE_MCTX2 | FE_X86 | FE_O0 | FE_IH4 |              FE_IND3 | FE_LCTX | FE_X2IN | FE_TXT | FE_RUN)
+
+static void add_ctx(int o, int bits) { ORD[NCTX] = o; GBITS[NCTX] = bits; NCTX++; }
 
 static void set_level(int lvl) {
     LEVEL = lvl;
@@ -1537,6 +1935,36 @@ static void set_level(int lvl) {
         memcpy(ICHAIN, c, sizeof c);
         MMASK = (1u << 18) - 1; USE_SSE2 = 0; NAPM = 0; A46B = 4;
     }
+    /* Model 4 adds to the context set built above; model 3 adds nothing and
+     * leaves every flag off, so it runs exactly the 1.1 code. */
+    FEAT = 0;
+    if (MODEL >= 4 && !FASTP)
+        FEAT = lvl >= 9 ? FE9 : FE1;
+#ifdef EXPFEAT
+    {
+        const char *e = getenv("GLEIPNIR_FEAT");
+        if (e && MODEL >= 4 && !FASTP) FEAT = (int)strtol(e, NULL, 16);
+    }
+#endif
+    {
+        const int gb = lvl >= 9 ? 0 : (lvl >= 7 ? -1 : -2);
+        F_MIX2 = !!(FEAT & FE_MIX2);
+        F_MM2  = !!(FEAT & FE_MM2);
+        F_X2IN = !!(FEAT & FE_X2IN);
+        F_X86  = (FEAT & FE_X86) && DET_X86;
+        F_IH1  = (FEAT & FE_IH4) ? 4 : 1;
+        if ((FEAT & FE_TXT) && !DET_WRT && !DET_STRIDE) add_wrt_ctx(22 + gb);
+        if (FEAT & FE_MCTX) add_ctx(-26, 20 + gb);
+        if ((FEAT & FE_MCTX2) && F_MM2) add_ctx(-27, 20 + gb);
+        if (FEAT & FE_IND3) add_ctx(-28, 22 + gb);
+        if (FEAT & FE_LCTX) { add_ctx(-29, 21 + gb); add_ctx(-30, 21 + gb); add_ctx(-31, 21 + gb); }
+        if (F_X86) { add_ctx(-32, 20 + gb); add_ctx(-33, 20 + gb); add_ctx(-34, 21 + gb); }
+        if (FEAT & FE_O0) add_ctx(-35, 12);
+        /* Whether this batch runs any model-4 code at all.  An x86-only
+         * preset on a segment without x86 blocks does not, and takes the
+         * 1.1 bit path -- same output, same speed. */
+        V4ON = F_MIX2 || F_MM2 || F_X2IN || F_X86 || F_IH1 != 1 || (FEAT & ~(FE_MIX2 | FE_MM2 | FE_X2IN | FE_X86 | FE_IH4));
+    }
     /* NISSE indexes ICHAIN and the per-stage weight banks; a level or a
      * CHAINN override must not be able to walk off either. */
     if (NISSE > (int)(sizeof ICHAIN / sizeof ICHAIN[0])) NISSE = (int)(sizeof ICHAIN / sizeof ICHAIN[0]);
@@ -1566,10 +1994,28 @@ static void set_level(int lvl) {
             ACT[NACT++] = i;
             ISACT[i] = 1;
         }
+    /* Run contexts: the byte orders and the word contexts -- where a context
+     * repeating its last byte is common enough to be worth a table. */
+    NRUN = 0;
+    memset(RUNOF, 0, sizeof RUNOF);
+    if (FEAT & FE_RUN) {
+        static const int rx[] = {1, 2, 3, 4, 5, 6, 7, 8, -1, -6, -7, -8, -9};
+        for (int kk = 0; kk < NACT; kk++)
+            for (int j = 0; j < (int)(sizeof rx / sizeof rx[0]); j++)
+                if (ORD[ACT[kk]] == rx[j]) { RL[NRUN++] = ACT[kk]; RUNOF[ACT[kk]] = 1; }
+    }
+    LX2  = NCTX + 5;
+    LRUN = LX2 + (F_X2IN ? NCTX : 0);
+    LMM2 = LRUN + NRUN;
+    if (MODEL >= 4) {
+        NIN = LMM2 + F_MM2;
+        MIXW = (NIN + 7) & ~7;
+        if (MIXW > NPAD) { fprintf(stderr, "level %d: %d mixer inputs > %d\n", lvl, NIN, NPAD); exit(1); }
+    }
     /* Per-byte side state, kept only where a context in this preset reads it. */
     NEED_IND = NEED_DLOG = NEED_NEST = 0;
     for (int i = 0; i < NCTX; i++) {
-        if (ORD[i] == -13 || ORD[i] == -14) NEED_IND  = 1;
+        if (ORD[i] == -13 || ORD[i] == -14 || ORD[i] == -28) NEED_IND = 1;
         if (ORD[i] == -15)                  NEED_DLOG = 1;
         if (ORD[i] == -16)                  NEED_NEST = 1;
     }
@@ -1660,8 +2106,34 @@ static void model_alloc(Ctx *TH, size_t cap) {
      * allocations whose failure was unchecked -- a null here faults inside the
      * inner loop, far from the cause. */
     TH->mtab  = calloc((size_t)MMASK + 1, sizeof(int32_t));
+    if (TH->mtab) huge_advise(TH->mtab, ((size_t)MMASK + 1) * sizeof(int32_t));
     TH->buf   = malloc(cap + 8);
-    TH->ind1  = calloc(256, sizeof(uint32_t));
+    TH->ind1  = calloc(256, sizeof(uint64_t));
+    TH->ind3  = NULL;
+    for (int i = 0; i < NCTX; i++)
+        if (ORD[i] == -28) TH->ind3 = calloc((size_t)1 << 20, sizeof(uint32_t));
+    TH->W2 = NULL; TH->mtab2 = NULL; TH->mlen2 = 0; TH->mptr2 = 0; TH->m_idx2 = -1;
+    if (F_MIX2) {
+        TH->W2 = aalloc((size_t)65536 * (size_t)MIXW * sizeof(int16_t));
+        for (size_t i = 0; i < (size_t)65536 * (size_t)MIXW; i++)
+            TH->W2[i] = (int16_t)(65536 / 4 / 8);
+    }
+    if (F_MM2) {
+        TH->mtab2 = calloc((size_t)MMASK + 1, sizeof(int32_t));
+        if (TH->mtab2) huge_advise(TH->mtab2, ((size_t)MMASK + 1) * sizeof(int32_t));
+        memcpy(TH->mpr2, TH->mpr, sizeof TH->mpr2);
+        if (!TH->mtab2) { fprintf(stderr, "oom\n"); exit(1); }
+    }
+    for (int i = 0; i < MAXCTX; i++) { TH->RT[i] = NULL; TH->rc_[i] = 0; TH->ridx[i] = -1; }
+    for (int r = 0; r < NRUN; r++) {
+        const int k = RL[r];
+        TH->RT[k] = aalloc(((size_t)GMASK[k] + 1) * sizeof(uint32_t));
+        TH->rte[k] = TH->RT[k];
+        for (int j = 0; j < 48; j++)
+            TH->RSM[k][j] = (uint32_t)(((j >> 1) & 1) ? 3000u : 1096u) << 20;
+    }
+    TH->xst = TH->xop = TH->xpop = TH->xpop2 = TH->xmrm = TH->xrem = 0;
+    TH->xim = TH->xpfx = TH->xk = TH->xo3 = 0;
     TH->ind2  = calloc(65536, sizeof(uint32_t));
     TH->dlast = calloc(256, sizeof(int32_t));
     TH->dlog = 0; TH->nest = 0;
@@ -1686,6 +2158,7 @@ static void model_alloc(Ctx *TH, size_t cap) {
     TH->wrem = 0; TH->wpend = 0; TH->wlit = 0;
     TH->ccls = TH->wrt ? CCLS_W : CCLS;
     TH->lstart = 0; TH->plstart = 0; TH->plen = 0;
+    TH->pplstart = 0; TH->pplen = 0; TH->fld = 0;
     TH->c0 = 1; TH->nc = 1; TH->nbits = 0; TH->pr = 2048; TH->wsel = 1;
     TH->napm = 0; TH->nisse = NISSE;
     rehash(TH);
@@ -1706,6 +2179,10 @@ static void model_free(Ctx *TH) {
     free(TH->mtab);  TH->mtab  = NULL;
     free(TH->buf);   TH->buf   = NULL;
     free(TH->ind1);  TH->ind1  = NULL;
+    free(TH->ind3);  TH->ind3  = NULL;
+    free(TH->mtab2); TH->mtab2 = NULL;
+    afree(TH->W2);   TH->W2    = NULL;
+    for (int i = 0; i < MAXCTX; i++) { afree(TH->RT[i]); TH->RT[i] = NULL; }
     free(TH->ind2);  TH->ind2  = NULL;
     free(TH->dlast); TH->dlast = NULL;
 }
@@ -2750,6 +3227,8 @@ typedef struct {
     const uint8_t *ain, *sin;       /* decompress inputs */
     uint8_t *plain;                 /* decompress output */
     int      wrt;                   /* stream is word-transformed */
+    int      x86;                   /* has an x86 block: model 4 adds its contexts */
+    Blk     *pre;                   /* compress: blocks found by segw_prep */
     Wrt      wh;
 } Job;
 
@@ -2769,6 +3248,7 @@ static void do_compress_chunk(Job *j) {
      * only confuse the detectors -- 0xE8 followed by 0xFF is an ordinary
      * three-byte code here, not a call. */
     if (j->wrt) { j->nb = 1; j->blk[0].type = B_MODEL; j->blk[0].len = (uint32_t)j->n; }
+    else if (j->pre) { memcpy(j->blk, j->pre, sizeof(Blk) * (size_t)j->nb); }
     else j->nb = segment(j->in, j->n, j->blk, MAXBLK, j->file_is_exe);
     size_t off = 0;
     for (int i = 0; i < j->nb; i++) {
@@ -2803,10 +3283,14 @@ static void do_compress_chunk(Job *j) {
             for (uint32_t k = 0; k < j->blk[i].len; k++) {
                 if (bypass_gate(TH)) { bypass_enc_byte(TH, j->in[off + k]); continue; }
                 if (TH->need_ctx) { rehash(TH); nib_begin(TH, 0, 0); TH->need_ctx = 0; }
-                for (int b = 7; b >= 0; b--) {
+                if (V4ON) for (int b = 7; b >= 0; b--) {
                     int bit = (j->in[off + k] >> b) & 1;
-                    enc_bit(TH, bit, predict(TH));
-                    update(TH, bit);
+                    enc_bit(TH, bit, predict4(TH));
+                    update4(TH, bit);
+                } else for (int b = 7; b >= 0; b--) {
+                    int bit = (j->in[off + k] >> b) & 1;
+                    enc_bit(TH, bit, predict3(TH));
+                    update3(TH, bit);
                 }
             }
         }
@@ -2834,7 +3318,8 @@ static void do_decompress_chunk(Job *j) {
             for (uint32_t k = 0; k < j->blk[i].len; k++) {
                 if (bypass_gate(TH)) { bypass_dec_byte(TH); continue; }
                 if (TH->need_ctx) { rehash(TH); nib_begin(TH, 0, 0); TH->need_ctx = 0; }
-                for (int b = 0; b < 8; b++) { int bit = dec_bit(TH, predict(TH)); update(TH, bit); }
+                if (V4ON) for (int b = 0; b < 8; b++) { int bit = dec_bit(TH, predict4(TH)); update4(TH, bit); }
+                else for (int b = 0; b < 8; b++) { int bit = dec_bit(TH, predict3(TH)); update3(TH, bit); }
             }
         }
     }
@@ -2983,7 +3468,7 @@ static const char *lvlname(int lvl) {
 #endif
 
 #define GEN_MAGIC   0x414E4547u          /* "GENA" little-endian */
-#define GEN_VERSION 3
+#define GEN_VERSION 4
 /* v3 adds the word-transformed segment kind and nothing else, so a v2
  * archive is a valid v3 archive that happens not to use it. */
 #define GEN_VERSION_MIN 2
@@ -2991,7 +3476,7 @@ static const char *lvlname(int lvl) {
 /* Release version of the *program*, which moves independently of the archive
  * format version above.  A format bump breaks compatibility; a release bump
  * usually does not. */
-#define GLEIPNIR_RELEASE "1.1.0"
+#define GLEIPNIR_RELEASE "1.2.0"
 #define HDR_BYTES   48
 #define TRL_BYTES   20
 #define SEG_MAX_DEF (64u << 20)          /* default cap on a segment, bytes */
@@ -3241,6 +3726,10 @@ static uint64_t model_bytes(void) {
     b += 65536 * sizeof(uint32_t) + 256 * sizeof(uint32_t) + 256 * sizeof(int32_t);
     const int an[6] = { 256, 65536, 256 * 8, 256 << A46B, 256 * 128, 256 << A46B };
     for (int k = 0; k < NAPM && k < 6; k++) b += (uint64_t)an[k] * 33 * sizeof(uint16_t);
+    if (F_MIX2) b += (uint64_t)65536 * (uint64_t)MIXW * sizeof(int16_t);
+    if (F_MM2)  b += ((uint64_t)MMASK + 1) * sizeof(int32_t);
+    for (int r = 0; r < NRUN; r++) b += ((uint64_t)GMASK[RL[r]] + 1) * sizeof(uint32_t);
+    for (int i = 0; i < NCTX; i++) if (ORD[i] == -28) b += ((uint64_t)1 << 20) * sizeof(uint32_t);
     b += sizeof(Ctx);
     return b;
 }
@@ -3287,6 +3776,7 @@ typedef struct {
     uint8_t *owned;            /* w, when it is not an alias of raw */
     int      wrt;
     Wrt      wh;
+    Blk     *pre;
     Ctx     *cx;
     Job     *j;
 } SegW;
@@ -3294,7 +3784,7 @@ typedef struct {
 static void segw_prep(SegW *s, Job *j) {
     s->j = j;
     memset(j, 0, sizeof *j);
-    s->fl = NULL; s->owned = NULL; s->nsym = 0; s->bps = 0; s->nd = 0; s->wrt = 0;
+    s->fl = NULL; s->owned = NULL; s->nsym = 0; s->bps = 0; s->nd = 0; s->wrt = 0; s->pre = NULL;
     s->w = s->raw; s->wn = s->rawlen;
     if (!s->rawlen) return;
 
@@ -3330,6 +3820,14 @@ static void segw_prep(SegW *s, Job *j) {
     s->cx = aalloc(sizeof(Ctx));
     j->cx = s->cx; j->mode = 0; j->in = s->w; j->n = s->wn;
     j->file_is_exe = !s->bps && !s->nd && looks_like_exe(s->w, s->wn);
+    /* Block detection runs here rather than in the worker so that whether the
+     * segment holds x86 code is known before the batch picks its context set.
+     * It reads only, so the filters the worker applies see the same blocks. */
+    s->pre = malloc(sizeof(Blk) * MAXBLK);
+    if (!s->pre) { fprintf(stderr, "gleipnir: out of memory\n"); exit(1); }
+    j->nb = segment(j->in, j->n, s->pre, MAXBLK, j->file_is_exe);
+    j->pre = s->pre;
+    for (int b = 0; b < j->nb; b++) if (BKIND(s->pre[b].type) == B_X86) j->x86 = 1;
 }
 
 static void segw_emit(SegW *s, Buf *out) {
@@ -3379,6 +3877,7 @@ static void segw_free(SegW *s) {
     if (s->j) { free(s->j->aout); free(s->j->sout); free(s->j->blk); }
     if (s->cx) { model_free(s->cx); afree(s->cx); s->cx = NULL; }
     free(s->fl); s->fl = NULL;
+    free(s->pre); s->pre = NULL;
     if (s->owned) { free(s->owned); s->owned = NULL; }
 }
 
@@ -3399,6 +3898,7 @@ typedef struct {
     Blk     *blk; uint32_t nb;
     const uint8_t *ain, *sin;
     uint16_t stride; uint8_t width;
+    int      x86;
     Wrt      wh;
     Ctx     *cx;
     Job     *j;
@@ -3498,6 +3998,9 @@ static int segr_parse(SegR *s, Job *j) {
     j->cx = s->cx; j->mode = 1; j->n = s->wn; j->nb = (int)s->nb; j->blk = s->blk;
     j->ain = s->ain; j->alen = s->alen; j->sin = s->sin;
     j->wrt = s->kind == SEG_WTXT; j->wh = s->wh;
+    s->x86 = 0;
+    for (uint32_t b = 0; b < s->nb; b++) if (BKIND(s->blk[b].type) == B_X86) s->x86 = 1;
+    j->x86 = s->x86;
     return 0;
 }
 
@@ -3918,12 +4421,17 @@ static void parent_of(const char *p, char *out, size_t cap) {
 }
 
 /* ================================================================== header */
+/* The version put_header writes: GEN_VERSION for a new archive, the source's
+ * own for a repaired one, whose segments keep the model they were written
+ * with. */
+static int HDR_VER = GEN_VERSION;
+
 static void put_header(FILE *f, int lvl, uint64_t nmemb, uint64_t idxoff,
                        uint64_t rawtotal, uint32_t segmax) {
     uint8_t h[HDR_BYTES];
     memset(h, 0, sizeof h);
     uint32_t magic = GEN_MAGIC; memcpy(h + 0, &magic, 4);
-    uint16_t ver = GEN_VERSION; memcpy(h + 4, &ver, 2);
+    uint16_t ver = (uint16_t)HDR_VER; memcpy(h + 4, &ver, 2);
     uint16_t flags = 0;         memcpy(h + 6, &flags, 2);
     h[8] = (uint8_t)lvl;
     h[9] = (uint8_t)(MEMSHIFT + 16);
@@ -3937,7 +4445,7 @@ static void put_header(FILE *f, int lvl, uint64_t nmemb, uint64_t idxoff,
 }
 
 typedef struct {
-    int      lvl, memshift;
+    int      ver, lvl, memshift;
     uint64_t nmemb, idxoff, rawtotal;
     uint32_t segmax;
 } Head;
@@ -3956,6 +4464,7 @@ static int parse_header(const uint8_t *h, Head *o) {
         fprintf(stderr, "gleipnir: archive header is corrupt\n");
         return -1;
     }
+    o->ver = ver;
     o->lvl = h[8]; o->memshift = (int)h[9] - 16;
     /* The writer only ever stores 1..9 and the two speed presets, and only a
      * -m the option would have accepted.  Anything else names a model this
@@ -4283,7 +4792,10 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
             DET_WRT = !DET_STRIDE;
             set_level(lvl);
             nthr = threads_for(seg);
-            DET_WRT = 0;
+            DET_WRT = 0; DET_X86 = 1;
+            set_level(lvl);
+            { int nx = threads_for(seg); if (nx < nthr) nthr = nx; }
+            DET_X86 = 0;
             set_level(lvl);
             sw = calloc((size_t)nthr, sizeof(SegW));
             jb = calloc((size_t)nthr, sizeof(Job));
@@ -4313,19 +4825,22 @@ static int do_compress(char **paths, int npath, const char *outp, int lvl) {
             }
             if (!nb) break;
 
-            /* Word-transformed segments model with their own context set, and
-             * the context set is global, so each kind runs as its own batch. */
-            for (int pass = 0; pass < 2; pass++) {
+            /* Word-transformed segments, and segments holding x86 code, model
+             * with their own context sets, and the context set is global, so
+             * each kind runs as its own batch. */
+            for (int pass = 0; pass < 4; pass++) {
                 int nr = 0;
-                for (int i = 0; i < nb; i++) if (jb[i].wrt == pass) rjb[nr++] = jb[i];
+#define JKIND(x) ((x).wrt | (x).x86 << 1)
+                for (int i = 0; i < nb; i++) if (JKIND(jb[i]) == pass) rjb[nr++] = jb[i];
                 if (!nr) continue;
-                DET_WRT = pass;
+                DET_WRT = pass & 1; DET_X86 = pass >> 1;
                 set_level(lvl);
                 run_jobs(rjb, nr);
                 nr = 0;
-                for (int i = 0; i < nb; i++) if (jb[i].wrt == pass) jb[i] = rjb[nr++];
+                for (int i = 0; i < nb; i++) if (JKIND(jb[i]) == pass) jb[i] = rjb[nr++];
+#undef JKIND
             }
-            DET_WRT = 0;
+            DET_WRT = 0; DET_X86 = 0;
             set_level(lvl);
 
             for (int i = 0; i < nb; i++) {
@@ -4456,6 +4971,8 @@ static int arc_open(const char *path, Archive *a) {
     uint8_t hb[HDR_BYTES];
     if (fread(hb, 1, HDR_BYTES, a->f) != HDR_BYTES) return -1;
     if (parse_header(hb, &a->h) != 0) return -1;
+    /* v2 and v3 were written by the 1.0/1.1 model and decode with it. */
+    MODEL = a->h.ver >= 4 ? 4 : 3;
 
     /* The trailer is the authority on where the index is; the header's copy is
      * a cross-check.  That ordering is deliberate -- the trailer is written
@@ -4625,9 +5142,10 @@ static int try_recover(Archive *a, uint64_t si, uint8_t *out, int lvl) {
             DET_STRIDE = sr.stride;
             DET_WIDTH  = sr.width ? sr.width : 1;
             DET_WRT    = sr.kind == SEG_WTXT;
+            DET_X86    = sr.x86;
             set_level(lvl);
             run_jobs(&j, 1);
-            DET_WRT = 0;
+            DET_WRT = 0; DET_X86 = 0;
         }
         if (segr_finish(&sr) == 0 &&
             xxh64(out, (size_t)s->rawlen, 0) == s->hash) rc = 0;
@@ -4695,7 +5213,11 @@ static int run_members(Archive *a, const char *destdir, int test_only,
         set_level(a->h.lvl);
         int nw = threads_for(segbytes);
         if (nw < nthr) nthr = nw;
-        DET_STRIDE = ds; DET_WIDTH = dw; DET_WRT = 0;
+        DET_WRT = 0; DET_X86 = 1;
+        set_level(a->h.lvl);
+        nw = threads_for(segbytes);
+        if (nw < nthr) nthr = nw;
+        DET_STRIDE = ds; DET_WIDTH = dw; DET_WRT = 0; DET_X86 = 0;
     }
     SegR *sr = calloc((size_t)nthr, sizeof(SegR));
     Job  *jb = calloc((size_t)nthr, sizeof(Job));
@@ -4807,12 +5329,13 @@ static int run_members(Archive *a, const char *destdir, int test_only,
                 DET_STRIDE = sr[seed].stride;
                 DET_WIDTH  = sr[seed].width ? sr[seed].width : 1;
                 DET_WRT    = sr[seed].kind == SEG_WTXT;
+                DET_X86    = sr[seed].x86;
                 set_level(a->h.lvl);
                 int nrun = 0;
                 for (int t = seed; t < nb; t++) {
                     if (hand[t] || sr[t].ok != 1 || sr[t].kind == SEG_STORED) continue;
                     if (sr[t].stride != sr[seed].stride || sr[t].width != sr[seed].width ||
-                        sr[t].kind != sr[seed].kind)
+                        sr[t].kind != sr[seed].kind || sr[t].x86 != sr[seed].x86)
                         continue;
                     map[nrun] = t; rj[nrun] = jb[t]; nrun++;
                     hand[t] = 1;
@@ -4997,6 +5520,7 @@ static int do_scrub(Archive *a, const char *path) {
 static int do_repair(Archive *a, const char *outp) {
     FILE *fo = fopen(outp, "wb");
     if (!fo) { fprintf(stderr, "gleipnir: %s: %s\n", outp, strerror(errno)); return 1; }
+    HDR_VER = a->h.ver;
     put_header(fo, a->h.lvl, 0, 0, 0, a->h.segmax);
 
     Index nx; memset(&nx, 0, sizeof nx);
