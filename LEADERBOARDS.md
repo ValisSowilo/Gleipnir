@@ -75,10 +75,10 @@ memory, against 1.69% on enwik9. The machine was not verifiably idle (21% CPU
 in use before the first run, 6.5% before the second), so the times are
 indicative only.
 
-The Silesia row, per file, in thousands of bytes:
+The Silesia row, per file, in KB truncated as the page does (not rounded):
 
 ```
-34426438  1992  9335  2013  971  1593  2173  853  2517  3841  5259  3597  283  gleipnir 1.2.0 -9 -s1000 -t1
+34426438  1992  9334  2012  970  1593  2173  853  2516  3840  5259  3596  282  gleipnir 1.2.0 -9 -s1000 -t1
 ```
 
 ### 1.1 (superseded, not submitted)
