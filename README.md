@@ -4,8 +4,8 @@
 [![release](https://img.shields.io/github/v/release/ValisSowilo/Gleipnir?label=release)](https://github.com/ValisSowilo/Gleipnir/releases/latest)
 [![licence](https://img.shields.io/badge/licence-GPL--3.0--or--later-blue)](LICENSE.md)
 [![platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows%20%7C%20macOS%20arm64-lightgrey)](#download-and-install)
-[![LTCB](https://img.shields.io/badge/LTCB%20enwik9-35th%20of%20227-brightgreen)](https://mattmahoney.net/dc/text.html#1571)
-[![Silesia](https://img.shields.io/badge/Silesia-49th%20of%20322-brightgreen)](https://mattmahoney.net/dc/silesia.html)
+[![LTCB](https://img.shields.io/badge/LTCB%20enwik9-38th%20of%20230-brightgreen)](https://mattmahoney.net/dc/text.html#1571)
+[![Silesia](https://img.shields.io/badge/Silesia-50th%20of%20323-brightgreen)](https://mattmahoney.net/dc/silesia.html)
 
 A from-scratch lossless compressor and archiver in **one 5,864-line C file**,
 with zlib as its only dependency. It predicts each bit with up to 41
@@ -15,9 +15,9 @@ frequent word becoming a one-to-three byte code from a dictionary built out of
 the text itself; machine code is parsed instruction by instruction.
 
 **Gleipnir 1.0.2 is listed on both of Matt Mahoney's benchmarks** (added
-2026-09-25): **35th of 227** on the [Large Text Compression
+2026-09-25; ranks as of 2026-10-09): **38th of 230** on the [Large Text Compression
 Benchmark](https://mattmahoney.net/dc/text.html#1571) at 157,139,908 bytes
-(enwik9 plus the zipped decompressor), and **49th of 322** on the [Silesia Open
+(enwik9 plus the zipped decompressor), and **50th of 323** on the [Silesia Open
 Source Compression Benchmark](https://mattmahoney.net/dc/silesia.html) at
 35,583,396 bytes — ahead of every zpaq entry on the board. **It beats `zpaq -m5`
 on all twelve Silesia files**, and at `-5` it wins on all three axes at once:
@@ -34,8 +34,8 @@ changed](#what-12-changed)). `-9` takes enwik9 to **143,807,662** (−2.85%;
 **17,599,927** (−2.37%) and the Silesia per-file total to **34,426,438**
 (−2.94%), for about 1.9× 1.1's time. `-1` to `-7` keep 1.1's model and add
 only the x86 contexts: machine code gets 2.6–12% smaller, everything else is
-byte-identical to 1.1. Against the published tables those would place about
-**27th** on the LTCB (26th with `-m1`) and **33rd** on Silesia; 1.2 has not
+byte-identical to 1.1. Against the published tables (2026-10-09) those would place
+**30th** on the LTCB (29th with `-m1`) and **34th** on Silesia; 1.2 has not
 been submitted, so the listings above are 1.0.2's. The preset table below is
 1.1's single-session run; 1.2's differences from it are measured
 [in their own table](#what-12-changed).
@@ -115,7 +115,7 @@ honest summaries, because there is no single one:
 
 On the [Silesia Open Source Compression
 Benchmark](https://mattmahoney.net/dc/silesia.html) Gleipnir 1.0.2 is listed
-**49th of 322 entries**, ahead of every zpaq entry on the board — the best
+**50th of 323 entries** (2026-10-09), ahead of every zpaq entry on the board — the best
 zpaq-involving entry there is 36,603,712. The result was submitted by the
 author and listed by Mahoney on 2026-09-25; like other submitted results on
 that page, it has not been independently re-run.
@@ -172,8 +172,8 @@ On enwik8 (100 MB of Wikipedia text) 1.2 reaches **17,599,927** — 10.3% below
 `zpaq -max`'s published 17,855,729, but well behind the Large Text Compression
 Benchmark leaders, which is where this engine is weakest. `cmix v21` reaches
 14,623,723 at 31 GB, and `durilca'kingsize` 16,209,219. On enwik9 1.2 reaches
-**143,807,662**, or **141,380,893** with `-m1`, which would move it from 35th to
-about 27th of 227 on that board (26th with `-m1`).
+**143,807,662**, or **141,380,893** with `-m1`, which would move it from 38th to
+30th of 230 on that board (29th with `-m1`).
 
 Eight presets span the speed/ratio curve. In 1.2 **`-7` is within 5.2% of `-9`
 for 61% less time** — the better default for anything that is not a ratio
@@ -1481,8 +1481,8 @@ Every `gleipnir` row was measured here on the released binary and round-trip
 verified against its SHA-256.
 
 That default-segmentation run peaks at **977 MB** rather than the multiple
-gigabytes a single segment needs, and it would still compare to 47th of 227 on
-the enwik9 board against the 35th at which the solid run is listed — twelve
+gigabytes a single segment needs, and it would still compare to 50th of 230 on
+the enwik9 board against the 38th at which the solid run is listed — twelve
 places for 4.46%. See
 [LEADERBOARDS.md](LEADERBOARDS.md) for the full working.
 
@@ -1564,7 +1564,7 @@ comparison with 1.0.2's and neither is claimed as one. Peak working set was
 3,836 MB: the model sees two thirds of the bytes.
 
 1.0.2 runs at 0.31 MB/s where `-5` runs at 0.62. On the LTCB
-leaderboard it is **listed 35th of 227** (added 2026-09-25, [note
+leaderboard it is **listed 38th of 230** (added 2026-09-25, [note
 116](https://mattmahoney.net/dc/text.html#1571)), behind the CM and neural
 engines and ahead of `lpaq1` and every LZ codec: 157,073,381 for enwik9 plus
 66,527 for the zipped `gleipnir.c` decompressor, 157,139,908 in total, which is
@@ -1576,7 +1576,7 @@ the v1.0.2 release on 2026-09-24.
 The default 64 MB segmentation was measured on 2026-09-07 rather than estimated:
 **164,080,953 bytes at 1.313 bpc, peaking at 977 MB across fifteen segments** —
 so segmenting costs **4.46%** and roughly two thirds of the memory. Even at the
-default it stays ahead of `lpaq1 -9`, by 0.26%, and would compare to 47th of 227.
+default it stays ahead of `lpaq1 -9`, by 0.26%, and would compare to 50th of 230.
 
 > Re-measuring the single-segment run returned 157,073,381, four bytes above the
 > 157,073,377 above. The codec output is identical; archive size includes the

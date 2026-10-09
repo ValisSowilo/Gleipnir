@@ -5,17 +5,18 @@ tables it is measured against, and — more importantly — what those compariso
 do *not* mean.
 
 > **Gleipnir 1.0.2 is listed on both boards**, added by Matt Mahoney on
-> **2026-09-25**: **35th of 227** on the Large Text Compression Benchmark and
-> **49th of 322** on the Silesia Open Source Compression Benchmark. The results
+> **2026-09-25**: **38th of 230** on the Large Text Compression Benchmark and
+> **50th of 323** on the Silesia Open Source Compression Benchmark. The results
 > were submitted by the author and measured on the author's machine (LTCB note
 > 116); as the LTCB page says of every submitted entry, Mahoney has not
 > re-run them himself.
 
-Both pages were last fetched and parsed on **2026-09-25**. Entry counts move as
+Both pages were last fetched and parsed on **2026-10-09**. Entry counts move as
 Mahoney adds results, so the denominators here are a snapshot with a date on
-it, not a constant. The previous revision of the README carried "50th of 211",
-a count that had been stale for some time; that is the failure this file exists
-to prevent.
+it, not a constant: on the day of listing these read 35th of 227 and 49th of
+322, and three entries on the LTCB and one on Silesia have been added above
+since. The previous revision of the README carried "50th of 211", a count that
+had been stale for some time; that is the failure this file exists to prevent.
 
 ---
 
@@ -24,26 +25,55 @@ to prevent.
 1.2 makes `-9` a maximum-ratio preset — twelve model additions, about 1.9×
 1.1's time — and adds x86 contexts at every preset (README, What 1.2 changed;
 ARCHITECTURE §30). Measured 2026-09-26/27 on the same machine as 1.0.2 and
-1.1, every result round-trip verified. **These are comparisons against the
-published tables, not listings** — the listed entries remain 1.0.2's until a
-new result is submitted and accepted.
+1.1, every result round-trip verified; the enwik8 rows below were measured
+2026-10-09. **These are comparisons against the published tables, not
+listings** — the listed entries remain 1.0.2's until a new result is submitted
+and accepted. Placements are against the pages as fetched 2026-10-09, counting
+the new row as replacing 1.0.2's.
 
 | board | 1.0.2 (listed) | 1.1 | 1.2 | would place |
 |---|---:|---:|---:|---|
-| LTCB, enwik9 `-9` + zipped `gleipnir.c` | 157,139,908 — 35th | 148,101,876 — ~29th | 143,807,662 + 82,959 = **143,890,621** | **~27th**, past `mcm 0.83` (144,934,149) and `drt\|lpaq9m 9` (144,054,338); `zpaq 6.42` (142,257,365) is 1.1% ahead |
-| LTCB, enwik9 `-9 -m1` + zip | | | 141,380,893 + 82,959 = **141,463,852** | **~26th**, past `zpaq 6.42` too; `drt\|emma 1.23` (135,522,772) is next |
-| Silesia, per file, `-9` | 35,583,396 — 49th | 35,468,198 — ~48th | **34,426,438** | **~33rd**, past every `paq8pxd_v16` entry (best 34,523,313); `cmix v1` (33,917,866) is next |
+| LTCB, enwik9 `-9` + zipped `gleipnir.c` | 157,139,908 — 38th | 148,101,876 — 32nd | 143,807,662 + 82,605 = **143,890,267** | **30th**, past `mcm 0.83` (144,934,149) and `drt\|lpaq9m 9` (144,054,338); `zpaq 6.42` (142,257,365) is 1.1% ahead |
+| LTCB, enwik9 `-9 -m1` + zip | | | 141,380,893 + 82,605 = **141,463,498** | **29th**, past `zpaq 6.42` too; `drt\|emma 1.23` (135,522,772) is next |
+| Silesia, per file, `-9` | 35,583,396 — 50th | 35,468,198 — 49th | **34,426,438** | **34th**, past every `paq8pxd_v16` entry (best 34,523,313); `cmix v1` (33,917,866) is next |
 
-For a resubmission the LTCB row would read, in the page's format:
+**The decompressor zip is 82,605 bytes**, not the 82,959 this file carried
+until 2026-10-09. That figure was taken from a pre-release copy of the source.
+The v1.2.0 `gleipnir.c` (265,502 bytes) zipped at deflate level 9 is 82,605,
+by the same method that reproduces 1.0.2's 66,527 exactly.
+
+For a resubmission the LTCB row would read, in the page's format, at the
+options that give the best enwik9 (the page lists each program once, at those):
 
 ```
-gleipnir 1.2.0  -9 -s1000 -t1  17,599,927  143,807,662  82,959 sd  143,890,621  ...  CM
+gleipnir 1.2.0  -9 -s1000 -t1 -m1  17,490,520  141,380,893  82,605 sd  141,463,498  5891  5403  5006  CM
 ```
 
-with times left for a quiet re-measurement: the enwik9 run shared the machine
-with a second one, so its 5,781 s compress and 5,169 s decode are upper
-bounds. Peak memory 3,632 MB (decompression; compression 3,103 MB). A `-m1`
-row needs its own enwik8 figure, which the page takes with the same options.
+and without `-m1`:
+
+```
+gleipnir 1.2.0  -9 -s1000 -t1      17,599,927  143,807,662  82,605 sd  143,890,267  5781  5169  3632  CM
+```
+
+The enwik9 times are upper bounds: the two runs shared the machine with each
+other. Peak memory for `-9` is 3,632 MB decompressing and 3,103 MB
+compressing; for `-m1` it is 5,006 MB decompressing and 4,466 MB compressing.
+Both archives store the member name `enwik9` and were verified with `t -D`.
+
+enwik8 was measured on 2026-10-09 with a build of the v1.2.0 source made with
+`build.sh`'s flags, one job at a time, `-t1`, stored name `enwik8`, each
+archive extracted and its SHA-256 compared with the original:
+
+| run | size | compress | decompress | peak (comp / decomp) |
+|---|---:|---:|---:|---:|
+| `-9 -s1000 -m1` | **17,490,520** | 549.4 s | 542.5 s | 3,087 / 3,070 MB |
+| `-9 -s1000` | 17,599,927 | 518.5 s | 518.6 s | 1,719 / 1,701 MB |
+
+The `-9` row reproduces the published 17,599,927 to the byte, which is what
+ties this build to the release. `-m1` buys 0.62% on enwik8 for 1.8× the
+memory, against 1.69% on enwik9. The machine was not verifiably idle (21% CPU
+in use before the first run, 6.5% before the second), so the times are
+indicative only.
 
 The Silesia row, per file, in thousands of bytes:
 
@@ -54,15 +84,15 @@ The Silesia row, per file, in thousands of bytes:
 ### 1.1 (superseded, not submitted)
 
 1.1 added the word transform (ARCHITECTURE §29): enwik9 148,026,632 + 75,244 =
-148,101,876 (~29th), Silesia per file 35,468,198 (~48th).
+148,101,876 (32nd), Silesia per file 35,468,198 (49th).
 
 ---
 
 ## Silesia Open Source Compression Benchmark
 
 <http://mattmahoney.net/dc/silesia.html> — ranks by total compressed size over
-the twelve-file Silesia corpus (211,938,580 bytes). **322 entries** on
-2026-09-25, Gleipnir included (the page reads "as of Sept. 25, 2026").
+the twelve-file Silesia corpus (211,938,580 bytes). **323 entries** on
+2026-10-09, Gleipnir included (the page reads "as of Sept. 29, 2026").
 
 ### The listed figure
 
@@ -106,16 +136,16 @@ quoted.
 ### Where it is listed
 
 ```
-  46.  35,336,837   paq8l -8
-  47.  35,457,761   fp8_v4 -8
-  48.  35,511,180   paq8l -7
-  49.  35,583,396   gleipnir 1.0.2 -9 -s1000 -t1   <-- listed 2026-09-25
-  50.  35,586,302   paq8pxd_v4 -5
-  51.  35,909,528   paq8px_v69 -5
-  52.  35,983,639   paq8pxd_v4 -4
+  47.  35,336,837   paq8l -8
+  48.  35,457,761   fp8_v4 -8
+  49.  35,511,180   paq8l -7
+  50.  35,583,396   gleipnir 1.0.2 -9 -s1000 -t1   <-- listed 2026-09-25
+  51.  35,586,302   paq8pxd_v4 -5
+  52.  35,909,528   paq8px_v69 -5
+  53.  35,983,639   paq8pxd_v4 -4
 ```
 
-**49th of 322.** The margin is thin in both directions: Gleipnir clears
+**50th of 323.** The margin is thin in both directions: Gleipnir clears
 `paq8pxd_v4 -5` by 2,906 bytes and trails `paq8l -7` by 72,216.
 
 The row as published:
@@ -129,7 +159,7 @@ above: the page shows **sao 3584** and **x-ray 3698** where the measured sizes
 are 3854 and 3608 KB. The twelve cells on the page sum to 35,399 KB, not the
 ~35,579 the total implies, while the measured cells do sum to it — so this looks
 like a transcription slip on the page. It does not affect the rank, which is by
-total only.
+total only. The two cells still read that way on 2026-10-09.
 
 ### "Ahead of every zpaq entry"
 
@@ -142,7 +172,7 @@ Every Gleipnir figure above is below all of them.
 
 ## Large Text Compression Benchmark (enwik9)
 
-<http://mattmahoney.net/dc/text.html> — **227 entries** on 2026-09-25, Gleipnir
+<http://mattmahoney.net/dc/text.html> — **230 entries** on 2026-10-09, Gleipnir
 included as entry [.1571](https://mattmahoney.net/dc/text.html#1571).
 
 ### How it ranks, which is not how you would guess
@@ -159,8 +189,8 @@ name `enwik9`) is not the number that would be listed. Zipped at deflate level 9
 
 | decompressor | zip | total | rank |
 |---|---|---|---|
-| `gleipnir.c` v1.0.2 (209,435 raw) | 66,527 | 157,139,908 | **35th of 227 — the listed entry** |
-| `gleipnir.exe` v1.0.2 (255,857 raw) | 124,882 | 157,198,263 | would also be 35th |
+| `gleipnir.c` v1.0.2 (209,435 raw) | 66,527 | 157,139,908 | **38th of 230 — the listed entry** |
+| `gleipnir.exe` v1.0.2 (255,857 raw) | 124,882 | 157,198,263 | would also be 38th |
 
 It lands in the same slot either way — the decompressor is 0.04–0.09% of the
 total, against a 4.5% margin over the next entry down. zlib was the risk here
@@ -168,18 +198,19 @@ and it does not bite: the released executable statically links it, so the exe
 zip is self-contained rather than needing zlib source alongside it.
 
 ```
-  32.  153,238,244   fp8 v3            -8
-  33.  156,391,589   WinRK 3.03        pwcm +td 800MB SFX
-  34.  157,049,402   ppmonstr J        -m1700 -o16
-  35.  157,139,908   gleipnir 1.0.2    -9 -s1000 -t1   <-- listed 2026-09-25
-  36.  157,388,188   stc
-  37.  159,363,208   zcm 0.93          -m8 -t1
-  38.  159,842,292   slim 23d          -m1700 -o12
+  35.  153,238,244   fp8 v3            -8
+  36.  156,391,589   WinRK 3.03        pwcm +td 800MB SFX
+  37.  157,049,402   ppmonstr J        -m1700 -o16
+  38.  157,139,908   gleipnir 1.0.2    -9 -s1000 -t1   <-- listed 2026-09-25
+  39.  157,388,188   stc
+  40.  159,363,208   zcm 0.93          -m8 -t1
+  41.  159,842,292   slim 23d          -m1700 -o12
 ```
 
 The board gained four entries above this point between 2026-09-07 and
-2026-09-23, which is why this reads 35th where the previous revision read 31st.
-Nothing about Gleipnir changed.
+2026-09-23, and three more between 2026-09-25 and 2026-10-09, which is why
+this reads 38th where earlier revisions read 31st and then 35th. Nothing about
+Gleipnir changed.
 
 The row as published, with the source zip (`sd`) as the decompressor and the
 hardware in note 116 (Ryzen 5 4500, 16 GB DDR4, Windows 11):
@@ -285,8 +316,8 @@ The placement cost of running that way:
 
 | run | total with `gleipnir.c` zip | placement |
 |---|---|---|
-| one segment | 157,139,908 | 35th of 227 (listed) |
-| default `-s64` | 164,147,480 | would be 47th of 227 |
+| one segment | 157,139,908 | 38th of 230 (listed) |
+| default `-s64` | 164,147,480 | would be 50th of 230 |
 
 Twelve places for 4.46%, which is what a board this dense at the top costs.
 
